@@ -1,0 +1,18 @@
+name:                Spock
+version:             0.1.0.0
+synopsis:            Another Haskell web toolkit based on scotty
+description:         This toolbox provides everything you need to get a quick start into web hacking with haskell: sessions, database helper, authentication and the power of scotty
+license:             BSD3
+author:              Alexander Thiemann <mail@agrafix.net>
+maintainer:          mail@agrafix.net
+copyright:           (c) 2013 Alexander Thiemann
+category:            Web
+build-type:          Simple
+cabal-version:       >=1.8
+
+library
+  exposed-modules:  Web.Spock, Web.Spock.StaticMiddleware
+  other-modules:       Web.Spock.SessionManager,
+                       Web.Spock.Monad
+  build-depends:       base >= 4 && < 5, scotty >= 0.5, wai, filepath, directory, http-types, text, containers, bytestring, mtl, wai-extra, resourcet, stm, crypto-api == 0.10.*, unordered-containers, old-locale, base64-bytestring, time, monad-control, transformers, cryptohash, xsd, aeson, resource-pool
+  ghc-options: -fwarn-unused-imports
