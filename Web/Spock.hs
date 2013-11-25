@@ -9,6 +9,7 @@ module Web.Spock
     , authedUser, unauthCurrent, StorageLayer (..)
       -- * Reexports from scotty
     , middleware, get, post, put, delete, patch, addroute, matchAny, notFound
+    , request, reqHeader, body, param, params, jsonData, files
     , status, addHeader, setHeader, redirect
     , text, html, file, json, source, raw
     , raise, rescue, next
