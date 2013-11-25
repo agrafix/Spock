@@ -1,5 +1,5 @@
 name:                Spock
-version:             0.1.0.0
+version:             0.1.1.0
 synopsis:            Another Haskell web toolkit based on scotty
 description:         This toolbox provides everything you need to get a quick start into web hacking with haskell: sessions, database helper, authentication and the power of scotty
 Homepage:            https://github.com/agrafix/Spock
