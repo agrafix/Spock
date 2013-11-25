@@ -13,7 +13,7 @@ build-type:          Simple
 cabal-version:       >=1.8
 
 library
-  exposed-modules:  Web.Spock, Web.Spock.StaticMiddleware
+  exposed-modules:  Web.Spock
   other-modules:       Web.Spock.SessionManager,
                        Web.Spock.Monad
   build-depends:       base >= 4 && < 5, scotty >= 0.5, wai, filepath, directory, http-types, text, containers, bytestring, mtl, wai-extra, resourcet, stm, crypto-api == 0.10.*, unordered-containers, old-locale, base64-bytestring, time, monad-control, transformers, cryptohash, xsd, aeson, resource-pool
