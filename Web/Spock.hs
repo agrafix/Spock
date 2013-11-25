@@ -6,7 +6,7 @@
 module Web.Spock
     ( -- * Spock's core functions, types and helpers
       spock, authed, runQuery, getState, Http.StdMethod(..), SpockM
-    , authedUser, unauthCurrent
+    , authedUser, unauthCurrent, StorageLayer (..)
       -- * Reexports from scotty
     , middleware, get, post, put, delete, patch, addroute, matchAny, notFound
     , status, addHeader, setHeader, redirect
