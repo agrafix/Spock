@@ -5,8 +5,9 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Web.Spock
     ( -- * Spock's core functions, types and helpers
-      spock, authed, runQuery, getState, Http.StdMethod(..), SpockM
-    , authedUser, unauthCurrent, StorageLayer (..)
+      spock, authed, runQuery, getState, Http.StdMethod (..), SpockM, SpockAction
+    , authedUser, unauthCurrent, StorageLayer (..), PoolCfg (..)
+    , setCookie, getCookie
       -- * Reexports from scotty
     , middleware, get, post, put, delete, patch, addroute, matchAny, notFound
     , request, reqHeader, body, param, params, jsonData, files
@@ -18,23 +19,34 @@ where
 
 import Web.Spock.SessionManager
 import Web.Spock.Monad
+import Web.Spock.Types
+import Web.Spock.Cookie
 
 import Control.Applicative
 import Control.Monad.Trans
 import Control.Monad.Trans.Reader
 import Control.Monad.Trans.Resource
 import Data.Pool
+import Data.Time.Clock
 import Web.Scotty.Trans
 import qualified Data.Text as T
 import qualified Network.HTTP.Types as Http
 
-type SpockM conn sess st a = ScottyT (WebStateM conn sess st) a
+data PoolCfg
+   = PoolCfg
+   { pc_stripeCount :: Int
+   , pc_keepOpenSec :: NominalDiffTime
+   , pc_resPerStripe :: Int
+   }
+   deriving (Show, Eq)
 
 -- | Run a spock application using the warp server, a given db storageLayer and an initial state
-spock :: Int -> StorageLayer conn -> st -> SpockM conn sess st () -> IO ()
-spock port storageLayer initialState defs =
+spock :: Int -> PoolCfg -> StorageLayer conn -> st -> SpockM conn sess st () -> IO ()
+spock port pc storageLayer initialState defs =
     do sessionMgr <- openSessionManager
-       connectionPool <- createPool (sl_createConn storageLayer) (sl_closeConn storageLayer) 5 (60*5) 5
+       connectionPool <- createPool (sl_createConn storageLayer)
+                         (sl_closeConn storageLayer) (pc_stripeCount pc)
+                         (pc_keepOpenSec pc) (pc_resPerStripe pc)
        let internalState =
                WebState
                { web_dbConn = connectionPool
@@ -49,13 +61,13 @@ spock port storageLayer initialState defs =
 -- | After checking that a login was successfull, register the usersId
 -- into the session and create a session cookie for later "authed" requests
 -- to work properly
-authedUser :: user -> (user -> sess) -> ActionT (WebStateM conn sess st) ()
+authedUser :: user -> (user -> sess) -> SpockAction conn sess st ()
 authedUser user getSessionId =
     do mgr <- getSessMgr
        (sm_createCookieSession mgr) (getSessionId user)
 
 -- | Destroy the current users session
-unauthCurrent :: ActionT (WebStateM conn sess st) ()
+unauthCurrent :: SpockAction conn sess st ()
 unauthCurrent =
     do mgr <- getSessMgr
        mSess <- sm_sessionFromCookie mgr
@@ -69,7 +81,7 @@ unauthCurrent =
 authed :: Http.StdMethod -> [T.Text] -> RoutePattern
        -> (conn -> sess -> IO (Maybe user))
        -> (conn -> user -> [T.Text] -> IO Bool)
-       -> (user -> ActionT (WebStateM conn sess st) ())
+       -> (user -> SpockAction conn sess st ())
        -> SpockM conn sess st ()
 authed reqTy requiredRights route loadUser checkRights action =
     addroute reqTy route $

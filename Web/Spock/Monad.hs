@@ -1,6 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Web.Spock.Monad where
 
+import Web.Spock.Types
 import Web.Spock.SessionManager
 
 import Control.Applicative
@@ -15,22 +16,6 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.Lazy as TL
 import qualified Text.XML.XSD.DateTime as XSD
-
-data StorageLayer a
-   = StorageLayer
-   { sl_createConn :: IO a
-   , sl_closeConn :: a -> IO ()
-   }
-
-data WebState conn sess st
-   = WebState
-   { web_dbConn :: Pool conn
-   , web_sessionMgr :: SessionManager sess
-   , web_state :: st
-   }
-
-newtype WebStateM conn sess st a = WebStateM { runWebStateM :: ReaderT (WebState conn sess st) (ResourceT IO) a }
-    deriving (Monad, Functor, Applicative, MonadIO, MonadReader (WebState conn sess st))
 
 webM :: MonadTrans t => WebStateM conn sess st a -> t (WebStateM conn sess st) a
 webM = lift

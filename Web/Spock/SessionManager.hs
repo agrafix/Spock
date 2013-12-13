@@ -5,37 +5,18 @@ module Web.Spock.SessionManager
     )
 where
 
-import Control.Arrow
+import Web.Spock.Types
+import Web.Spock.Cookie
+
 import Control.Concurrent.STM
 import Control.Monad.Trans
-import Crypto.Random (newGenIO, genBytes, SystemRandom)
 import Data.Time
-import System.Locale
+import System.Random
 import Web.Scotty.Trans
+import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Base64 as B64
 import qualified Data.HashMap.Strict as HM
-import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
-import qualified Data.Text.Lazy as TL
-import qualified Network.Wai as Wai
-
-type SessionId = T.Text
-data Session a
-    = Session
-    { sess_id :: SessionId
-    , sess_validUntil :: UTCTime
-    , sess_data :: a
-    }
-type UserSessions a = TVar (HM.HashMap SessionId (Session a))
-
-data SessionManager a
-   = SessionManager
-   { sm_loadSession :: SessionId -> IO (Maybe (Session a))
-   , sm_sessionFromCookie :: MonadIO m => ActionT m (Maybe (Session a))
-   , sm_createCookieSession :: MonadIO m => a -> ActionT m ()
-   , sm_newSession :: a -> IO (Session a)
-   , sm_deleteSession :: SessionId -> IO ()
-   }
 
 _COOKIE_NAME_ = "asession"
 
@@ -59,15 +40,7 @@ createCookieSessionImpl :: MonadIO m
                         -> ActionT m ()
 createCookieSessionImpl sessRef val =
     do sess <- liftIO $ newSessionImpl sessRef val
-       let formattedExp = T.pack $ formatTime defaultTimeLocale "%a, %d-%b-%Y %X %Z" (sess_validUntil sess)
-       setHeader "Set-Cookie" (TL.concat [ TL.fromStrict _COOKIE_NAME_
-                                         , "="
-                                         , TL.fromStrict (sess_id sess)
-                                         , "; path=/; expires="
-                                         , TL.fromStrict formattedExp
-                                         , ";"
-                                         ]
-                              )
+       setCookie' _COOKIE_NAME_ (sess_id sess) (sess_validUntil sess)
 
 newSessionImpl :: UserSessions a
                 -> a
@@ -80,18 +53,12 @@ newSessionImpl sessionRef content =
 sessionFromCookieImpl :: MonadIO m
                       => UserSessions a -> ActionT m (Maybe (Session a))
 sessionFromCookieImpl sessionRef =
-    do req <- request
-       case lookup "cookie" (Wai.requestHeaders req) >>=
-            lookup _COOKIE_NAME_ . parseCookies . T.decodeUtf8 of
+    do mSid <- getCookie _COOKIE_NAME_
+       case mSid of
          Just sid ->
              liftIO $ loadSessionImpl sessionRef sid
          Nothing ->
              return Nothing
-    where
-      parseCookies :: T.Text -> [(T.Text, T.Text)]
-      parseCookies = map parseCookie . T.splitOn ";" . T.concat . T.words
-
-      parseCookie = first T.init . T.breakOnEnd "="
 
 loadSessionImpl :: UserSessions a
                 -> SessionId
@@ -118,11 +85,10 @@ deleteSessionImpl sessionRef sid =
 createSession :: a -> IO (Session a)
 createSession content =
     do gen <- g
-       sid <- case genBytes sessionIdEntropy gen of
-                Left err -> fail $ show err
-                Right (x, _) -> return $ T.decodeUtf8 $ B64.encode x
+       let sid = T.decodeUtf8 $ B64.encode $ BSC.pack $
+                 take sessionIdEntropy $ randoms gen
        now <- getCurrentTime
        let validUntil = addUTCTime sessionTTL now
        return (Session sid validUntil content)
     where
-      g = newGenIO :: IO SystemRandom
+      g = newStdGen :: IO StdGen
