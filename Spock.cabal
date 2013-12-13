@@ -16,7 +16,8 @@ library
   exposed-modules:  Web.Spock
   other-modules:       Web.Spock.SessionManager,
                        Web.Spock.Monad,
-                       Web.Spock.Cookie
+                       Web.Spock.Cookie,
+                       Web.Spock.Types
   build-depends:       base >= 4 && < 5,
                        scotty >= 0.5,
                        wai ==1.4.*,
