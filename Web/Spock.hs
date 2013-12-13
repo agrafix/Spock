@@ -4,12 +4,20 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Web.Spock
-    ( -- * Spock's core functions, types and helpers
-      spock, authed, runQuery, getState, Http.StdMethod (..), SpockM, SpockAction
-    , authedUser, unauthCurrent, StorageLayer (..), PoolCfg (..)
-    , setCookie, getCookie
-      -- * Reexports from scotty
-    , middleware, get, post, put, delete, patch, addroute, matchAny, notFound
+    ( -- * Spock's core
+      spock, SpockM, SpockAction
+      -- * Database
+    , runQuery, PoolOrConn (..), ConnBuilder (..), PoolCfg (..)
+      -- * Routing
+    , authed, get, post, put, delete, patch, addroute, Http.StdMethod (..)
+      -- * Cookies
+    , setCookie, setCookie', getCookie
+      -- * Sessions
+    , authedUser, unauthCurrent
+      -- * State
+    , getState
+      -- * Other reexports from scotty
+    , middleware, matchAny, notFound
     , request, reqHeader, body, param, params, jsonData, files
     , status, addHeader, setHeader, redirect
     , text, html, file, json, source, raw
@@ -27,26 +35,24 @@ import Control.Monad.Trans
 import Control.Monad.Trans.Reader
 import Control.Monad.Trans.Resource
 import Data.Pool
-import Data.Time.Clock
 import Web.Scotty.Trans
 import qualified Data.Text as T
 import qualified Network.HTTP.Types as Http
 
-data PoolCfg
-   = PoolCfg
-   { pc_stripeCount :: Int
-   , pc_keepOpenSec :: NominalDiffTime
-   , pc_resPerStripe :: Int
-   }
-   deriving (Show, Eq)
-
--- | Run a spock application using the warp server, a given db storageLayer and an initial state
-spock :: Int -> PoolCfg -> StorageLayer conn -> st -> SpockM conn sess st () -> IO ()
-spock port pc storageLayer initialState defs =
+-- | Run a spock application using the warp server, a given db storageLayer and an initial state.
+-- Spock works with database libraries that already implement connection pooling and
+-- with those that don't come with it out of the box. For more see the 'PoolOrConn' type.
+spock :: Int -> PoolOrConn conn -> st -> SpockM conn sess st () -> IO ()
+spock port poolOrConn initialState defs =
     do sessionMgr <- openSessionManager
-       connectionPool <- createPool (sl_createConn storageLayer)
-                         (sl_closeConn storageLayer) (pc_stripeCount pc)
-                         (pc_keepOpenSec pc) (pc_resPerStripe pc)
+       connectionPool <- case poolOrConn of
+                           PCPool p ->
+                               return p
+                           PCConn cb ->
+                               let pc = cb_poolConfiguration cb
+                               in createPool (cb_createConn cb) (cb_destroyConn cb)
+                                      (pc_stripes pc) (pc_keepOpenTime pc)
+                                      (pc_resPerStripe pc)
        let internalState =
                WebState
                { web_dbConn = connectionPool

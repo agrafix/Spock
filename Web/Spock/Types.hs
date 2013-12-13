@@ -1,5 +1,6 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 module Web.Spock.Types where
 
 import Web.Scotty.Trans
@@ -9,18 +10,40 @@ import Control.Concurrent.STM
 import Control.Monad.Reader
 import Control.Monad.Trans.Resource
 import Data.Pool
-import Data.Time.Clock ( UTCTime(..) )
+import Data.Time.Clock ( UTCTime(..), NominalDiffTime(..) )
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 
+-- | Spock is supercharged Scotty, that's why the 'SpockM' is built on the
+-- ScottyT monad. Insive the SpockM monad, you may define routes and middleware.
 type SpockM conn sess st a = ScottyT (WebStateM conn sess st) a
+
+-- | The SpockAction is the monad of all route-actions. You have access
+-- to the database, session and state of your application.
 type SpockAction conn sess st a = ActionT (WebStateM conn sess st) a
 
-data StorageLayer a
-   = StorageLayer
-   { sl_createConn :: IO a
-   , sl_closeConn :: a -> IO ()
+-- | If Spock should take care of connection pooling, you need to configure
+-- it depending on what you need.
+data PoolCfg
+   = PoolCfg
+   { pc_stripes :: Int
+   , pc_resPerStripe :: Int
+   , pc_keepOpenTime :: NominalDiffTime
    }
+
+-- | The ConnBuilder instructs Spock how to create or close a database connection.
+data ConnBuilder a
+   = ConnBuilder
+   { cb_createConn :: IO a
+   , cb_destroyConn :: a -> IO ()
+   , cb_poolConfiguration :: PoolCfg
+   }
+
+-- | You can feed Spock with either a connection pool, or instructions on how to build
+-- a connection pool. See 'ConnBuilder'
+data PoolOrConn a
+   = PCPool (Pool a)
+   | PCConn (ConnBuilder a)
 
 data WebState conn sess st
    = WebState

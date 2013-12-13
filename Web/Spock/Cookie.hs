@@ -11,6 +11,7 @@ import qualified Data.Text.Encoding as T
 import qualified Data.Text.Lazy as TL
 import qualified Network.Wai as Wai
 
+-- | Read a cookie previously set in the users browser for your site
 getCookie :: MonadIO m => T.Text -> ActionT m (Maybe T.Text)
 getCookie name =
     do req <- request
@@ -21,11 +22,13 @@ getCookie name =
       parseCookies = map parseCookie . T.splitOn ";" . T.concat . T.words
       parseCookie = first T.init . T.breakOnEnd "="
 
+-- | Set a cookie living for a given number of seconds
 setCookie :: MonadIO m => T.Text -> T.Text -> NominalDiffTime -> ActionT m ()
 setCookie name value validSeconds =
     do now <- liftIO getCurrentTime
        setCookie' name value (validSeconds `addUTCTime` now)
 
+-- | Set a cookie living until a specific 'UTCTime'
 setCookie' :: MonadIO m => T.Text -> T.Text -> UTCTime -> ActionT m ()
 setCookie' name value validUntil =
     let formattedTime =

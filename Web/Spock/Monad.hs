@@ -2,12 +2,10 @@
 module Web.Spock.Monad where
 
 import Web.Spock.Types
-import Web.Spock.SessionManager
 
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Reader
-import Control.Monad.Trans.Resource
 import Data.Pool
 import Data.Time.Clock ( UTCTime(..) )
 import Web.Scotty.Trans
@@ -20,12 +18,17 @@ import qualified Text.XML.XSD.DateTime as XSD
 webM :: MonadTrans t => WebStateM conn sess st a -> t (WebStateM conn sess st) a
 webM = lift
 
-runQuery :: MonadTrans t => (conn -> IO a) -> t (WebStateM conn sess st) a
+-- | Give you access to a database connectin from the connection pool. The connection is
+-- released back to the pool once the function terminates.
+runQuery :: MonadTrans t
+         => (conn -> IO a) -> t (WebStateM conn sess st) a
 runQuery query =
     webM $
     do pool <- asks web_dbConn
        liftIO $ withResource pool query
 
+-- | Read the application's state. If you wish to have immutable state, you could
+-- use a 'TVar' from the STM packge.
 getState :: MonadTrans t => t (WebStateM conn sess st) st
 getState = webM $ asks web_state
 
