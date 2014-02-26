@@ -34,24 +34,22 @@ openSessionManager =
                   , sm_deleteSession = deleteSessionImpl cacheHM
                   }
 
-createCookieSessionImpl :: MonadIO m
-                        => UserSessions a
-                        -> a
-                        -> ActionT m ()
+createCookieSessionImpl :: (SpockError e, MonadIO m) => UserSessions a -> a
+                           -> ActionT e m ()
 createCookieSessionImpl sessRef val =
     do sess <- liftIO $ newSessionImpl sessRef val
        setCookie' _COOKIE_NAME_ (sess_id sess) (sess_validUntil sess)
 
 newSessionImpl :: UserSessions a
-                -> a
-                -> IO (Session a)
+                  -> a
+                  -> IO (Session a)
 newSessionImpl sessionRef content =
     do sess <- createSession content
        atomically $ modifyTVar sessionRef (\hm -> HM.insert (sess_id sess) sess hm)
        return sess
 
-sessionFromCookieImpl :: MonadIO m
-                      => UserSessions a -> ActionT m (Maybe (Session a))
+sessionFromCookieImpl :: (SpockError e, MonadIO m) => UserSessions a
+                         -> ActionT e m (Maybe (Session a))
 sessionFromCookieImpl sessionRef =
     do mSid <- getCookie _COOKIE_NAME_
        case mSid of
