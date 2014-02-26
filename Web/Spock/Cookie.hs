@@ -26,7 +26,7 @@ getCookie name =
 
 -- | Set a cookie living for a given number of seconds
 setCookie :: (SpockError e, MonadIO m) => T.Text -> T.Text -> NominalDiffTime
-             -> ActionT e m ()
+          -> ActionT e m ()
 setCookie name value validSeconds =
     do now <- liftIO getCurrentTime
        setCookie' name value (validSeconds `addUTCTime` now)

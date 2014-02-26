@@ -85,10 +85,10 @@ unauthCurrent =
 -- view the contents of the request. You may want to define a helper function that
 -- proxies this function to not pass around loadUser and checkRights all the time
 authed :: Http.StdMethod -> [T.Text] -> RoutePattern
-          -> (conn -> sess -> IO (Maybe user))
-          -> (conn -> user -> [T.Text] -> IO Bool)
-          -> (user -> SpockAction conn sess st ())
-          -> SpockM conn sess st ()
+       -> (conn -> sess -> IO (Maybe user))
+       -> (conn -> user -> [T.Text] -> IO Bool)
+       -> (user -> SpockAction conn sess st ())
+       -> SpockM conn sess st ()
 authed reqTy requiredRights route loadUser checkRights action =
     addroute reqTy route $
         do mgr <- getSessMgr

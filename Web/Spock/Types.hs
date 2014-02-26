@@ -72,7 +72,7 @@ data SessionManager a
    = SessionManager
    { sm_loadSession :: SessionId -> IO (Maybe (Session a))
    , sm_sessionFromCookie :: (SpockError e, MonadIO m)
-                             => ActionT e m (Maybe (Session a))
+                          => ActionT e m (Maybe (Session a))
    , sm_createCookieSession :: (SpockError e, MonadIO m) => a -> ActionT e m ()
    , sm_newSession :: a -> IO (Session a)
    , sm_deleteSession :: SessionId -> IO ()

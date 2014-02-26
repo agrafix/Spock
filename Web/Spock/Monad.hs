@@ -5,14 +5,12 @@ module Web.Spock.Monad where
 
 import Web.Spock.Types
 
--- import Control.Applicative
 import Control.Monad
 import Control.Monad.Reader
 import Data.Pool
 import Data.Time.Clock ( UTCTime(..) )
 import Web.Scotty.Trans
 import qualified Data.ByteString.Lazy as BSL
--- import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.Lazy as TL
 import qualified Text.XML.XSD.DateTime as XSD
@@ -43,8 +41,13 @@ instance Parsable BSL.ByteString where
 instance Parsable UTCTime where
     parseParam p =
         case join $ fmap XSD.toUTCTime $ XSD.dateTime (TL.toStrict p) of
-          Nothing -> Left $ TL.pack $ "Can't parse param (`" ++ show p ++ "`) as UTCTime!"
-          Just x -> Right x
+          Nothing ->
+              Left $ TL.pack $ "Can't parse param (`" ++ show p ++ "`) as UTCTime!"
+          Just x ->
+              Right x
 
 instance Integral a => Parsable a where
-    parseParam = fmap fromInteger . (readEither::TL.Text->Either TL.Text Integer)
+    parseParam p =
+        let eInt :: Either TL.Text Integer
+            eInt = readEither p
+        in fmap fromInteger eInt

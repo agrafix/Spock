@@ -36,7 +36,7 @@ library
                        monad-control ==0.3.*,
                        transformers ==0.3.*,
                        xsd ==0.4.*,
-                       aeson ==0.6.*,
+                       aeson >=0.6,
                        resource-pool ==0.2.*,
                        random ==1.*
   ghc-options: -fwarn-unused-imports
