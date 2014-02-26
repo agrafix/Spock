@@ -36,7 +36,8 @@ getSessMgr :: MonadTrans t => t (WebStateM conn sess st) (SessionManager sess)
 getSessMgr = webM $ asks web_sessionMgr
 
 instance Parsable BSL.ByteString where
-    parseParam = Right . BSL.fromStrict . T.encodeUtf8 . TL.toStrict
+    parseParam =
+        Right . BSL.fromStrict . T.encodeUtf8 . TL.toStrict
 
 instance Parsable UTCTime where
     parseParam p =
@@ -45,9 +46,3 @@ instance Parsable UTCTime where
               Left $ TL.pack $ "Can't parse param (`" ++ show p ++ "`) as UTCTime!"
           Just x ->
               Right x
-
-instance Integral a => Parsable a where
-    parseParam p =
-        let eInt :: Either TL.Text Integer
-            eInt = readEither p
-        in fmap fromInteger eInt
