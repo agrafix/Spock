@@ -37,9 +37,6 @@ getState = webM $ asks web_state
 getSessMgr :: MonadTrans t => t (WebStateM conn sess st) (SessionManager sess)
 getSessMgr = webM $ asks web_sessionMgr
 
--- instance Parsable T.Text where
---     parseParam = Right . TL.toStrict
-
 instance Parsable BSL.ByteString where
     parseParam = Right . BSL.fromStrict . T.encodeUtf8 . TL.toStrict
 
@@ -51,8 +48,3 @@ instance Parsable UTCTime where
 
 instance Integral a => Parsable a where
     parseParam = fmap fromInteger . (readEither::TL.Text->Either TL.Text Integer)
-
--- instance (SpockError e, Functor a, Monad a, Applicative a)
---          => Applicative (ActionT e a) where
---     pure = return
---     (<*>) = ap
