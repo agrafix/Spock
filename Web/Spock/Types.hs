@@ -1,6 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ConstraintKinds #-}
 module Web.Spock.Types where
 
 import Web.Scotty.Trans
@@ -13,14 +14,17 @@ import Data.Pool
 import Data.Time.Clock ( UTCTime(..), NominalDiffTime(..) )
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
+import Data.Text.Lazy (Text)
+
+type SpockError e = ScottyError e
 
 -- | Spock is supercharged Scotty, that's why the 'SpockM' is built on the
 -- ScottyT monad. Insive the SpockM monad, you may define routes and middleware.
-type SpockM conn sess st a = ScottyT (WebStateM conn sess st) a
+type SpockM conn sess st a = ScottyT Text (WebStateM conn sess st) a
 
 -- | The SpockAction is the monad of all route-actions. You have access
 -- to the database, session and state of your application.
-type SpockAction conn sess st a = ActionT (WebStateM conn sess st) a
+type SpockAction conn sess st a = ActionT Text (WebStateM conn sess st) a
 
 -- | If Spock should take care of connection pooling, you need to configure
 -- it depending on what you need.
@@ -67,8 +71,9 @@ type UserSessions a = TVar (HM.HashMap SessionId (Session a))
 data SessionManager a
    = SessionManager
    { sm_loadSession :: SessionId -> IO (Maybe (Session a))
-   , sm_sessionFromCookie :: MonadIO m => ActionT m (Maybe (Session a))
-   , sm_createCookieSession :: MonadIO m => a -> ActionT m ()
+   , sm_sessionFromCookie :: (SpockError e, MonadIO m)
+                             => ActionT e m (Maybe (Session a))
+   , sm_createCookieSession :: (SpockError e, MonadIO m) => a -> ActionT e m ()
    , sm_newSession :: a -> IO (Session a)
    , sm_deleteSession :: SessionId -> IO ()
    }
