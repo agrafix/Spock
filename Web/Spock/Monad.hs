@@ -27,7 +27,7 @@ runQuery query =
     do pool <- asks web_dbConn
        liftIO $ withResource pool query
 
--- | Read the application's state. If you wish to have immutable state, you could
+-- | Read the application's state. If you wish to have mutable state, you could
 -- use a 'TVar' from the STM packge.
 getState :: MonadTrans t => t (WebStateM conn sess st) st
 getState = webM $ asks web_state

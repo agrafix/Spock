@@ -8,14 +8,19 @@ module Web.Spock
       spock, SpockM, SpockAction
       -- * Database
     , runQuery, PoolOrConn (..), ConnBuilder (..), PoolCfg (..)
-      -- * Routing
-    , authed, get, post, put, delete, patch, addroute, Http.StdMethod (..)
-      -- * Cookies
-    , setCookie, setCookie', getCookie
-      -- * Sessions
-    , authedUser, unauthCurrent
       -- * State
     , getState
+    -- * Authorization
+    , SessionCfg (..)
+    , authedUser, unauthCurrent
+      -- * Authorized Routing
+    , NoAccessReason (..), UserRights
+    , NoAccessHandler, LoadUserFun, CheckRightsFun
+    , authed
+      -- * General Routing
+    , get, post, put, delete, patch, addroute, Http.StdMethod (..)
+      -- * Cookies
+    , setCookie, setCookie', getCookie
       -- * Other reexports from scotty
     , middleware, matchAny, notFound
     , request, reqHeader, body, param, params, jsonData, files
@@ -36,23 +41,23 @@ import Control.Monad.Trans.Reader
 import Control.Monad.Trans.Resource
 import Data.Pool
 import Web.Scotty.Trans
-import qualified Data.Text as T
 import qualified Network.HTTP.Types as Http
 
 -- | Run a spock application using the warp server, a given db storageLayer and an initial state.
 -- Spock works with database libraries that already implement connection pooling and
 -- with those that don't come with it out of the box. For more see the 'PoolOrConn' type.
-spock :: Int -> PoolOrConn conn -> st -> SpockM conn sess st () -> IO ()
-spock port poolOrConn initialState defs =
-    do sessionMgr <- openSessionManager
-       connectionPool <- case poolOrConn of
-                           PCPool p ->
-                               return p
-                           PCConn cb ->
-                               let pc = cb_poolConfiguration cb
-                               in createPool (cb_createConn cb) (cb_destroyConn cb)
-                                      (pc_stripes pc) (pc_keepOpenTime pc)
-                                      (pc_resPerStripe pc)
+spock :: Int -> SessionCfg -> PoolOrConn conn -> st -> SpockM conn sess st () -> IO ()
+spock port sessionCfg poolOrConn initialState defs =
+    do sessionMgr <- openSessionManager sessionCfg
+       connectionPool <-
+           case poolOrConn of
+             PCPool p ->
+                 return p
+             PCConn cb ->
+                 let pc = cb_poolConfiguration cb
+                 in createPool (cb_createConn cb) (cb_destroyConn cb)
+                        (pc_stripes pc) (pc_keepOpenTime pc)
+                        (pc_resPerStripe pc)
        let internalState =
                WebState
                { web_dbConn = connectionPool
@@ -81,30 +86,59 @@ unauthCurrent =
          Just sess -> liftIO $ (sm_deleteSession mgr) (sess_id sess)
          Nothing -> return ()
 
+-- | Define what happens to non-authorized requests
+type NoAccessHandler conn sess st =
+    NoAccessReason -> SpockAction conn sess st ()
+
+-- | How should a session be transformed into a user? Can access the database using 'runQuery'
+type LoadUserFun conn sess st user =
+    sess -> SpockAction conn sess st (Maybe user)
+
+-- | What rights does the current user have? Can access the database using 'runQuery'
+type CheckRightsFun conn sess st user =
+    user -> [UserRights] -> SpockAction conn sess st Bool
+
 -- | Before the request is performed, you can check if the signed in user has permissions to
 -- view the contents of the request. You may want to define a helper function that
--- proxies this function to not pass around loadUser and checkRights all the time
-authed :: Http.StdMethod -> [T.Text] -> RoutePattern
-       -> (conn -> sess -> IO (Maybe user))
-       -> (conn -> user -> [T.Text] -> IO Bool)
+-- proxies this function to not pass around 'NoAccessHandler', 'LoadUserFun' and 'CheckRightsFun'
+-- all the time.
+-- Example:
+--
+-- > type MyWebMonad a = SpockAction Connection Int () a
+-- > newtype MyUser = MyUser { unMyUser :: T.Text }
+-- >
+-- > http403 msg =
+-- >    do status Http.status403
+-- >       text (show msg)
+-- >
+-- > login :: Http.StdMethod
+-- >       -> [UserRights]
+-- >       -> RoutePattern
+-- >       -> (MyUser -> MyWebMonad ())
+-- >       -> MyWebMonad ()
+-- > login =
+-- >     authed http403 myLoadUser myCheckRights
+--
+authed :: NoAccessHandler conn sess st
+       -> LoadUserFun conn sess st user
+       -> CheckRightsFun conn sess st user
+       -> Http.StdMethod -> [UserRights] -> RoutePattern
        -> (user -> SpockAction conn sess st ())
        -> SpockM conn sess st ()
-authed reqTy requiredRights route loadUser checkRights action =
+authed noAccessHandler loadUser checkRights reqTy requiredRights route action =
     addroute reqTy route $
         do mgr <- getSessMgr
            mSess <- fmap sess_data <$> (sm_sessionFromCookie mgr)
            case mSess of
              Just sval ->
-                 do mUser <- runQuery $ \conn -> loadUser conn sval
+                 do mUser <- loadUser sval
                     case mUser of
                       Just user ->
-                          do isOk <- runQuery $ \conn -> checkRights conn user requiredRights
+                          do isOk <- checkRights user requiredRights
                              if isOk
                              then action user
-                             else http403 "No rights to see this!"
-                      Nothing -> http403 "Not logged in"
-             Nothing -> http403 "Not logged in"
-    where
-      http403 msg =
-          do status Http.status403
-             text msg
+                             else noAccessHandler NotEnoughRights
+                      Nothing ->
+                          noAccessHandler NotLoggedIn
+             Nothing ->
+                 noAccessHandler NoSession

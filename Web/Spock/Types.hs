@@ -49,6 +49,24 @@ data PoolOrConn a
    = PCPool (Pool a)
    | PCConn (ConnBuilder a)
 
+-- | Configuration for the session manager
+data SessionCfg
+   = SessionCfg
+   { sc_cookieName :: T.Text
+   , sc_sessionTTL :: NominalDiffTime
+   , sc_sessionIdEntropy :: Int
+   }
+
+-- | Assign the current session roles/permission, eg. admin or user
+type UserRights = T.Text
+
+-- | Describes why access was denied to a user
+data NoAccessReason
+   = NotEnoughRights
+   | NotLoggedIn
+   | NoSession
+   deriving (Show, Eq, Read, Enum)
+
 data WebState conn sess st
    = WebState
    { web_dbConn :: Pool conn
