@@ -10,6 +10,7 @@ import Control.Monad.Reader
 import Data.Pool
 import Data.Time.Clock ( UTCTime(..) )
 import Web.Scotty.Trans
+import qualified Data.Conduit.Pool as CP
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.Lazy as TL
@@ -25,7 +26,13 @@ runQuery :: MonadTrans t
 runQuery query =
     webM $
     do pool <- asks web_dbConn
-       liftIO $ withResource pool query
+       let fun =
+               case pool of
+                 DataPool p ->
+                     withResource p
+                 ConduitPool p ->
+                     CP.withResource p
+       liftIO (fun query)
 
 -- | Read the application's state. If you wish to have mutable state, you could
 -- use a 'TVar' from the STM packge.

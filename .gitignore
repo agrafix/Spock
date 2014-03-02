@@ -6,3 +6,5 @@ cabal-dev
 *.chs.h
 .virthualenv
 .DS_Store
+.cabal-sandbox
+cabal.sandbox.config

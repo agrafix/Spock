@@ -12,6 +12,7 @@ import Control.Monad.Reader
 import Control.Monad.Trans.Resource
 import Data.Pool
 import Data.Time.Clock ( UTCTime(..), NominalDiffTime(..) )
+import qualified Data.Conduit.Pool as CP
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 import Data.Text.Lazy (Text)
@@ -47,6 +48,7 @@ data ConnBuilder a
 -- a connection pool. See 'ConnBuilder'
 data PoolOrConn a
    = PCPool (Pool a)
+   | PCConduitPool (CP.Pool a)
    | PCConn (ConnBuilder a)
 
 -- | Configuration for the session manager
@@ -67,9 +69,13 @@ data NoAccessReason
    | NoSession
    deriving (Show, Eq, Read, Enum)
 
+data ConnectionPool conn
+   = DataPool (Pool conn)
+   | ConduitPool (CP.Pool conn)
+
 data WebState conn sess st
    = WebState
-   { web_dbConn :: Pool conn
+   { web_dbConn :: ConnectionPool conn
    , web_sessionMgr :: SessionManager sess
    , web_state :: st
    }

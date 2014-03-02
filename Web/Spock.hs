@@ -51,13 +51,15 @@ spock port sessionCfg poolOrConn initialState defs =
     do sessionMgr <- openSessionManager sessionCfg
        connectionPool <-
            case poolOrConn of
+             PCConduitPool p ->
+                 return (ConduitPool p)
              PCPool p ->
-                 return p
+                 return (DataPool p)
              PCConn cb ->
                  let pc = cb_poolConfiguration cb
-                 in createPool (cb_createConn cb) (cb_destroyConn cb)
-                        (pc_stripes pc) (pc_keepOpenTime pc)
-                        (pc_resPerStripe pc)
+                 in DataPool <$> createPool (cb_createConn cb) (cb_destroyConn cb)
+                                  (pc_stripes pc) (pc_keepOpenTime pc)
+                                   (pc_resPerStripe pc)
        let internalState =
                WebState
                { web_dbConn = connectionPool
