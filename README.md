@@ -13,3 +13,9 @@ Another Haskell web framework based on scotty: This toolbox provides everything 
 
 * Using cabal: `cabal install Spock`
 * From Source: `git clone https://github.com/agrafix/Spock.git && cd Spock && cabal install`
+
+# Candy
+
+The following Spock extensions exist:
+
+* Background workers for Spock: http://hackage.haskell.org/package/Spock-worker
