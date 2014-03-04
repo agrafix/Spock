@@ -7,9 +7,9 @@ module Web.Spock
     ( -- * Spock's core
       spock, SpockM, SpockAction
       -- * Database
-    , runQuery, PoolOrConn (..), ConnBuilder (..), PoolCfg (..)
-      -- * State
-    , getState
+    , PoolOrConn (..), ConnBuilder (..), PoolCfg (..)
+      -- * Accessing Database and State
+    , HasSpock
     -- * Authorization
     , SessionCfg (..)
     , authedUser, unauthCurrent
@@ -27,6 +27,8 @@ module Web.Spock
     , status, addHeader, setHeader, redirect
     , text, html, file, json, source, raw
     , raise, rescue, next
+      -- * Internals for extending Spock
+    , getSpockHeart, runSpockIO, WebStateM, WebState
     )
 where
 
