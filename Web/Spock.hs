@@ -9,7 +9,7 @@ module Web.Spock
       -- * Database
     , PoolOrConn (..), ConnBuilder (..), PoolCfg (..)
       -- * Accessing Database and State
-    , HasSpock (..)
+    , HasSpock (runQuery, getState)
     -- * Authorization
     , SessionCfg (..)
     , authedUser, unauthCurrent

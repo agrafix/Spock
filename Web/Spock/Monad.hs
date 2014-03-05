@@ -1,7 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies #-}
 module Web.Spock.Monad where
 
 import Web.Spock.Types
@@ -21,21 +21,34 @@ import qualified Text.XML.XSD.DateTime as XSD
 webM :: MonadTrans t => WebStateM conn sess st a -> t (WebStateM conn sess st) a
 webM = lift
 
-class HasSpock conn st m where
+class HasSpock m where
+    type SpockConn m :: *
+    type SpockState m :: *
+    type SpockSession m :: *
     -- | Give you access to a database connectin from the connection pool. The connection is
     -- released back to the pool once the function terminates.
-    runQuery :: (conn -> IO a) -> m a
+    runQuery :: (SpockConn m -> IO a) -> m a
     -- | Read the application's state. If you wish to have mutable state, you could
     -- use a 'TVar' from the STM packge.
-    getState :: m st
+    getState :: m (SpockState m)
+    -- | Get the session manager
+    getSessMgr :: m (SessionManager (SpockSession m))
 
-instance MonadTrans t => HasSpock conn st (t (WebStateM conn sess st)) where
+instance MonadTrans t => HasSpock (t (WebStateM conn sess st)) where
+    type SpockConn (t (WebStateM conn sess st)) = conn
+    type SpockState (t (WebStateM conn sess st)) = st
+    type SpockSession (t (WebStateM conn sess st)) = sess
     runQuery a = webM $ runQueryImpl a
     getState = webM $ getStateImpl
+    getSessMgr = webM $ getSessMgrImpl
 
-instance HasSpock conn st (WebStateM conn sess st) where
+instance HasSpock (WebStateM conn sess st) where
+    type SpockConn (WebStateM conn sess st) = conn
+    type SpockState (WebStateM conn sess st) = st
+    type SpockSession (WebStateM conn sess st) = sess
     runQuery = runQueryImpl
     getState = getStateImpl
+    getSessMgr = getSessMgrImpl
 
 runQueryImpl :: (conn -> IO a) -> WebStateM conn sess st a
 runQueryImpl query =
@@ -62,8 +75,8 @@ runSpockIO st (WebStateM action) =
     runResourceT $
     runReaderT action st
 
-getSessMgr :: MonadTrans t => t (WebStateM conn sess st) (SessionManager sess)
-getSessMgr = webM $ asks web_sessionMgr
+getSessMgrImpl :: (WebStateM conn sess st) (SessionManager sess)
+getSessMgrImpl = asks web_sessionMgr
 
 instance Parsable BSL.ByteString where
     parseParam =
