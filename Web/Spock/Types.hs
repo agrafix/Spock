@@ -2,6 +2,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE TypeFamilies #-}
 module Web.Spock.Types where
 
 import Web.Scotty.Trans
@@ -16,6 +17,8 @@ import qualified Data.Conduit.Pool as CP
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 import Data.Text.Lazy (Text)
+import Control.Monad.Trans.Control
+import Control.Monad.Base
 
 type SpockError e = ScottyError e
 
@@ -82,6 +85,14 @@ data WebState conn sess st
 
 newtype WebStateM conn sess st a = WebStateM { runWebStateM :: ReaderT (WebState conn sess st) (ResourceT IO) a }
     deriving (Monad, Functor, Applicative, MonadIO, MonadReader (WebState conn sess st))
+
+instance MonadBase IO (WebStateM conn sess st) where
+    liftBase = WebStateM . liftBase
+
+instance MonadBaseControl IO (WebStateM conn sess st) where
+    newtype StM (WebStateM conn sess st) a = WStM { unWStM :: StM (ReaderT (WebState conn sess st) (ResourceT IO)) a }
+    liftBaseWith f = WebStateM . liftBaseWith $ \runInBase -> f $ liftM WStM . runInBase . runWebStateM
+    restoreM = WebStateM . restoreM . unWStM
 
 type SessionId = T.Text
 data Session a
