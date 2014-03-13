@@ -88,7 +88,7 @@ sessionMiddleware cfg vK sessionRef app req =
                Nothing ->
                    mkNew
                Just sess ->
-                   withSess sess
+                   withSess False sess
       Nothing ->
           mkNew
     where
@@ -99,12 +99,12 @@ sessionMiddleware cfg vK sessionRef app req =
                   renderCookie (sc_cookieName cfg) (sess_id sess) (sess_validUntil sess)
               cookie = ("Set-Cookie", BSL.toStrict $ TL.encodeUtf8 cookieContent)
           in (cookie : responseHeaders)
-      withSess sess =
+      withSess shouldSetCookie sess =
           do resp <- app (req { Wai.vault = V.insert vK (sess_id sess) v })
-             return $ Wai.mapHeaders (addCookie sess) resp
+             return $ if shouldSetCookie then Wai.mapHeaders (addCookie sess) resp else resp
       mkNew =
           do newSess <- newSessionImpl cfg sessionRef defVal
-             withSess newSess
+             withSess True newSess
 
 newSessionImpl :: SessionCfg a
                -> UserSessions a
