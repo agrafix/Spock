@@ -7,7 +7,7 @@ Bug-reports:         https://github.com/agrafix/Spock/issues
 license:             BSD3
 author:              Alexander Thiemann <mail@agrafix.net>
 maintainer:          mail@agrafix.net
-copyright:           (c) 2013 Alexander Thiemann
+copyright:           (c) 2013 - 2014 Alexander Thiemann
 category:            Web
 build-type:          Simple
 cabal-version:       >=1.8
