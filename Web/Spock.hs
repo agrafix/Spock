@@ -12,7 +12,7 @@ module Web.Spock
     , HasSpock (runQuery, getState)
     -- * Sessions
     , SessionCfg (..)
-    , readSession, writeSession
+    , readSession, writeSession, modifySession
       -- * Cookies
     , setCookie, setCookie', getCookie
       -- * General Routing
@@ -23,6 +23,7 @@ module Web.Spock
     , status, addHeader, setHeader, redirect
     , text, html, file, json, source, raw
     , raise, rescue, next
+    , RoutePattern
       -- * Internals for extending Spock
     , getSpockHeart, runSpockIO, WebStateM, WebState
     )
@@ -76,6 +77,12 @@ writeSession :: sess -> SpockAction conn sess st ()
 writeSession d =
     do mgr <- getSessMgr
        (sm_writeSession mgr) d
+
+-- | Modify the stored session
+modifySession :: (sess -> sess) -> SpockAction conn sess st ()
+modifySession f =
+    do mgr <- getSessMgr
+       (sm_modifySession mgr) f
 
 -- | Read the stored session
 readSession :: SpockAction conn sess st sess

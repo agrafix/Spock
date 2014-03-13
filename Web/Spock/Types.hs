@@ -99,5 +99,6 @@ data SessionManager a
    = SessionManager
    { sm_readSession :: (SpockError e, MonadIO m) => ActionT e m a
    , sm_writeSession :: (SpockError e, MonadIO m) => a -> ActionT e m ()
+   , sm_modifySession :: (SpockError e, MonadIO m) => (a -> a) -> ActionT e m ()
    , sm_middleware :: Middleware
    }

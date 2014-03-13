@@ -31,6 +31,7 @@ createSessionManager cfg =
        return $ SessionManager
                   { sm_readSession = readSessionImpl vaultKey cacheHM
                   , sm_writeSession = writeSessionImpl vaultKey cacheHM
+                  , sm_modifySession = modifySessionImpl vaultKey cacheHM
                   , sm_middleware = sessionMiddleware cfg vaultKey cacheHM
                   }
 
@@ -57,13 +58,21 @@ writeSessionImpl :: (SpockError e, MonadIO m)
                  -> a
                  -> ActionT e m ()
 writeSessionImpl vK sessionRef value =
+    modifySessionImpl vK sessionRef (const value)
+
+modifySessionImpl :: (SpockError e, MonadIO m)
+                  => V.Key SessionId
+                  -> UserSessions a
+                  -> (a -> a)
+                  -> ActionT e m ()
+modifySessionImpl vK sessionRef f =
     do req <- request
        case V.lookup vK (Wai.vault req) of
          Nothing ->
              error "(3) Internal Spock Session Error. Please report this bug!"
          Just sid ->
              do let modFun session =
-                        session { sess_data = value }
+                        session { sess_data = f (sess_data session) }
                 liftIO $ atomically $ modifyTVar sessionRef (HM.adjust modFun sid)
 
 
