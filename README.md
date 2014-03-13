@@ -3,10 +3,9 @@ Spock
 
 # Intro
 
-Another Haskell web framework based on scotty: This toolbox provides everything you need to get a quick start into web hacking with haskell: sessions, database helper, authentication and the power of scotty.
+Another Haskell web framework based on scotty: This toolbox provides everything you need to get a quick start into web hacking with haskell: sessions, cookies, database helper, global state and the power of scotty
 
 * Hackage: http://hackage.haskell.org/package/Spock
-* Example: https://github.com/agrafix/funblog
 
 
 # Install
@@ -18,4 +17,10 @@ Another Haskell web framework based on scotty: This toolbox provides everything 
 
 The following Spock extensions exist:
 
+* Authentification helpers for Spock: http://hackage.haskell.org/package/Spock-auth
 * Background workers for Spock: http://hackage.haskell.org/package/Spock-worker
+
+# Examples
+
+* https://github.com/agrafix/funblog
+* https://github.com/openbrainsrc/makeci
