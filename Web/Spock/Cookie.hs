@@ -16,9 +16,13 @@ import qualified Network.Wai as Wai
 -- | Read a cookie previously set in the users browser for your site
 getCookie :: (SpockError e, MonadIO m) => T.Text -> ActionT e m (Maybe T.Text)
 getCookie name =
-    do req <- request
-       return $ lookup "cookie" (Wai.requestHeaders req) >>=
-              lookup name . parseCookies . T.decodeUtf8
+     do r <- request
+        return $ getCookieFromReq name r
+
+getCookieFromReq :: T.Text -> Wai.Request -> Maybe T.Text
+getCookieFromReq name req =
+    lookup "cookie" (Wai.requestHeaders req) >>=
+           lookup name . parseCookies . T.decodeUtf8
     where
       parseCookies :: T.Text -> [(T.Text, T.Text)]
       parseCookies = map parseCookie . T.splitOn ";" . T.concat . T.words
@@ -35,13 +39,16 @@ setCookie name value validSeconds =
 setCookie' :: (SpockError e, MonadIO m) => T.Text -> T.Text -> UTCTime
            -> ActionT e m ()
 setCookie' name value validUntil =
+    setHeader "Set-Cookie" (renderCookie name value validUntil)
+
+renderCookie :: T.Text -> T.Text -> UTCTime -> TL.Text
+renderCookie name value validUntil =
     let formattedTime =
             TL.pack $ formatTime defaultTimeLocale "%a, %d-%b-%Y %X %Z" validUntil
-    in setHeader "Set-Cookie" (TL.concat [ TL.fromStrict name
-                                         , "="
-                                         , TL.fromStrict value
-                                         , "; path=/; expires="
-                                         , formattedTime
-                                         , ";"
-                                         ]
-                              )
+    in TL.concat [ TL.fromStrict name
+                 , "="
+                 , TL.fromStrict value
+                 , "; path=/; expires="
+                 , formattedTime
+                 , ";"
+                 ]

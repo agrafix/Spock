@@ -12,13 +12,14 @@ import Control.Concurrent.STM
 import Control.Monad.Reader
 import Control.Monad.Trans.Resource
 import Data.Pool
-import Data.Time.Clock ( UTCTime(..), NominalDiffTime(..) )
+import Data.Time.Clock ( UTCTime(..), NominalDiffTime )
 import qualified Data.Conduit.Pool as CP
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 import Data.Text.Lazy (Text)
 import Control.Monad.Trans.Control
 import Control.Monad.Base
+import Network.Wai
 
 type SpockError e = ScottyError e
 
@@ -55,22 +56,13 @@ data PoolOrConn a
    | PCConn (ConnBuilder a)
 
 -- | Configuration for the session manager
-data SessionCfg
+data SessionCfg a
    = SessionCfg
    { sc_cookieName :: T.Text
    , sc_sessionTTL :: NominalDiffTime
    , sc_sessionIdEntropy :: Int
+   , sc_emptySession :: a
    }
-
--- | Assign the current session roles/permission, eg. admin or user
-type UserRights = T.Text
-
--- | Describes why access was denied to a user
-data NoAccessReason
-   = NotEnoughRights
-   | NotLoggedIn
-   | NoSession
-   deriving (Show, Eq, Read, Enum)
 
 data ConnectionPool conn
    = DataPool (Pool conn)
@@ -105,10 +97,7 @@ type UserSessions a = TVar (HM.HashMap SessionId (Session a))
 
 data SessionManager a
    = SessionManager
-   { sm_loadSession :: SessionId -> IO (Maybe (Session a))
-   , sm_sessionFromCookie :: (SpockError e, MonadIO m)
-                          => ActionT e m (Maybe (Session a))
-   , sm_createCookieSession :: (SpockError e, MonadIO m) => a -> ActionT e m ()
-   , sm_newSession :: a -> IO (Session a)
-   , sm_deleteSession :: SessionId -> IO ()
+   { sm_readSession :: (SpockError e, MonadIO m) => ActionT e m a
+   , sm_writeSession :: (SpockError e, MonadIO m) => a -> ActionT e m ()
+   , sm_middleware :: Middleware
    }

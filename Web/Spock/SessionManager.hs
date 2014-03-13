@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleContexts, DeriveGeneric, OverloadedStrings, DoAndIfThenElse, RankNTypes #-}
 module Web.Spock.SessionManager
-    ( openSessionManager
+    ( createSessionManager
     , SessionId, Session(..), SessionManager(..)
     )
 where
@@ -13,33 +13,91 @@ import Control.Monad.Trans
 import Data.Time
 import System.Random
 import Web.Scotty.Trans
+import qualified Data.Vault.Lazy as V
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Base64 as B64
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Encoding as T
+import qualified Network.Wai as Wai
+import qualified Data.Text.Lazy.Encoding as TL
+import qualified Data.ByteString.Lazy as BSL
+import qualified Network.Wai.Util as Wai
 
 
-openSessionManager :: SessionCfg -> IO (SessionManager a)
-openSessionManager cfg =
+createSessionManager :: SessionCfg a -> IO (SessionManager a)
+createSessionManager cfg =
     do cacheHM <- atomically $ newTVar HM.empty
+       vaultKey <- V.newKey
        return $ SessionManager
-                  { sm_loadSession = loadSessionImpl cfg cacheHM
-                  , sm_sessionFromCookie = sessionFromCookieImpl cfg cacheHM
-                  , sm_createCookieSession = createCookieSessionImpl cfg cacheHM
-                  , sm_newSession = newSessionImpl cfg cacheHM
-                  , sm_deleteSession = deleteSessionImpl cacheHM
+                  { sm_readSession = readSessionImpl vaultKey cacheHM
+                  , sm_writeSession = writeSessionImpl vaultKey cacheHM
+                  , sm_middleware = sessionMiddleware cfg vaultKey cacheHM
                   }
 
-createCookieSessionImpl :: (SpockError e, MonadIO m)
-                        => SessionCfg
-                        -> UserSessions a
-                        -> a
-                        -> ActionT e m ()
-createCookieSessionImpl sessCfg sessRef val =
-    do sess <- liftIO $ newSessionImpl sessCfg sessRef val
-       setCookie' (sc_cookieName sessCfg) (sess_id sess) (sess_validUntil sess)
+readSessionImpl :: (SpockError e, MonadIO m)
+                => V.Key SessionId
+                -> UserSessions a
+                -> ActionT e m a
+readSessionImpl vK sessionRef =
+    do req <- request
+       case V.lookup vK (Wai.vault req) of
+         Nothing ->
+             error "(1) Internal Spock Session Error. Please report this bug!"
+         Just sid ->
+             do sessions <- liftIO $ atomically $ readTVar sessionRef
+                case HM.lookup sid sessions of
+                  Nothing ->
+                      error "(2) Internal Spock Session Error. Please report this bug!"
+                  Just session ->
+                      return (sess_data session)
 
-newSessionImpl :: SessionCfg
+writeSessionImpl :: (SpockError e, MonadIO m)
+                 => V.Key SessionId
+                 -> UserSessions a
+                 -> a
+                 -> ActionT e m ()
+writeSessionImpl vK sessionRef value =
+    do req <- request
+       case V.lookup vK (Wai.vault req) of
+         Nothing ->
+             error "(3) Internal Spock Session Error. Please report this bug!"
+         Just sid ->
+             do let modFun session =
+                        session { sess_data = value }
+                liftIO $ atomically $ modifyTVar sessionRef (HM.adjust modFun sid)
+
+
+sessionMiddleware :: SessionCfg a
+                  -> V.Key SessionId
+                  -> UserSessions a
+                  -> Wai.Middleware
+sessionMiddleware cfg vK sessionRef app req =
+    case getCookieFromReq (sc_cookieName cfg) req of
+      Just sid ->
+          do mSess <- loadSessionImpl cfg sessionRef sid
+             case mSess of
+               Nothing ->
+                   mkNew
+               Just sess ->
+                   withSess sess
+      Nothing ->
+          mkNew
+    where
+      defVal = sc_emptySession cfg
+      v = Wai.vault req
+      addCookie sess responseHeaders =
+          let cookieContent =
+                  renderCookie (sc_cookieName cfg) (sess_id sess) (sess_validUntil sess)
+              cookie = ("Set-Cookie", BSL.toStrict $ TL.encodeUtf8 cookieContent)
+          in (cookie : responseHeaders)
+      withSess sess =
+          do resp <- app (req { Wai.vault = V.insert vK (sess_id sess) v })
+             return $ Wai.mapHeaders (addCookie sess) resp
+      mkNew =
+          do newSess <- newSessionImpl cfg sessionRef defVal
+             withSess newSess
+
+newSessionImpl :: SessionCfg a
                -> UserSessions a
                -> a
                -> IO (Session a)
@@ -48,19 +106,7 @@ newSessionImpl sessCfg sessionRef content =
        atomically $ modifyTVar sessionRef (\hm -> HM.insert (sess_id sess) sess hm)
        return sess
 
-sessionFromCookieImpl :: (SpockError e, MonadIO m)
-                      => SessionCfg
-                      -> UserSessions a
-                      -> ActionT e m (Maybe (Session a))
-sessionFromCookieImpl sessCfg sessionRef =
-    do mSid <- getCookie (sc_cookieName sessCfg)
-       case mSid of
-         Just sid ->
-             liftIO $ loadSessionImpl sessCfg sessionRef sid
-         Nothing ->
-             return Nothing
-
-loadSessionImpl :: SessionCfg
+loadSessionImpl :: SessionCfg a
                 -> UserSessions a
                 -> SessionId
                 -> IO (Maybe (Session a))
@@ -83,7 +129,7 @@ deleteSessionImpl sessionRef sid =
     do atomically $ modifyTVar sessionRef (\hm -> HM.delete sid hm)
        return ()
 
-createSession :: SessionCfg -> a -> IO (Session a)
+createSession :: SessionCfg a -> a -> IO (Session a)
 createSession sessCfg content =
     do gen <- g
        let sid = T.decodeUtf8 $ B64.encode $ BSC.pack $
