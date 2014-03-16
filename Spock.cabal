@@ -43,7 +43,7 @@ library
                        pool-conduit ==0.1.*,
                        vault ==0.3.*,
                        path-pieces ==0.1.*
-  ghc-options: -Wall -fno-warn-orphans
+  ghc-options: -Werror -Wall -fno-warn-orphans
 
 source-repository head
   type:     git

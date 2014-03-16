@@ -95,10 +95,10 @@ readSession =
        sm_readSession mgr
 
 -- | Same as "param", but the target type needs to implement "PathPiece"
-paramPathPiece :: PathPiece s => TL.Text -> s
+paramPathPiece :: PathPiece s => TL.Text -> SpockAction conn sess st s
 paramPathPiece t =
-    do t <- param t
-       case fromPathPiece t of
+    do val <- param t
+       case fromPathPiece val of
          Just x ->
              return x
          Nothing ->
