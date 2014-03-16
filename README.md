@@ -1,6 +1,8 @@
 Spock
 =====
 
+[![Build Status](https://drone.io/github.com/agrafix/Spock/status.png)](https://drone.io/github.com/agrafix/Spock/latest)
+
 # Intro
 
 Another Haskell web framework based on scotty: This toolbox provides everything you need to get a quick start into web hacking with haskell: sessions, cookies, database helper, global state and the power of scotty

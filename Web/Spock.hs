@@ -24,6 +24,8 @@ module Web.Spock
     , text, html, file, json, source, raw
     , raise, rescue, next
     , RoutePattern
+      -- * Spock utilities
+    , paramPathPiece
       -- * Internals for extending Spock
     , getSpockHeart, runSpockIO, WebStateM, WebState
     )
@@ -39,7 +41,9 @@ import Control.Monad.Trans.Reader
 import Control.Monad.Trans.Resource
 import Data.Pool
 import Web.Scotty.Trans
+import Web.PathPieces
 import qualified Network.HTTP.Types as Http
+import qualified Data.Text.Lazy as TL
 
 -- | Run a spock application using the warp server, a given db storageLayer and an initial state.
 -- Spock works with database libraries that already implement connection pooling and
@@ -89,3 +93,13 @@ readSession :: SpockAction conn sess st sess
 readSession =
     do mgr <- getSessMgr
        sm_readSession mgr
+
+-- | Same as "param", but the target type needs to implement "PathPiece"
+paramPathPiece :: PathPiece s => TL.Text -> s
+paramPathPiece t =
+    do t <- param t
+       case fromPathPiece t of
+         Just x ->
+             return x
+         Nothing ->
+             raise $ stringError $ "Cannot convert param: " ++ TL.unpack t ++ " to path piece!"
