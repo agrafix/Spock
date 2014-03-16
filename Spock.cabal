@@ -38,11 +38,11 @@ library
                        transformers ==0.3.*,
                        transformers-base ==0.4.*,
                        xsd ==0.4.*,
-                       aeson >=0.6,
                        resource-pool ==0.2.*,
                        random ==1.*,
                        pool-conduit ==0.1.*,
-                       vault ==0.3.*
+                       vault ==0.3.*,
+                       path-pieces ==0.1.*
   ghc-options: -Wall -fno-warn-orphans
 
 source-repository head
