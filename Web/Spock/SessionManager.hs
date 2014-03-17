@@ -13,16 +13,16 @@ import Control.Monad.Trans
 import Data.Time
 import System.Random
 import Web.Scotty.Trans
-import qualified Data.Vault.Lazy as V
-import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Base64 as B64
-import qualified Data.HashMap.Strict as HM
-import qualified Data.Text.Encoding as T
-import qualified Network.Wai as Wai
-import qualified Data.Text.Lazy.Encoding as TL
+import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
+import qualified Data.HashMap.Strict as HM
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
+import qualified Data.Text.Lazy.Encoding as TL
+import qualified Data.Vault.Lazy as V
+import qualified Network.Wai as Wai
 import qualified Network.Wai.Util as Wai
-
 
 createSessionManager :: SessionCfg a -> IO (SessionManager a)
 createSessionManager cfg =
@@ -33,13 +33,28 @@ createSessionManager cfg =
                   , sm_writeSession = writeSessionImpl vaultKey cacheHM
                   , sm_modifySession = modifySessionImpl vaultKey cacheHM
                   , sm_middleware = sessionMiddleware cfg vaultKey cacheHM
+                  , sm_addSafeAction = addSafeActionImpl vaultKey cacheHM
+                  , sm_lookupSafeAction = lookupSafeActionImpl vaultKey cacheHM
                   }
 
-readSessionImpl :: (SpockError e, MonadIO m)
+modifySessionBase :: (SpockError e, MonadIO m)
+                  => V.Key SessionId
+                  -> UserSessions a
+                  -> (Session a -> Session a)
+                  -> ActionT e m ()
+modifySessionBase vK sessionRef modFun =
+    do req <- request
+       case V.lookup vK (Wai.vault req) of
+         Nothing ->
+             error "(3) Internal Spock Session Error. Please report this bug!"
+         Just sid ->
+             liftIO $ atomically $ modifyTVar sessionRef (HM.adjust modFun sid)
+
+readSessionBase :: (SpockError e, MonadIO m)
                 => V.Key SessionId
                 -> UserSessions a
-                -> ActionT e m a
-readSessionImpl vK sessionRef =
+                -> ActionT e m (Session a)
+readSessionBase vK sessionRef =
     do req <- request
        case V.lookup vK (Wai.vault req) of
          Nothing ->
@@ -50,7 +65,44 @@ readSessionImpl vK sessionRef =
                   Nothing ->
                       error "(2) Internal Spock Session Error. Please report this bug!"
                   Just session ->
-                      return (sess_data session)
+                      return session
+
+addSafeActionImpl :: (SpockError e, MonadIO m)
+                  => V.Key SessionId
+                  -> UserSessions sess
+                  -> PackedSafeAction
+                  -> ActionT e m SafeActionHash
+addSafeActionImpl vaultKey cacheHM safeAction =
+    do base <- readSessionBase vaultKey cacheHM
+       case HM.lookup safeAction (sas_reverse (sess_safeActions base)) of
+         Just safeActionHash ->
+             return safeActionHash
+         Nothing ->
+             do safeActionHash <- liftIO (randomHash 40)
+                let f sas =
+                        sas
+                        { sas_forward = HM.insert safeActionHash safeAction (sas_forward sas)
+                        , sas_reverse = HM.insert safeAction safeActionHash (sas_reverse sas)
+                        }
+                modifySessionBase vaultKey cacheHM (\s -> s { sess_safeActions = f (sess_safeActions s) })
+                return safeActionHash
+
+lookupSafeActionImpl :: (SpockError e, MonadIO m)
+                     => V.Key SessionId
+                     -> UserSessions sess
+                     -> SafeActionHash
+                     -> ActionT e m (Maybe PackedSafeAction)
+lookupSafeActionImpl vaultKey cacheHM hash =
+    do base <- readSessionBase vaultKey cacheHM
+       return $ HM.lookup hash (sas_forward (sess_safeActions base))
+
+readSessionImpl :: (SpockError e, MonadIO m)
+                => V.Key SessionId
+                -> UserSessions a
+                -> ActionT e m a
+readSessionImpl vK sessionRef =
+    do base <- readSessionBase vK sessionRef
+       return (sess_data base)
 
 writeSessionImpl :: (SpockError e, MonadIO m)
                  => V.Key SessionId
@@ -66,15 +118,9 @@ modifySessionImpl :: (SpockError e, MonadIO m)
                   -> (a -> a)
                   -> ActionT e m ()
 modifySessionImpl vK sessionRef f =
-    do req <- request
-       case V.lookup vK (Wai.vault req) of
-         Nothing ->
-             error "(3) Internal Spock Session Error. Please report this bug!"
-         Just sid ->
-             do let modFun session =
+    do let modFun session =
                         session { sess_data = f (sess_data session) }
-                liftIO $ atomically $ modifyTVar sessionRef (HM.adjust modFun sid)
-
+       modifySessionBase vK sessionRef modFun
 
 sessionMiddleware :: SessionCfg a
                   -> V.Key SessionId
@@ -140,11 +186,17 @@ deleteSessionImpl sessionRef sid =
 
 createSession :: SessionCfg a -> a -> IO (Session a)
 createSession sessCfg content =
-    do gen <- g
-       let sid = T.decodeUtf8 $ B64.encode $ BSC.pack $
-                 take (sc_sessionIdEntropy sessCfg) $ randoms gen
+    do sid <- randomHash (sc_sessionIdEntropy sessCfg)
        now <- getCurrentTime
        let validUntil = addUTCTime (sc_sessionTTL sessCfg) now
-       return (Session sid validUntil content)
+           emptySafeActions =
+               SafeActionStore HM.empty HM.empty
+       return (Session sid validUntil content emptySafeActions)
+
+randomHash :: Int -> IO T.Text
+randomHash len =
+    do gen <- g
+       return $ T.decodeUtf8 $ B64.encode $ BSC.pack $
+              take len $ randoms gen
     where
       g = newStdGen :: IO StdGen

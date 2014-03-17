@@ -15,6 +15,9 @@ module Web.Spock
     , readSession, writeSession, modifySession
       -- * Cookies
     , setCookie, setCookie', getCookie
+      -- * Safe actions
+    , SafeAction (..)
+    , safeActionPath
       -- * General Routing
     , get, post, put, delete, patch, addroute, Http.StdMethod (..)
       -- * Other reexports from scotty
@@ -35,6 +38,7 @@ import Web.Spock.SessionManager
 import Web.Spock.Monad
 import Web.Spock.Types
 import Web.Spock.Cookie
+import Web.Spock.SafeActions
 
 import Control.Applicative
 import Control.Monad.Trans.Reader
@@ -73,6 +77,7 @@ spock port sessionCfg poolOrConn initialState defs =
 
        scottyT port runM runActionToIO $
                do middleware (sm_middleware sessionMgr)
+                  hookSafeActions
                   defs
 
 -- | Write to the current session. Note that all data is stored on the server.

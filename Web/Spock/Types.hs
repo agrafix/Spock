@@ -3,23 +3,26 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ExistentialQuantification #-}
 module Web.Spock.Types where
 
 import Web.Scotty.Trans
 
 import Control.Applicative
 import Control.Concurrent.STM
+import Control.Monad.Base
 import Control.Monad.Reader
+import Control.Monad.Trans.Control
 import Control.Monad.Trans.Resource
+import Data.Hashable
 import Data.Pool
+import Data.Text.Lazy (Text)
 import Data.Time.Clock ( UTCTime(..), NominalDiffTime )
+import Data.Typeable
+import Network.Wai
 import qualified Data.Conduit.Pool as CP
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
-import Data.Text.Lazy (Text)
-import Control.Monad.Trans.Control
-import Control.Monad.Base
-import Network.Wai
 
 type SpockError e = ScottyError e
 
@@ -75,6 +78,28 @@ data WebState conn sess st
    , web_state :: st
    }
 
+-- | SafeActions are actions that need to be protected from csrf attacks
+class (Hashable a, Eq a, Typeable a) => SafeAction a where
+    runSafeAction :: a -> SpockAction conn sess st ()
+
+data PackedSafeAction
+    = forall a. (SafeAction a) => PackedSafeAction { unpackSafeAction :: a }
+
+instance Hashable PackedSafeAction where
+    hashWithSalt i (PackedSafeAction a) = hashWithSalt i a
+
+instance Eq PackedSafeAction where
+   (PackedSafeAction a) == (PackedSafeAction b) =
+       cast a == Just b
+
+data SafeActionStore
+   = SafeActionStore
+   { sas_forward :: HM.HashMap SafeActionHash PackedSafeAction
+   , sas_reverse :: HM.HashMap PackedSafeAction SafeActionHash
+   }
+
+type SafeActionHash = T.Text
+
 newtype WebStateM conn sess st a = WebStateM { runWebStateM :: ReaderT (WebState conn sess st) (ResourceT IO) a }
     deriving (Monad, Functor, Applicative, MonadIO, MonadReader (WebState conn sess st))
 
@@ -92,6 +117,7 @@ data Session a
     { sess_id :: SessionId
     , sess_validUntil :: UTCTime
     , sess_data :: a
+    , sess_safeActions :: SafeActionStore
     }
 type UserSessions a = TVar (HM.HashMap SessionId (Session a))
 
@@ -101,4 +127,6 @@ data SessionManager a
    , sm_writeSession :: (SpockError e, MonadIO m) => a -> ActionT e m ()
    , sm_modifySession :: (SpockError e, MonadIO m) => (a -> a) -> ActionT e m ()
    , sm_middleware :: Middleware
+   , sm_addSafeAction :: (SpockError e, MonadIO m) => PackedSafeAction -> ActionT e m SafeActionHash
+   , sm_lookupSafeAction :: (SpockError e, MonadIO m) => SafeActionHash -> ActionT e m (Maybe PackedSafeAction)
    }
