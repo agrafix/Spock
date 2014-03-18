@@ -200,6 +200,7 @@ housekeepSessions :: UserSessions conn sess st -> IO ()
 housekeepSessions sessionRef =
     do now <- getCurrentTime
        atomically $ modifyTVar sessionRef (killOld now)
+       threadDelay (1000 * 1000 * 60) -- 60 seconds
     where
       filterOld now (_, sess) =
           (sess_validUntil sess) > now
