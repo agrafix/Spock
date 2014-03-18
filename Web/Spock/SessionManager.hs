@@ -13,7 +13,7 @@ import Control.Monad.Trans
 import Data.Time
 import System.Random
 import Web.Scotty.Trans
-import qualified Data.ByteString.Base64 as B64
+import qualified Data.ByteString.Base64.URL as B64
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict as HM
@@ -189,7 +189,7 @@ createSession sessCfg content =
 randomHash :: Int -> IO T.Text
 randomHash len =
     do gen <- g
-       return $ T.decodeUtf8 $ B64.encode $ BSC.pack $
+       return $ T.replace "=" "" $ T.decodeUtf8 $ B64.encode $ BSC.pack $
               take len $ randoms gen
     where
       g = newStdGen :: IO StdGen

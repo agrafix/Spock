@@ -132,6 +132,9 @@ data Session conn sess st
     , sess_data :: sess
     , sess_safeActions :: SafeActionStore conn sess st
     }
+instance Show (Session conn sess st) where
+    show = show . sess_id
+
 type UserSessions conn sess st =
     TVar (HM.HashMap SessionId (Session conn sess st))
 
