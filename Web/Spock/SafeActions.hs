@@ -15,7 +15,7 @@ import qualified Data.Text as T
 --
 -- > newtype DeleteUser = DeleteUser Int deriving (Hashable, Typeable, Eq)
 -- >
--- > instance SafeAction DeleteUser where
+-- > instance SafeAction Connection () () DeleteUser where
 -- >    runSafeAction (DeleteUser i) =
 -- >       do runQuery $ deleteUserFromDb i
 -- >          redirect "/user-list"
