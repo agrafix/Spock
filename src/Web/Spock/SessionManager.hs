@@ -8,7 +8,9 @@ where
 import Web.Spock.Types
 import Web.Spock.Cookie
 
+import Control.Concurrent
 import Control.Concurrent.STM
+import Control.Monad
 import Control.Monad.Trans
 import Data.Time
 import System.Random
@@ -28,6 +30,7 @@ createSessionManager :: SessionCfg sess -> IO (SessionManager conn sess st)
 createSessionManager cfg =
     do cacheHM <- atomically $ newTVar HM.empty
        vaultKey <- V.newKey
+       _ <- forkIO (forever (housekeepSessions cacheHM))
        return $ SessionManager
                   { sm_readSession = readSessionImpl vaultKey cacheHM
                   , sm_writeSession = writeSessionImpl vaultKey cacheHM
@@ -35,6 +38,7 @@ createSessionManager cfg =
                   , sm_middleware = sessionMiddleware cfg vaultKey cacheHM
                   , sm_addSafeAction = addSafeActionImpl vaultKey cacheHM
                   , sm_lookupSafeAction = lookupSafeActionImpl vaultKey cacheHM
+                  , sm_removeSafeAction = removeSafeActionImpl vaultKey cacheHM
                   }
 
 modifySessionBase :: V.Key SessionId
@@ -69,8 +73,8 @@ addSafeActionImpl :: V.Key SessionId
                   -> UserSessions conn sess st
                   -> PackedSafeAction conn sess st
                   -> SpockAction conn sess st SafeActionHash
-addSafeActionImpl vaultKey cacheHM safeAction =
-    do base <- readSessionBase vaultKey cacheHM
+addSafeActionImpl vaultKey sessionMapVar safeAction =
+    do base <- readSessionBase vaultKey sessionMapVar
        case HM.lookup safeAction (sas_reverse (sess_safeActions base)) of
          Just safeActionHash ->
              return safeActionHash
@@ -81,16 +85,32 @@ addSafeActionImpl vaultKey cacheHM safeAction =
                         { sas_forward = HM.insert safeActionHash safeAction (sas_forward sas)
                         , sas_reverse = HM.insert safeAction safeActionHash (sas_reverse sas)
                         }
-                modifySessionBase vaultKey cacheHM (\s -> s { sess_safeActions = f (sess_safeActions s) })
+                modifySessionBase vaultKey sessionMapVar (\s -> s { sess_safeActions = f (sess_safeActions s) })
                 return safeActionHash
 
 lookupSafeActionImpl :: V.Key SessionId
                      -> UserSessions conn sess st
                      -> SafeActionHash
                      -> SpockAction conn sess st (Maybe (PackedSafeAction conn sess st))
-lookupSafeActionImpl vaultKey cacheHM hash =
-    do base <- readSessionBase vaultKey cacheHM
+lookupSafeActionImpl vaultKey sessionMapVar hash =
+    do base <- readSessionBase vaultKey sessionMapVar
        return $ HM.lookup hash (sas_forward (sess_safeActions base))
+
+removeSafeActionImpl :: V.Key SessionId
+                     -> UserSessions conn sess st
+                     -> PackedSafeAction conn sess st
+                     -> SpockAction conn sess st ()
+removeSafeActionImpl vaultKey sessionMapVar action =
+    modifySessionBase vaultKey sessionMapVar (\s -> s { sess_safeActions = f (sess_safeActions s ) })
+    where
+      f sas =
+          sas
+          { sas_forward =
+              case HM.lookup action (sas_reverse sas) of
+                Just h -> HM.delete h (sas_forward sas)
+                Nothing -> sas_forward sas
+          , sas_reverse = HM.delete action (sas_reverse sas)
+          }
 
 readSessionImpl :: V.Key SessionId
                 -> UserSessions conn sess st
@@ -122,7 +142,7 @@ sessionMiddleware :: SessionCfg sess
 sessionMiddleware cfg vK sessionRef app req =
     case getCookieFromReq (sc_cookieName cfg) req of
       Just sid ->
-          do mSess <- loadSessionImpl cfg sessionRef sid
+          do mSess <- loadSessionImpl sessionRef sid
              case mSess of
                Nothing ->
                    mkNew
@@ -154,16 +174,15 @@ newSessionImpl sessCfg sessionRef content =
        atomically $ modifyTVar sessionRef (\hm -> HM.insert (sess_id sess) sess hm)
        return sess
 
-loadSessionImpl :: SessionCfg sess
-                -> UserSessions conn sess st
+loadSessionImpl :: UserSessions conn sess st
                 -> SessionId
                 -> IO (Maybe (Session conn sess st))
-loadSessionImpl sessCfg sessionRef sid =
+loadSessionImpl sessionRef sid =
     do sessHM <- atomically $ readTVar sessionRef
        now <- getCurrentTime
        case HM.lookup sid sessHM of
          Just sess ->
-             do if addUTCTime (sc_sessionTTL sessCfg) (sess_validUntil sess) > now
+             do if (sess_validUntil sess) > now
                 then return $ Just sess
                 else do deleteSessionImpl sessionRef sid
                         return Nothing
@@ -176,6 +195,16 @@ deleteSessionImpl :: UserSessions conn sess st
 deleteSessionImpl sessionRef sid =
     do atomically $ modifyTVar sessionRef (\hm -> HM.delete sid hm)
        return ()
+
+housekeepSessions :: UserSessions conn sess st -> IO ()
+housekeepSessions sessionRef =
+    do now <- getCurrentTime
+       atomically $ modifyTVar sessionRef (killOld now)
+    where
+      filterOld now (_, sess) =
+          (sess_validUntil sess) > now
+      killOld now hm =
+          HM.fromList $ filter (filterOld now) $ HM.toList hm
 
 createSession :: SessionCfg sess -> sess -> IO (Session conn sess st)
 createSession sessCfg content =

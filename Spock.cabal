@@ -13,7 +13,8 @@ build-type:          Simple
 cabal-version:       >=1.8
 
 library
-  exposed-modules:  Web.Spock
+  hs-source-dirs:      src
+  exposed-modules:     Web.Spock
   other-modules:       Web.Spock.SessionManager,
                        Web.Spock.Monad,
                        Web.Spock.Cookie,

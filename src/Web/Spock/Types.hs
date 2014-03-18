@@ -93,6 +93,7 @@ class HasSpock m where
 
 -- | SafeActions are actions that need to be protected from csrf attacks
 class (Hashable a, Eq a, Typeable a) => SafeAction conn sess st a where
+    -- | The body of the safe action. Either GET or POST
     runSafeAction :: a -> SpockAction conn sess st ()
 
 data PackedSafeAction conn sess st
@@ -144,6 +145,7 @@ data SessionManager conn sess st
    , sm_writeSession :: sess -> SpockAction conn sess st ()
    , sm_modifySession :: (sess -> sess) -> SpockAction conn sess st ()
    , sm_middleware :: Middleware
-   , sm_addSafeAction :: (PackedSafeAction conn sess st) -> SpockAction conn sess st SafeActionHash
+   , sm_addSafeAction :: PackedSafeAction conn sess st -> SpockAction conn sess st SafeActionHash
    , sm_lookupSafeAction :: SafeActionHash -> SpockAction conn sess st (Maybe (PackedSafeAction conn sess st))
+   , sm_removeSafeAction :: PackedSafeAction conn sess st -> SpockAction conn sess st ()
    }
