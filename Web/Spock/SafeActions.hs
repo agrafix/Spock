@@ -25,8 +25,9 @@ import qualified Data.Text as T
 --
 -- Note that safeActions currently only support GET and POST requests.
 --
-safeActionPath :: forall a conn sess st. SafeAction a
-               => a -> SpockAction conn sess st T.Text
+safeActionPath :: SafeAction a
+               => a
+               -> SpockAction conn sess st T.Text
 safeActionPath safeAction =
     do mgr <- getSessMgr
        hash <- (sm_addSafeAction mgr) (PackedSafeAction safeAction)
