@@ -28,11 +28,11 @@ type SpockError e = ScottyError e
 
 -- | Spock is supercharged Scotty, that's why the 'SpockM' is built on the
 -- ScottyT monad. Insive the SpockM monad, you may define routes and middleware.
-type SpockM conn sess st a = ScottyT Text (WebStateM conn sess st) a
+type SpockM conn sess st = ScottyT Text (WebStateM conn sess st)
 
 -- | The SpockAction is the monad of all route-actions. You have access
 -- to the database, session and state of your application.
-type SpockAction conn sess st a = ActionT Text (WebStateM conn sess st) a
+type SpockAction conn sess st = ActionT Text (WebStateM conn sess st)
 
 -- | If Spock should take care of connection pooling, you need to configure
 -- it depending on what you need.
@@ -74,28 +74,41 @@ data ConnectionPool conn
 data WebState conn sess st
    = WebState
    { web_dbConn :: ConnectionPool conn
-   , web_sessionMgr :: SessionManager sess
+   , web_sessionMgr :: SessionManager conn sess st
    , web_state :: st
    }
 
+class HasSpock m where
+    type SpockConn m :: *
+    type SpockState m :: *
+    type SpockSession m :: *
+    -- | Give you access to a database connectin from the connection pool. The connection is
+    -- released back to the pool once the function terminates.
+    runQuery :: (SpockConn m -> IO a) -> m a
+    -- | Read the application's state. If you wish to have mutable state, you could
+    -- use a 'TVar' from the STM packge.
+    getState :: m (SpockState m)
+    -- | Get the session manager
+    getSessMgr :: m (SessionManager (SpockConn m) (SpockSession m) (SpockState m))
+
 -- | SafeActions are actions that need to be protected from csrf attacks
-class (Hashable a, Eq a, Typeable a) => SafeAction a where
+class (Hashable a, Eq a, Typeable a) => SafeAction conn sess st a where
     runSafeAction :: a -> SpockAction conn sess st ()
 
-data PackedSafeAction
-    = forall a. (SafeAction a) => PackedSafeAction { unpackSafeAction :: a }
+data PackedSafeAction conn sess st
+    = forall a. (SafeAction conn sess st a) => PackedSafeAction { unpackSafeAction :: a }
 
-instance Hashable PackedSafeAction where
+instance Hashable (PackedSafeAction conn sess st) where
     hashWithSalt i (PackedSafeAction a) = hashWithSalt i a
 
-instance Eq PackedSafeAction where
+instance Eq (PackedSafeAction conn sess st) where
    (PackedSafeAction a) == (PackedSafeAction b) =
        cast a == Just b
 
-data SafeActionStore
+data SafeActionStore conn sess st
    = SafeActionStore
-   { sas_forward :: HM.HashMap SafeActionHash PackedSafeAction
-   , sas_reverse :: HM.HashMap PackedSafeAction SafeActionHash
+   { sas_forward :: HM.HashMap SafeActionHash (PackedSafeAction conn sess st)
+   , sas_reverse :: HM.HashMap (PackedSafeAction conn sess st) SafeActionHash
    }
 
 type SafeActionHash = T.Text
@@ -112,21 +125,22 @@ instance MonadBaseControl IO (WebStateM conn sess st) where
     restoreM = WebStateM . restoreM . unWStM
 
 type SessionId = T.Text
-data Session a
+data Session conn sess st
     = Session
     { sess_id :: SessionId
     , sess_validUntil :: UTCTime
-    , sess_data :: a
-    , sess_safeActions :: SafeActionStore
+    , sess_data :: sess
+    , sess_safeActions :: SafeActionStore conn sess st
     }
-type UserSessions a = TVar (HM.HashMap SessionId (Session a))
+type UserSessions conn sess st =
+    TVar (HM.HashMap SessionId (Session conn sess st))
 
-data SessionManager a
+data SessionManager conn sess st
    = SessionManager
-   { sm_readSession :: (SpockError e, MonadIO m) => ActionT e m a
-   , sm_writeSession :: (SpockError e, MonadIO m) => a -> ActionT e m ()
-   , sm_modifySession :: (SpockError e, MonadIO m) => (a -> a) -> ActionT e m ()
+   { sm_readSession :: SpockAction conn sess st sess
+   , sm_writeSession :: sess -> SpockAction conn sess st ()
+   , sm_modifySession :: (sess -> sess) -> SpockAction conn sess st ()
    , sm_middleware :: Middleware
-   , sm_addSafeAction :: (SpockError e, MonadIO m) => PackedSafeAction -> ActionT e m SafeActionHash
-   , sm_lookupSafeAction :: (SpockError e, MonadIO m) => SafeActionHash -> ActionT e m (Maybe PackedSafeAction)
+   , sm_addSafeAction :: (PackedSafeAction conn sess st) -> SpockAction conn sess st SafeActionHash
+   , sm_lookupSafeAction :: SafeActionHash -> SpockAction conn sess st (Maybe (PackedSafeAction conn sess st))
    }

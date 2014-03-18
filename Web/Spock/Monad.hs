@@ -21,19 +21,6 @@ import qualified Text.XML.XSD.DateTime as XSD
 webM :: MonadTrans t => WebStateM conn sess st a -> t (WebStateM conn sess st) a
 webM = lift
 
-class HasSpock m where
-    type SpockConn m :: *
-    type SpockState m :: *
-    type SpockSession m :: *
-    -- | Give you access to a database connectin from the connection pool. The connection is
-    -- released back to the pool once the function terminates.
-    runQuery :: (SpockConn m -> IO a) -> m a
-    -- | Read the application's state. If you wish to have mutable state, you could
-    -- use a 'TVar' from the STM packge.
-    getState :: m (SpockState m)
-    -- | Get the session manager
-    getSessMgr :: m (SessionManager (SpockSession m))
-
 instance MonadTrans t => HasSpock (t (WebStateM conn sess st)) where
     type SpockConn (t (WebStateM conn sess st)) = conn
     type SpockState (t (WebStateM conn sess st)) = st
@@ -75,7 +62,7 @@ runSpockIO st (WebStateM action) =
     runResourceT $
     runReaderT action st
 
-getSessMgrImpl :: (WebStateM conn sess st) (SessionManager sess)
+getSessMgrImpl :: (WebStateM conn sess st) (SessionManager conn sess st)
 getSessMgrImpl = asks web_sessionMgr
 
 instance Parsable BSL.ByteString where
