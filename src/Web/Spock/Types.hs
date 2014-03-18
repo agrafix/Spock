@@ -108,8 +108,8 @@ instance Eq (PackedSafeAction conn sess st) where
 
 data SafeActionStore conn sess st
    = SafeActionStore
-   { sas_forward :: HM.HashMap SafeActionHash (PackedSafeAction conn sess st)
-   , sas_reverse :: HM.HashMap (PackedSafeAction conn sess st) SafeActionHash
+   { sas_forward :: !(HM.HashMap SafeActionHash (PackedSafeAction conn sess st))
+   , sas_reverse :: !(HM.HashMap (PackedSafeAction conn sess st) SafeActionHash)
    }
 
 type SafeActionHash = T.Text
@@ -128,10 +128,10 @@ instance MonadBaseControl IO (WebStateM conn sess st) where
 type SessionId = T.Text
 data Session conn sess st
     = Session
-    { sess_id :: SessionId
-    , sess_validUntil :: UTCTime
-    , sess_data :: sess
-    , sess_safeActions :: SafeActionStore conn sess st
+    { sess_id :: !SessionId
+    , sess_validUntil :: !UTCTime
+    , sess_data :: !sess
+    , sess_safeActions :: !(SafeActionStore conn sess st)
     }
 instance Show (Session conn sess st) where
     show = show . sess_id

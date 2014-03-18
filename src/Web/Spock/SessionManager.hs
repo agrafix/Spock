@@ -51,7 +51,7 @@ modifySessionBase vK sessionRef modFun =
          Nothing ->
              error "(3) Internal Spock Session Error. Please report this bug!"
          Just sid ->
-             liftIO $ atomically $ modifyTVar sessionRef (HM.adjust modFun sid)
+             liftIO $ atomically $ modifyTVar' sessionRef (HM.adjust modFun sid)
 
 readSessionBase :: V.Key SessionId
                 -> UserSessions conn sess st
@@ -171,8 +171,8 @@ newSessionImpl :: SessionCfg sess
                -> IO (Session conn sess st)
 newSessionImpl sessCfg sessionRef content =
     do sess <- createSession sessCfg content
-       atomically $ modifyTVar sessionRef (\hm -> HM.insert (sess_id sess) sess hm)
-       return sess
+       atomically $ modifyTVar' sessionRef (\hm -> HM.insert (sess_id sess) sess hm)
+       return $! sess
 
 loadSessionImpl :: UserSessions conn sess st
                 -> SessionId
@@ -193,13 +193,13 @@ deleteSessionImpl :: UserSessions conn sess st
                   -> SessionId
                   -> IO ()
 deleteSessionImpl sessionRef sid =
-    do atomically $ modifyTVar sessionRef (\hm -> HM.delete sid hm)
+    do atomically $ modifyTVar' sessionRef (\hm -> HM.delete sid hm)
        return ()
 
 housekeepSessions :: UserSessions conn sess st -> IO ()
 housekeepSessions sessionRef =
     do now <- getCurrentTime
-       atomically $ modifyTVar sessionRef (killOld now)
+       atomically $ modifyTVar' sessionRef (killOld now)
        threadDelay (1000 * 1000 * 60) -- 60 seconds
     where
       filterOld now (_, sess) =
