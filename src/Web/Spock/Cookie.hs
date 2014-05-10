@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ConstraintKinds #-}
 module Web.Spock.Cookie where
 
 import Web.Spock.Types
