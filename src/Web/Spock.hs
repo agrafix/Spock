@@ -24,7 +24,7 @@ module Web.Spock
     , middleware, matchAny, notFound
     , request, reqHeader, body, param, params, jsonData, files
     , status, addHeader, setHeader, redirect
-    , text, html, file, json, source, raw
+    , text, html, blaze, file, json, source, raw
     , raise, rescue, next
     , RoutePattern
       -- * Spock utilities
@@ -44,6 +44,8 @@ import Control.Applicative
 import Control.Monad.Trans.Reader
 import Control.Monad.Trans.Resource
 import Data.Pool
+import Text.Blaze.Html (Html)
+import Text.Blaze.Html.Renderer.Text (renderHtml)
 import Web.Scotty.Trans
 import Web.PathPieces
 import qualified Network.HTTP.Types as Http
@@ -79,6 +81,11 @@ spock port sessionCfg poolOrConn initialState defs =
                do middleware (sm_middleware sessionMgr)
                   hookSafeActions
                   defs
+
+-- | Output html built with blaze
+blaze :: Html -> SpockAction conn sess st ()
+blaze htmlVal =
+    html $ renderHtml htmlVal
 
 -- | Write to the current session. Note that all data is stored on the server.
 -- The user only reciedes a sessionId to be identified.
