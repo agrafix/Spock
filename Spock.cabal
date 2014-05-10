@@ -1,5 +1,5 @@
 name:                Spock
-version:             0.4.3.5
+version:             0.4.4.0
 synopsis:            Another Haskell web toolkit based on scotty
 description:         This toolbox provides everything you need to get a quick start into web hacking with haskell: sessions, cookies, database helper, csrf-protection, global state and the power of scotty
 Homepage:            https://github.com/agrafix/Spock
@@ -46,7 +46,8 @@ library
                        vault ==0.3.*,
                        path-pieces ==0.1.*,
                        hashable ==1.2.*,
-                       blaze-html ==0.7.*
+                       blaze-html ==0.7.*,
+                       digestive-functors ==0.7.*
   ghc-options: -Wall -fno-warn-orphans
 
 source-repository head

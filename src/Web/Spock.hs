@@ -20,6 +20,8 @@ module Web.Spock
     , safeActionPath
       -- * General Routing
     , get, post, put, delete, patch, addroute, Http.StdMethod (..)
+      -- * Digestive Functors
+    , runForm
       -- * Other reexports from scotty
     , middleware, matchAny, notFound
     , request, reqHeader, body, param, params, jsonData, files
@@ -39,6 +41,7 @@ import Web.Spock.Monad
 import Web.Spock.Types
 import Web.Spock.Cookie
 import Web.Spock.SafeActions
+import Web.Spock.Digestive
 
 import Control.Applicative
 import Control.Monad.Trans.Reader
