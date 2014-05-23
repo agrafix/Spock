@@ -62,8 +62,8 @@ buildRegex :: T.Text -> RegexWrapper
 buildRegex t =
   RegexWrapper (Regex.mkRegex $ T.unpack t) t
 
-emptyRoutingTree :: Monoid a => Maybe a -> RoutingTree a
-emptyRoutingTree a = RoutingTree (RouteData RouteNodeRoot a) V.empty
+emptyRoutingTree :: RoutingTree a
+emptyRoutingTree = RoutingTree (RouteData RouteNodeRoot Nothing) V.empty
 
 mergeData :: Monoid a => Maybe a -> Maybe a -> Maybe a
 mergeData (Just a) (Just b) = Just $ a `mappend` b
@@ -182,9 +182,10 @@ test_matchRoute =
      assertEqual (Just (HM.fromList [(CaptureVar "baz", "23")], [4])) (matchRoute "/bar/23/baz" routingTree)
   where
     routingTree =
-      foldl (\tree (route, action) -> addToRoutingTree route action tree) (emptyRoutingTree (Just [1])) routes
+      foldl (\tree (route, action) -> addToRoutingTree route action tree) emptyRoutingTree routes
     routes = 
-      [ ("/bar", [2 :: Int])
+      [ ("/", [1])
+      , ("/bar", [2 :: Int])
       , ("/bar/:baz", [3])
       , ("/bar/:baz/baz", [4])
       ]
@@ -197,17 +198,17 @@ test_parseRouteNode =
 
 test_addToRoutingTree :: IO ()
 test_addToRoutingTree =
-  do assertEqual emptyT (addToRoutingTree "/" [] emptyT)
-     assertEqual (emptyRoutingTree (Just [False,True])) (addToRoutingTree "/" [True] emptyT)
+  do assertEqual baseRoute (addToRoutingTree "/" [True] emptyT)
      assertEqual (fooBar []) (addToRoutingTree "/foo/:bar" [True] emptyT)
      assertEqual (fooBar baz) (addToRoutingTree "/foo/:bar/baz" [True] (fooBar []))
   where
-    emptyT = emptyRoutingTree (Just [False])
+    emptyT = emptyRoutingTree
+    baseRoute = RoutingTree { rt_node = RouteData{rd_node = RouteNodeRoot, rd_data = Just [True]}, rt_children = V.empty}
     baz = [ RoutingTree { rt_node = RouteData { rd_node = RouteNodeText "baz", rd_data = Just [True] },rt_children = V.empty }]
     fooBar xs = 
       RoutingTree 
       { rt_node =
-          RouteData {rd_node = RouteNodeRoot, rd_data = Just [False]}
+          RouteData {rd_node = RouteNodeRoot, rd_data = Nothing }
       , rt_children =
           V.fromList
           [ RoutingTree { rt_node = RouteData{rd_node = RouteNodeText "foo", rd_data = Nothing}
