@@ -145,7 +145,7 @@ buildApp spockLift spockActions =
                                      getParams = map (\(k, mV) -> (T.decodeUtf8 k, T.decodeUtf8 $ fromMaybe BS.empty mV)) $ Wai.queryString req
                                      params = HM.fromList $ captureParams ++ postParams ++ getParams
                                      env = RequestInfo req params uploadedFiles
-                                     resp = errorResponse status500 "500 - No response implemented"
+                                     resp = errorResponse status200 ""
                                  (respState, _) <- spockLift $ execRWST (runActionT action) env resp
                                  forM_ (HM.elems uploadedFiles) $ \uploadedFile ->
                                      do stillThere <- doesFileExist (uf_tempLocation uploadedFile)
