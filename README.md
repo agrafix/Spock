@@ -5,7 +5,7 @@ Spock
 
 # Intro
 
-Another Haskell web framework based on scotty: This toolbox provides
+Another Haskell web framework for rapid development: This toolbox provides
 everything you need to get a quick start into web hacking with haskell:
 
 * routing
