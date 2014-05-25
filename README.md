@@ -5,6 +5,8 @@ Spock
 
 # Intro
 
+Hackage: http://hackage.haskell.org/package/Spock
+
 Another Haskell web framework for rapid development: This toolbox provides
 everything you need to get a quick start into web hacking with haskell:
 
@@ -18,9 +20,9 @@ everything you need to get a quick start into web hacking with haskell:
 * csrf-protection
 * global state
 
+Benchmarks: https://github.com/agrafix/Spock-scotty-benchmark
 
-* Hackage: http://hackage.haskell.org/package/Spock
-* Benchmarks: https://github.com/agrafix/Spock-scotty-benchmark
+# Usage
 
 ```haskell
 {-# LANGUAGE OverloadedStrings #-}
