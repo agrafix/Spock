@@ -18,8 +18,25 @@ everything you need to get a quick start into web hacking with haskell:
 * csrf-protection
 * global state
 
-* Hackage: http://hackage.haskell.org/package/Spock
 
+* Hackage: http://hackage.haskell.org/package/Spock
+* Benchmarks: https://github.com/agrafix/Spock-scotty-benchmark
+
+```haskell
+{-# LANGUAGE OverloadedStrings #-}
+import Web.Spock
+
+import qualified Data.Text as T
+
+main = 
+	spockT 3000 id $
+    do get "/echo/:something" $ 
+        do Just something <- param "something"
+           text $ T.concat ["Echo: ", something]
+       get "/regex/{number:^[0-9]+$}" $
+        do Just number <- param "number"
+           text $ T.concat ["Just a number: ", number]   
+```
 
 # Install
 
@@ -33,7 +50,7 @@ The following Spock extensions exist:
 * Authentification helpers for Spock: http://hackage.haskell.org/package/Spock-auth
 * Background workers for Spock: http://hackage.haskell.org/package/Spock-worker
 
-# Examples
+# Example Projects
 
 * https://github.com/agrafix/funblog
 * https://github.com/openbrainsrc/makeci
