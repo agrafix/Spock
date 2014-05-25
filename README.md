@@ -7,7 +7,16 @@ Spock
 
 Another Haskell web framework based on scotty: This toolbox provides
 everything you need to get a quick start into web hacking with haskell:
-sessions, cookies, database helper, csrf-protection, global state and the power of scotty
+
+* routing
+* middleware
+* json
+* blaze
+* sessions
+* cookies
+* database helper
+* csrf-protection
+* global state
 
 * Hackage: http://hackage.haskell.org/package/Spock
 
@@ -28,3 +37,9 @@ The following Spock extensions exist:
 
 * https://github.com/agrafix/funblog
 * https://github.com/openbrainsrc/makeci
+
+# Notes
+
+Since version 0.5.0.0 Spock is no longer built on top of scotty. The
+design and interface is still influenced by scotty, but the internal
+implementation differs from scotty's.

@@ -6,7 +6,7 @@
 {-# LANGUAGE ExistentialQuantification #-}
 module Web.Spock.Types where
 
-import Web.Scotty.Trans
+import Web.Spock.Core
 
 import Control.Applicative
 import Control.Concurrent.STM
@@ -16,7 +16,6 @@ import Control.Monad.Trans.Control
 import Control.Monad.Trans.Resource
 import Data.Hashable
 import Data.Pool
-import Data.Text.Lazy (Text)
 import Data.Time.Clock ( UTCTime(..), NominalDiffTime )
 import Data.Typeable
 import Network.Wai
@@ -24,15 +23,12 @@ import qualified Data.Conduit.Pool as CP
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 
-type SpockError e = ScottyError e
-
--- | Spock is supercharged Scotty, that's why the 'SpockM' is built on the
--- ScottyT monad. Insive the SpockM monad, you may define routes and middleware.
-type SpockM conn sess st = ScottyT Text (WebStateM conn sess st)
+-- | Insive the SpockM monad, you may define routes and middleware.
+type SpockM conn sess st = SpockT (WebStateM conn sess st)
 
 -- | The SpockAction is the monad of all route-actions. You have access
 -- to the database, session and state of your application.
-type SpockAction conn sess st = ActionT Text (WebStateM conn sess st)
+type SpockAction conn sess st = ActionT (WebStateM conn sess st)
 
 -- | If Spock should take care of connection pooling, you need to configure
 -- it depending on what you need.

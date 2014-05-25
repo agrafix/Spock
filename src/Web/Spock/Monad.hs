@@ -11,11 +11,11 @@ import Control.Monad.Reader
 import Control.Monad.Trans.Resource
 import Data.Pool
 import Data.Time.Clock ( UTCTime(..) )
-import Web.Scotty.Trans
-import qualified Data.Conduit.Pool as CP
+import Web.PathPieces
 import qualified Data.ByteString.Lazy as BSL
+import qualified Data.Conduit.Pool as CP
+import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
-import qualified Data.Text.Lazy as TL
 import qualified Text.XML.XSD.DateTime as XSD
 
 webM :: MonadTrans t => WebStateM conn sess st a -> t (WebStateM conn sess st) a
@@ -65,14 +65,12 @@ runSpockIO st (WebStateM action) =
 getSessMgrImpl :: (WebStateM conn sess st) (SessionManager conn sess st)
 getSessMgrImpl = asks web_sessionMgr
 
-instance Parsable BSL.ByteString where
-    parseParam =
-        Right . BSL.fromStrict . T.encodeUtf8 . TL.toStrict
+instance PathPiece BSL.ByteString where
+    fromPathPiece =
+        Just . BSL.fromStrict . T.encodeUtf8
+    toPathPiece =
+        T.decodeUtf8 . BSL.toStrict
 
-instance Parsable UTCTime where
-    parseParam p =
-        case join $ fmap XSD.toUTCTime $ XSD.dateTime (TL.toStrict p) of
-          Nothing ->
-              Left $ TL.pack $ "Can't parse param (`" ++ show p ++ "`) as UTCTime!"
-          Just x ->
-              Right x
+instance PathPiece UTCTime where
+    fromPathPiece p = join $ fmap XSD.toUTCTime $ XSD.dateTime p
+    toPathPiece = T.pack . show . XSD.fromUTCTime

@@ -6,21 +6,23 @@ module Web.Spock.SessionManager
 where
 
 import Web.Spock.Types
-import Web.Spock.Cookie
+import Web.Spock.Core
 
+import Control.Arrow (first)
 import Control.Concurrent
 import Control.Concurrent.STM
 import Control.Monad
 import Control.Monad.Trans
 import Data.Time
+import System.Locale
 import System.Random
-import Web.Scotty.Trans
 import qualified Data.ByteString.Base64.URL as B64
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
+import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TL
 import qualified Data.Vault.Lazy as V
 import qualified Network.Wai as Wai
@@ -140,7 +142,7 @@ sessionMiddleware :: SessionCfg sess
                   -> UserSessions conn sess st
                   -> Wai.Middleware
 sessionMiddleware cfg vK sessionRef app req =
-    case getCookieFromReq (sc_cookieName cfg) req of
+    case getCookieFromReq (sc_cookieName cfg) of
       Just sid ->
           do mSess <- loadSessionImpl sessionRef sid
              case mSess of
@@ -151,13 +153,30 @@ sessionMiddleware cfg vK sessionRef app req =
       Nothing ->
           mkNew
     where
+      getCookieFromReq name =
+          lookup "cookie" (Wai.requestHeaders req) >>=
+                 lookup name . parseCookies . T.decodeUtf8
+      renderCookie name value validUntil =
+          let formattedTime =
+                  TL.pack $ formatTime defaultTimeLocale "%a, %d-%b-%Y %X %Z" validUntil
+          in TL.concat [ TL.fromStrict name
+                       , "="
+                       , TL.fromStrict value
+                       , "; path=/; expires="
+                       , formattedTime
+                       , ";"
+                       ]
+      parseCookies :: T.Text -> [(T.Text, T.Text)]
+      parseCookies = map parseCookie . T.splitOn ";" . T.concat . T.words
+      parseCookie = first T.init . T.breakOnEnd "="
+
       defVal = sc_emptySession cfg
       v = Wai.vault req
       addCookie sess responseHeaders =
           let cookieContent =
                   renderCookie (sc_cookieName cfg) (sess_id sess) (sess_validUntil sess)
-              cookie = ("Set-Cookie", BSL.toStrict $ TL.encodeUtf8 cookieContent)
-          in (cookie : responseHeaders)
+              cookieC = ("Set-Cookie", BSL.toStrict $ TL.encodeUtf8 cookieContent)
+          in (cookieC : responseHeaders)
       withSess shouldSetCookie sess =
           do resp <- app (req { Wai.vault = V.insert vK (sess_id sess) v })
              return $ if shouldSetCookie then Wai.mapHeaders (addCookie sess) resp else resp

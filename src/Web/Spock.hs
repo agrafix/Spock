@@ -6,53 +6,48 @@
 module Web.Spock
     ( -- * Spock's core
       spock, SpockM, SpockAction
+     -- * Defining routes
+    , get, post, C.head, put, delete, patch, defRoute, Http.StdMethod
+     -- * Handeling requests
+    , request, header, cookie, body, jsonBody, files, UploadedFile (..)
+    , params, param
+     -- * Sending responses
+    , setStatus, setHeader, redirect, setCookie, setCookie', bytes, lazyBytes
+    , text, html, file, json, blaze
+     -- * Adding middleware
+    , middleware
       -- * Database
     , PoolOrConn (..), ConnBuilder (..), PoolCfg (..)
       -- * Accessing Database and State
     , HasSpock (runQuery, getState)
-    -- * Sessions
+      -- * Sessions
     , SessionCfg (..)
     , readSession, writeSession, modifySession
-      -- * Cookies
-    , setCookie, setCookie', getCookie
       -- * Safe actions
     , SafeAction (..)
     , safeActionPath
-      -- * General Routing
-    , get, post, put, delete, patch, addroute, Http.StdMethod (..)
       -- * Digestive Functors
     , runForm
-      -- * Other reexports from scotty
-    , middleware, matchAny, notFound
-    , request, reqHeader, body, param, params, jsonData, files
-    , status, addHeader, setHeader, redirect
-    , text, html, blaze, file, json, source, raw
-    , raise, rescue, next
-    , RoutePattern
-      -- * Spock utilities
-    , paramPathPiece
+      -- * Raw Spock
+    , SpockT, ActionT, spockT
       -- * Internals for extending Spock
     , getSpockHeart, runSpockIO, WebStateM, WebState
     )
 where
 
-import Web.Spock.SessionManager
-import Web.Spock.Monad
-import Web.Spock.Types
-import Web.Spock.Cookie
-import Web.Spock.SafeActions
+import Web.Spock.Core
 import Web.Spock.Digestive
+import Web.Spock.Monad
+import Web.Spock.SafeActions
+import Web.Spock.SessionManager
+import Web.Spock.Types
+import qualified Web.Spock.Core as C
 
 import Control.Applicative
 import Control.Monad.Trans.Reader
 import Control.Monad.Trans.Resource
 import Data.Pool
-import Text.Blaze.Html (Html)
-import Text.Blaze.Html.Renderer.Text (renderHtml)
-import Web.Scotty.Trans
-import Web.PathPieces
 import qualified Network.HTTP.Types as Http
-import qualified Data.Text.Lazy as TL
 
 -- | Run a spock application using the warp server, a given db storageLayer and an initial state.
 -- Spock works with database libraries that already implement connection pooling and
@@ -78,17 +73,11 @@ spock port sessionCfg poolOrConn initialState defs =
                , web_state = initialState
                }
            runM m = runResourceT $ runReaderT (runWebStateM m) internalState
-           runActionToIO = runM
 
-       scottyT port runM runActionToIO $
+       spockT port runM $
                do middleware (sm_middleware sessionMgr)
                   hookSafeActions
                   defs
-
--- | Output html built with blaze
-blaze :: Html -> SpockAction conn sess st ()
-blaze htmlVal =
-    html $ renderHtml htmlVal
 
 -- | Write to the current session. Note that all data is stored on the server.
 -- The user only reciedes a sessionId to be identified.
@@ -108,13 +97,3 @@ readSession :: SpockAction conn sess st sess
 readSession =
     do mgr <- getSessMgr
        sm_readSession mgr
-
--- | Same as "param", but the target type needs to implement "PathPiece"
-paramPathPiece :: PathPiece s => TL.Text -> SpockAction conn sess st s
-paramPathPiece t =
-    do val <- param t
-       case fromPathPiece val of
-         Just x ->
-             return x
-         Nothing ->
-             raise $ stringError $ "Cannot convert param: " ++ TL.unpack t ++ " to path piece!"

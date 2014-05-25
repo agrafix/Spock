@@ -4,18 +4,16 @@ module Web.Spock.Digestive
 where
 
 import Web.Spock.Types
+import Web.Spock.Core
 
 import Control.Applicative
 import Network.HTTP.Types
 import Network.Wai
-import Network.Wai.Parse
 import Text.Digestive.Form
 import Text.Digestive.Types
 import Text.Digestive.View
-import Web.Scotty.Trans
-import qualified Data.ByteString.Char8 as BS
+import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
-import qualified Data.Text.Lazy as TL
 
 -- | Run a digestive functors form
 runForm :: T.Text -- ^ form name
@@ -30,9 +28,9 @@ runForm formName form =
     where
       localEnv :: Env (SpockAction conn sess st)
       localEnv path =
-          do let name = TL.fromStrict $ fromPath $ path
+          do let name = fromPath $ path
                  applyParam f =
                      map (f . snd) . filter ((== name) . fst)
-             vars <- (applyParam (TextInput . TL.toStrict)) <$> params
-             sentFiles <- (applyParam (FileInput . BS.unpack . fileName)) <$> files
+             vars <- (applyParam (TextInput) . HM.toList) <$> params
+             sentFiles <- (applyParam (FileInput . T.unpack . uf_name) . HM.toList) <$> files
              return (vars ++ sentFiles)

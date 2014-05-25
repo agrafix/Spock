@@ -5,8 +5,9 @@
 {-# LANGUAGE TypeFamilies #-}
 module Web.Spock.SafeActions where
 
-import Web.Scotty.Trans
+import Web.Spock.Core
 import Web.Spock.Types
+import Network.HTTP.Types.Status
 
 import qualified Data.Text as T
 
@@ -51,11 +52,12 @@ hookSafeActions =
        post "/h/:spock-csurf-protection" run
     where
       run =
-          do h <- param "spock-csurf-protection"
+          do Just h <- param "spock-csurf-protection"
              mgr <- getSessMgr
              mAction <- (sm_lookupSafeAction mgr) h
              case mAction of
                Nothing ->
-                   next
+                   do setStatus status404
+                      text "File not found"
                Just (PackedSafeAction action) ->
                    runSafeAction action

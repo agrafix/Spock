@@ -1,7 +1,7 @@
 name:                Spock
 version:             0.5.0.0
-synopsis:            Another Haskell web toolkit based on scotty
-description:         This toolbox provides everything you need to get a quick start into web hacking with haskell: sessions, cookies, database helper, csrf-protection, global state and the power of scotty
+synopsis:            Another Haskell web framework for rapid development
+description:         This toolbox provides everything you need to get a quick start into web hacking with haskell: routing, middleware, json, blaze, sessions, cookies, database helper, csrf-protection, global state
 Homepage:            https://github.com/agrafix/Spock
 Bug-reports:         https://github.com/agrafix/Spock/issues
 license:             BSD3
@@ -17,12 +17,13 @@ library
   exposed-modules:     Web.Spock
   other-modules:       Web.Spock.SessionManager,
                        Web.Spock.Monad,
-                       Web.Spock.Cookie,
                        Web.Spock.Types,
                        Web.Spock.SafeActions,
-                       Web.Spock.Digestive
+                       Web.Spock.Digestive,
+                       Web.Spock.Core,
+                       Web.Spock.Wire,
+                       Web.Spock.Routing
   build-depends:       base >= 4 && < 5,
-                       scotty >= 0.6,
                        wai >=2.0,
                        wai-util ==0.7,
                        http-types ==0.8.*,
@@ -51,7 +52,12 @@ library
                        digestive-functors ==0.7.*,
                        HTF ==0.11.*,
                        regex-compat ==0.95.*,
-                       vector ==0.10.*
+                       vector ==0.10.*,
+                       case-insensitive ==1.1.*,
+                       conduit >= 1.0 && < 1.2,
+                       aeson >= 0.6.2.1 && < 0.8,
+                       directory ==1.2.*,
+                       warp >= 2.0.0.1  && < 2.1
   ghc-options: -Wall -fno-warn-orphans
 
 test-suite spocktests
@@ -59,7 +65,6 @@ test-suite spocktests
   hs-source-dirs:      src
   main-is:             Tests.hs
   build-depends:       base >= 4 && < 5,
-                       scotty >= 0.6,
                        wai >=2.0,
                        wai-util ==0.7,
                        http-types ==0.8.*,
@@ -88,7 +93,12 @@ test-suite spocktests
                        digestive-functors ==0.7.*,
                        HTF ==0.11.*,
                        regex-compat ==0.95.*,
-                       vector ==0.10.*
+                       vector ==0.10.*,
+                       case-insensitive ==1.1.*,
+                       conduit >= 1.0 && < 1.2,
+                       aeson >= 0.6.2.1 && < 0.8,
+                       directory ==1.2.*,
+                       warp >= 2.0.0.1  && < 2.1
   ghc-options: -Wall -fno-warn-orphans
 
 source-repository head

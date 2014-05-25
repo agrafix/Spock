@@ -1,14 +1,13 @@
 {-# OPTIONS_GHC -F -pgmF htfpp #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-module Web.Spock.Routing 
+module Web.Spock.Routing
   ( matchRoute
   , RoutingTree, CaptureVar (..), ParamMap, addToRoutingTree, emptyRoutingTree
   , htf_thisModulesTests
   )
 where
 
-import Data.Monoid
 import Data.Hashable
 import qualified Data.Text as T
 import qualified Data.Vector as V
@@ -20,7 +19,7 @@ import Test.Framework
 
 type ParamMap = HM.HashMap CaptureVar T.Text
 
-newtype CaptureVar 
+newtype CaptureVar
       = CaptureVar { unCaptureVar :: T.Text }
       deriving (Show, Eq, Hashable)
 
@@ -39,7 +38,7 @@ instance Show RegexWrapper where
 
 data RouteNode
    = RouteNodeRegex !CaptureVar !RegexWrapper
-   | RouteNodeCapture !CaptureVar 
+   | RouteNodeCapture !CaptureVar
    | RouteNodeText !T.Text
    | RouteNodeRoot
    deriving (Show, Eq)
@@ -52,8 +51,8 @@ data RouteData a
    deriving (Show, Eq)
 
 data RoutingTree a
-   = RoutingTree 
-   { rt_node :: !(RouteData a) 
+   = RoutingTree
+   { rt_node :: !(RouteData a)
    , rt_children :: !(V.Vector (RoutingTree a))
    }
    deriving (Show, Eq)
@@ -65,18 +64,19 @@ buildRegex t =
 emptyRoutingTree :: RoutingTree a
 emptyRoutingTree = RoutingTree (RouteData RouteNodeRoot Nothing) V.empty
 
-mergeData :: Monoid a => Maybe a -> Maybe a -> Maybe a
-mergeData (Just a) (Just b) = Just $ a `mappend` b
-mergeData (Just a) Nothing = Just $ a
-mergeData Nothing (Just b) = Just $ b
-mergeData Nothing Nothing = Nothing 
+mergeData :: Maybe a -> Maybe a -> Maybe a
+mergeData (Just _) (Just _) =
+    error "Spock error: Don't define the same route twice!"
+mergeData (Just a) _ = Just a
+mergeData _ (Just b) = Just b
+mergeData _ _ = Nothing
 
-addToRoutingTree :: Monoid a => T.Text -> a -> RoutingTree a -> RoutingTree a
+addToRoutingTree :: T.Text -> a -> RoutingTree a -> RoutingTree a
 addToRoutingTree route dat currTree =
   let applyTree [] tree = tree
-      applyTree (current:xs) tree = 
+      applyTree (current:xs) tree =
         let children = V.map (\(RoutingTree d _) -> rd_node d) (rt_children tree)
-            currentDat = 
+            currentDat =
               case xs of
                 [] -> Just dat
                 _ -> Nothing
@@ -91,7 +91,7 @@ addToRoutingTree route dat currTree =
                   in V.modify (\v -> VM.write v idx (applyTree xs $ RoutingTree appliedNode (rt_children origNode))) (rt_children tree)
         in tree { rt_children = children' }
   in case filter (not . T.null) $ T.splitOn "/" route of
-      [] -> 
+      [] ->
         let currNode = rt_node currTree
             currNode' = currNode { rd_data = mergeData (rd_data currNode) (Just dat) }
         in currTree { rt_node = currNode' }
@@ -107,9 +107,9 @@ parseRouteNode node =
           Just ('}', def) ->
             let (var, xs) = T.breakOn ":" (T.reverse def)
             in case T.uncons xs of
-                Just (':', regex) -> 
+                Just (':', regex) ->
                   RouteNodeRegex (CaptureVar var) (buildRegex regex)
-                _ -> 
+                _ ->
                   nodeError
           _ -> nodeError
     Just _ ->
@@ -126,7 +126,7 @@ matchRoute :: T.Text -> RoutingTree a -> Maybe (ParamMap, a)
 matchRoute route globalTree =
   case filter (not . T.null) $ T.splitOn "/" route of
     [] -> fmap (\d -> (emptyParamMap, d)) $ rd_data $ rt_node globalTree
-    xs -> 
+    xs ->
       case findRoute xs globalTree emptyParamMap of
         (_, Nothing) -> Nothing
         (pmap, Just x) -> Just (pmap, x)
@@ -136,7 +136,7 @@ matchRoute route globalTree =
     applyParams (Just (var, t)) x = HM.insert var t x
 
     handleChildren xs children pmap =
-      V.foldl' (\st@(accumParams, res) child -> 
+      V.foldl' (\st@(accumParams, res) child ->
               case res of
                 Nothing -> findRoute xs child accumParams
                 Just _ -> st
@@ -183,7 +183,7 @@ test_matchRoute =
   where
     routingTree =
       foldl (\tree (route, action) -> addToRoutingTree route action tree) emptyRoutingTree routes
-    routes = 
+    routes =
       [ ("/", [1])
       , ("/bar", [2 :: Int])
       , ("/bar/:baz", [3])
@@ -192,8 +192,8 @@ test_matchRoute =
 
 test_parseRouteNode :: IO ()
 test_parseRouteNode =
-  do assertEqual (RouteNodeText "foo") (parseRouteNode "foo") 
-     assertEqual (RouteNodeCapture (CaptureVar "bar")) (parseRouteNode ":bar") 
+  do assertEqual (RouteNodeText "foo") (parseRouteNode "foo")
+     assertEqual (RouteNodeCapture (CaptureVar "bar")) (parseRouteNode ":bar")
      assertEqual (RouteNodeRegex (CaptureVar "bar") (buildRegex "^[0-9]$")) (parseRouteNode "{bar:^[0-9]$}")
 
 test_addToRoutingTree :: IO ()
@@ -205,8 +205,8 @@ test_addToRoutingTree =
     emptyT = emptyRoutingTree
     baseRoute = RoutingTree { rt_node = RouteData{rd_node = RouteNodeRoot, rd_data = Just [True]}, rt_children = V.empty}
     baz = [ RoutingTree { rt_node = RouteData { rd_node = RouteNodeText "baz", rd_data = Just [True] },rt_children = V.empty }]
-    fooBar xs = 
-      RoutingTree 
+    fooBar xs =
+      RoutingTree
       { rt_node =
           RouteData {rd_node = RouteNodeRoot, rd_data = Nothing }
       , rt_children =
@@ -214,7 +214,7 @@ test_addToRoutingTree =
           [ RoutingTree { rt_node = RouteData{rd_node = RouteNodeText "foo", rd_data = Nothing}
                         , rt_children =
                             V.fromList
-                            [ RoutingTree { rt_node = RouteData { rd_node = RouteNodeCapture (CaptureVar "bar") 
+                            [ RoutingTree { rt_node = RouteData { rd_node = RouteNodeCapture (CaptureVar "bar")
                                                                 , rd_data = Just [True]
                                                                 }
                                           , rt_children = V.fromList xs}]}]}
