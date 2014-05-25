@@ -42,6 +42,7 @@ spockT :: MonadIO m
        -> IO ()
 spockT port liftSpock routeDefs =
     do spockApp <- buildApp liftSpock routeDefs
+       putStrLn $ "Spock is up and running on port " ++ show port
        Warp.run port spockApp
 
 -- | Specify an action that will be run when the HTTP verb 'GET' and the given route match
