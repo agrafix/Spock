@@ -157,10 +157,12 @@ buildApp spockLift spockActions =
                         return notFound
        return $ ss_middleware spockState $ app
 
+-- | Hook up a 'Wai.Middleware'
 middleware :: MonadIO m => Wai.Middleware -> SpockT m ()
 middleware mw =
     modify $ \st -> st { ss_middleware = mw . (ss_middleware st) }
 
+-- | Define a route matching a provided 'StdMethod' and route
 defRoute :: (MonadIO m) => StdMethod -> T.Text -> ActionT m () -> SpockT m ()
 defRoute method route action =
     modify $ \st -> st { ss_treeMap = HM.insertWith updFun method (addToTree emptyRoutingTree) (ss_treeMap st) }

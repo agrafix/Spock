@@ -35,6 +35,8 @@ import qualified Data.Text.Encoding as T
 import qualified Network.Wai as Wai
 import qualified Network.Wai.Handler.Warp as Warp
 
+-- | Run a raw spock server on a defined port. If you don't need
+-- a custom base monad you can just supply 'id' as lift function.
 spockT :: MonadIO m
        => Warp.Port
        -> (forall a. m a -> IO a)
