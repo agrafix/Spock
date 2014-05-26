@@ -1,7 +1,7 @@
 Spock
 =====
 
-[![Build Status](https://drone.io/github.com/agrafix/Spock/status.png)](https://drone.io/github.com/agrafix/Spock/latest)
+[![Build Status](https://travis-ci.org/agrafix/Spock.svg)](https://travis-ci.org/agrafix/Spock)
 
 # Intro
 
