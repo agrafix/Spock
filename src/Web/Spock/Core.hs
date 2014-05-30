@@ -125,7 +125,7 @@ param k =
            paramVal = findP HM.lookup p
            queryVal = findP lookup qp
        case paramVal of
-         Just paramVal -> return (Just paramVal)
+         Just pVal -> return (Just pVal)
          Nothing -> return queryVal
 
 -- | Set a response status
