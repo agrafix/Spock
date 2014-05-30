@@ -24,6 +24,7 @@ import System.Locale
 import Text.Blaze.Html (Html)
 import Text.Blaze.Html.Renderer.Utf8 (renderHtml)
 import Web.PathPieces
+import Web.Spock.Routing
 import Web.Spock.Wire
 import qualified Data.Aeson as A
 import qualified Data.ByteString as BS
@@ -114,16 +115,16 @@ params :: MonadIO m => ActionT m [(T.Text, T.Text)]
 params =
     do p <- asks ri_params
        qp <- asks ri_queryParams
-       return (qp ++ HM.toList p)
+       return (qp ++ (map (\(k, v) -> (unCaptureVar k, v)) $ HM.toList p))
 
 -- | Read a request param. Spock looks in route captures first, then in POST variables and at last in GET variables
 param :: (PathPiece p, MonadIO m) => T.Text -> ActionT m (Maybe p)
 param k =
     do p <- asks ri_params
        qp <- asks ri_queryParams
-       let findP f x = join $ fmap fromPathPiece (f k x)
-           paramVal = findP HM.lookup p
-           queryVal = findP lookup qp
+       let findP f wrapK x = join $ fmap fromPathPiece (f (wrapK k) x)
+           paramVal = findP HM.lookup CaptureVar p
+           queryVal = findP lookup id qp
        case paramVal of
          Just pVal -> return (Just pVal)
          Nothing -> return queryVal
