@@ -3,11 +3,13 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Web.Spock.Wire where
 
 import Web.Spock.Routing
 
 import Control.Applicative
+import Control.Exception
 import Control.Monad.RWS.Strict
 import Control.Monad.Reader.Class ()
 import Control.Monad.State.Strict
@@ -117,6 +119,10 @@ invalidReq :: Wai.Response
 invalidReq =
     respStateToResponse $ errorResponse status400 "400 - Bad request"
 
+serverError :: ResponseState
+serverError =
+    errorResponse status500 "500 - Internal Server Error!"
+
 buildApp :: forall m. (MonadIO m)
          => (forall a. m a -> IO a)
          -> SpockT m ()
@@ -146,7 +152,11 @@ buildApp spockLift spockActions =
                                      params = HM.fromList $ captureParams ++ postParams ++ getParams
                                      env = RequestInfo req params uploadedFiles
                                      resp = errorResponse status200 ""
-                                 (respState, _) <- spockLift $ execRWST (runActionT action) env resp
+                                 (respState, _) <-
+                                     (spockLift $ execRWST (runActionT action) env resp)
+                                     `catch` \(e :: SomeException) ->
+                                         do putStrLn $ "Spock Error: " ++ show e
+                                            return (serverError, ())
                                  forM_ (HM.elems uploadedFiles) $ \uploadedFile ->
                                      do stillThere <- doesFileExist (uf_tempLocation uploadedFile)
                                         when stillThere $ removeFile (uf_tempLocation uploadedFile)
