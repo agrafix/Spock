@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Web.Spock.Routing
-  ( matchRoute
+  ( matchRoute, matchRoute'
   , RoutingTree, CaptureVar (..), ParamMap, addToRoutingTree, emptyRoutingTree
   , htf_thisModulesTests
   )
@@ -124,7 +124,11 @@ emptyParamMap = HM.empty
 
 matchRoute :: T.Text -> RoutingTree a -> Maybe (ParamMap, a)
 matchRoute route globalTree =
-  case filter (not . T.null) $ T.splitOn "/" route of
+    matchRoute' (T.splitOn "/" route) globalTree
+
+matchRoute' :: [T.Text] -> RoutingTree a -> Maybe (ParamMap, a)
+matchRoute' routeParts globalTree =
+  case filter (not . T.null) routeParts of
     [] -> fmap (\d -> (emptyParamMap, d)) $ rd_data $ rt_node globalTree
     xs ->
       case findRoute xs globalTree emptyParamMap of

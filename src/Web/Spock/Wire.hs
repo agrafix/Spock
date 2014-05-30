@@ -137,7 +137,7 @@ buildApp spockLift spockActions =
               Right stdMethod ->
                   case HM.lookup stdMethod $ ss_treeMap spockState of
                     Just routeTree ->
-                        case matchRoute (T.intercalate "/" $ Wai.pathInfo req) routeTree of
+                        case matchRoute' (Wai.pathInfo req) routeTree of
                           Just (captures, action) ->
                               do (bodyParams, bodyFiles) <- runResourceT $ withInternalState $ \st -> P.parseRequestBody (P.tempFileBackEnd st) req
                                  let uploadedFiles =
