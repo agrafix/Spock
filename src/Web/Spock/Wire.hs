@@ -51,6 +51,7 @@ data RequestInfo
    = RequestInfo
    { ri_request :: Wai.Request
    , ri_params :: HM.HashMap T.Text T.Text
+   , ri_queryParams :: [(T.Text, T.Text)]
    , ri_files :: HM.HashMap T.Text UploadedFile
    }
 
@@ -149,8 +150,9 @@ buildApp spockLift spockActions =
                                      captureParams = map (\(k, v) -> (unCaptureVar k, v)) $ HM.toList captures
                                      postParams = map (\(k, v) -> (T.decodeUtf8 k, T.decodeUtf8 v)) bodyParams
                                      getParams = map (\(k, mV) -> (T.decodeUtf8 k, T.decodeUtf8 $ fromMaybe BS.empty mV)) $ Wai.queryString req
-                                     params = HM.fromList $ captureParams ++ postParams ++ getParams
-                                     env = RequestInfo req params uploadedFiles
+                                     params = HM.fromList captureParams
+                                     queryParams = postParams ++ getParams
+                                     env = RequestInfo req params queryParams uploadedFiles
                                      resp = errorResponse status200 ""
                                  (respState, _) <-
                                      (spockLift $ execRWST (runActionT action) env resp)

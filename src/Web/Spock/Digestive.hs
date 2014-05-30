@@ -31,6 +31,6 @@ runForm formName form =
           do let name = fromPath $ path
                  applyParam f =
                      map (f . snd) . filter ((== name) . fst)
-             vars <- (applyParam (TextInput) . HM.toList) <$> params
+             vars <- (applyParam (TextInput)) <$> params
              sentFiles <- (applyParam (FileInput . T.unpack . uf_name) . HM.toList) <$> files
              return (vars ++ sentFiles)

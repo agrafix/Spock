@@ -110,15 +110,23 @@ files =
     asks ri_files
 
 -- | Get all request params
-params :: MonadIO m => ActionT m (HM.HashMap T.Text T.Text)
+params :: MonadIO m => ActionT m [(T.Text, T.Text)]
 params =
-    asks ri_params
+    do p <- asks ri_params
+       qp <- asks ri_queryParams
+       return (qp ++ HM.toList p)
 
 -- | Read a request param. Spock looks in route captures first, then in POST variables and at last in GET variables
 param :: (PathPiece p, MonadIO m) => T.Text -> ActionT m (Maybe p)
 param k =
-    do p <- params
-       return $ join $ fmap fromPathPiece (HM.lookup k p)
+    do p <- asks ri_params
+       qp <- asks ri_queryParams
+       let findP f x = join $ fmap fromPathPiece (f k x)
+           paramVal = findP HM.lookup p
+           queryVal = findP lookup qp
+       case paramVal of
+         Just paramVal -> return (Just paramVal)
+         Nothing -> return queryVal
 
 -- | Set a response status
 setStatus :: MonadIO m => Status -> ActionT m ()
