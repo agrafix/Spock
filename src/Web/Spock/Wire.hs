@@ -139,7 +139,10 @@ buildApp spockLift spockActions =
                     Just routeTree ->
                         case matchRoute' (Wai.pathInfo req) routeTree of
                           Just (captures, action) ->
-                              do (bodyParams, bodyFiles) <- runResourceT $ withInternalState $ \st -> P.parseRequestBody (P.tempFileBackEnd st) req
+                              do (bodyParams, bodyFiles) <-
+                                     runResourceT $
+                                     withInternalState $ \st ->
+                                         P.parseRequestBody (P.tempFileBackEnd st) req
                                  let uploadedFiles =
                                          HM.fromList $
                                          map (\(k, fileInfo) ->
@@ -147,8 +150,10 @@ buildApp spockLift spockActions =
                                                   , UploadedFile (T.decodeUtf8 $ P.fileName fileInfo) (T.decodeUtf8 $ P.fileContentType fileInfo) (P.fileContent fileInfo)
                                                   )
                                              ) bodyFiles
-                                     postParams = map (\(k, v) -> (T.decodeUtf8 k, T.decodeUtf8 v)) bodyParams
-                                     getParams = map (\(k, mV) -> (T.decodeUtf8 k, T.decodeUtf8 $ fromMaybe BS.empty mV)) $ Wai.queryString req
+                                     postParams =
+                                         map (\(k, v) -> (T.decodeUtf8 k, T.decodeUtf8 v)) bodyParams
+                                     getParams =
+                                         map (\(k, mV) -> (T.decodeUtf8 k, T.decodeUtf8 $ fromMaybe BS.empty mV)) $ Wai.queryString req
                                      queryParams = postParams ++ getParams
                                      env = RequestInfo req captures queryParams uploadedFiles
                                      resp = errorResponse status200 ""
