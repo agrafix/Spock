@@ -140,11 +140,14 @@ matchRoute' routeParts globalTree =
     applyParams (Just (var, t)) x = HM.insert var t x
 
     handleChildren xs children pmap =
-      V.foldl' (\st@(accumParams, res) child ->
-              case res of
-                Nothing -> findRoute xs child accumParams
-                Just _ -> st
-            ) (pmap, Nothing) children
+        let loop st [] = st
+            loop (st@(accumParams, res)) (child:leftoverChildren) =
+                case res of
+                  Nothing ->
+                      loop (findRoute xs child accumParams) leftoverChildren
+                  Just _ ->
+                      st
+        in loop (pmap, Nothing) $ V.toList children
 
     findRoute :: [T.Text] -> RoutingTree a -> ParamMap -> (ParamMap, Maybe a)
     findRoute [] _ pmap = (pmap, Nothing)
@@ -157,7 +160,7 @@ matchRoute' routeParts globalTree =
           in case xs of
               [] -> (params', rd_data $ rt_node tree)
               _ -> handleChildren xs (rt_children tree) params'
-        (False, _) -> 
+        (False, _) ->
           (pmap, Nothing)
 
 matchNode :: T.Text -> RouteNode -> (Bool, Maybe (CaptureVar, T.Text))
