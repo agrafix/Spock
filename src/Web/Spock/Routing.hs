@@ -152,25 +152,25 @@ matchRoute' routeParts globalTree =
     findRoute :: [T.Text] -> RoutingTree a -> ParamMap -> (ParamMap, Maybe a)
     findRoute [] _ pmap = (pmap, Nothing)
     findRoute xs (RoutingTree (RouteData RouteNodeRoot _) children) pmap =
-      handleChildren xs children pmap
+        handleChildren xs children pmap
     findRoute (x:xs) tree pmap =
-      case matchNode x (rd_node $ rt_node tree) of
-        (True, params) ->
-          let params' = applyParams params pmap
-          in case xs of
-              [] -> (params', rd_data $ rt_node tree)
-              _ -> handleChildren xs (rt_children tree) params'
-        (False, _) ->
-          (pmap, Nothing)
+        case matchNode x (rd_node $ rt_node tree) of
+          (True, params) ->
+              let params' = applyParams params pmap
+              in case xs of
+                   [] -> (params', rd_data $ rt_node tree)
+                   _ -> handleChildren xs (rt_children tree) params'
+          (False, _) ->
+              (pmap, Nothing)
 
 matchNode :: T.Text -> RouteNode -> (Bool, Maybe (CaptureVar, T.Text))
 matchNode _ RouteNodeRoot = (False, Nothing)
 matchNode t (RouteNodeText m) = (m == t, Nothing)
 matchNode t (RouteNodeCapture var) = (True, Just (var, t))
 matchNode t (RouteNodeRegex var regex) =
-  case Regex.matchRegex (rw_regex regex) (T.unpack t) of
-    Nothing -> (False, Nothing)
-    Just _ -> (True, Just (var, t))
+    case Regex.matchRegex (rw_regex regex) (T.unpack t) of
+      Nothing -> (False, Nothing)
+      Just _ -> (True, Just (var, t))
 
 test_matchNode :: IO ()
 test_matchNode =
