@@ -3,10 +3,10 @@ module Web.Spock.Digestive
     ( runForm )
 where
 
-import Web.Spock.Types
 import Web.Spock.Core
 
 import Control.Applicative
+import Control.Monad.Trans
 import Network.HTTP.Types
 import Network.Wai
 import Text.Digestive.Form
@@ -16,9 +16,10 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 
 -- | Run a digestive functors form
-runForm :: T.Text -- ^ form name
-        -> Form v (SpockAction conn sess st) a
-        -> SpockAction conn sess st (View v, Maybe a)
+runForm :: (Functor m, MonadIO m)
+        => T.Text -- ^ form name
+        -> Form v (ActionT m) a
+        -> ActionT m (View v, Maybe a)
 runForm formName form =
     do httpMethod <- requestMethod <$> request
        if httpMethod == methodGet
@@ -26,7 +27,6 @@ runForm formName form =
                return (f, Nothing)
        else postForm formName form (const $ return localEnv)
     where
-      localEnv :: Env (SpockAction conn sess st)
       localEnv path =
           do let name = fromPath $ path
                  applyParam f =
