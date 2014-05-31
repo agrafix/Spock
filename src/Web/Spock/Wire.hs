@@ -18,6 +18,8 @@ import Data.Hashable
 import Data.Maybe
 import Network.HTTP.Types.Method
 import Network.HTTP.Types.Status
+import Prelude hiding (catch)
+import System.Directory
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.CaseInsensitive as CI
@@ -26,7 +28,6 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Network.Wai as Wai
 import qualified Network.Wai.Parse as P
-import System.Directory
 
 instance Hashable StdMethod where
     hashWithSalt = hashUsing fromEnum
