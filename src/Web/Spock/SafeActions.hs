@@ -59,5 +59,6 @@ hookSafeActions =
                Nothing ->
                    do setStatus status404
                       text "File not found"
-               Just (PackedSafeAction action) ->
-                   runSafeAction action
+               Just p@(PackedSafeAction action) ->
+                   do runSafeAction action
+                      (sm_removeSafeAction mgr) p
