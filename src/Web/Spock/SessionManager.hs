@@ -7,6 +7,7 @@ where
 
 import Web.Spock.Types
 import Web.Spock.Core
+import Web.Spock.Util
 
 import Control.Arrow (first)
 import Control.Concurrent
@@ -26,7 +27,6 @@ import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TL
 import qualified Data.Vault.Lazy as V
 import qualified Network.Wai as Wai
-import qualified Network.Wai.Util as Wai
 
 createSessionManager :: SessionCfg sess -> IO (SessionManager conn sess st)
 createSessionManager cfg =
@@ -141,7 +141,7 @@ sessionMiddleware :: SessionCfg sess
                   -> V.Key SessionId
                   -> UserSessions conn sess st
                   -> Wai.Middleware
-sessionMiddleware cfg vK sessionRef app req =
+sessionMiddleware cfg vK sessionRef app req respond =
     case getCookieFromReq (sc_cookieName cfg) of
       Just sid ->
           do mSess <- loadSessionImpl sessionRef sid
@@ -178,8 +178,11 @@ sessionMiddleware cfg vK sessionRef app req =
               cookieC = ("Set-Cookie", BSL.toStrict $ TL.encodeUtf8 cookieContent)
           in (cookieC : responseHeaders)
       withSess shouldSetCookie sess =
-          do resp <- app (req { Wai.vault = V.insert vK (sess_id sess) v })
-             return $ if shouldSetCookie then Wai.mapHeaders (addCookie sess) resp else resp
+          app (req { Wai.vault = V.insert vK (sess_id sess) v }) $ \unwrappedResp ->
+              respond $
+              if shouldSetCookie
+              then mapReqHeaders (addCookie sess) unwrappedResp
+              else unwrappedResp
       mkNew =
           do newSess <- newSessionImpl cfg sessionRef defVal
              withSess True newSess

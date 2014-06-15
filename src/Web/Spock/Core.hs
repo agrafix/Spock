@@ -15,7 +15,6 @@ import Control.Arrow (first)
 import Control.Monad
 import Control.Monad.Reader
 import Control.Monad.State hiding (get, put)
-import Data.Conduit.Lazy (lazyConsume)
 import Data.Time
 import Network.HTTP.Types.Method
 import Network.HTTP.Types.Status
@@ -93,17 +92,16 @@ cookie name =
       parseCookie = first T.init . T.breakOnEnd "="
 
 -- | Get the raw request body
-body :: MonadIO m => ActionT m BSL.ByteString
+body :: MonadIO m => ActionT m BS.ByteString
 body =
     do req <- request
-       chunks <- liftIO $ lazyConsume (Wai.requestBody req)
-       return $ BSL.fromChunks chunks
+       liftIO $ Wai.requestBody req
 
 -- | Parse the request body as json
 jsonBody :: (MonadIO m, A.FromJSON a) => ActionT m (Maybe a)
 jsonBody =
     do b <- body
-       return $ A.decode b
+       return $ A.decodeStrict b
 
 -- | Get uploaded files
 files :: MonadIO m => ActionT m (HM.HashMap T.Text UploadedFile)

@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures #-}
@@ -18,7 +19,11 @@ import Data.Hashable
 import Data.Maybe
 import Network.HTTP.Types.Method
 import Network.HTTP.Types.Status
+#if MIN_VERSION_base(4,6,0)
+import Prelude
+#else
 import Prelude hiding (catch)
+#endif
 import System.Directory
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -131,10 +136,11 @@ buildApp :: forall m. (MonadIO m)
          -> IO Wai.Application
 buildApp spockLift spockActions =
     do spockState <- spockLift $ execStateT (runSpockT spockActions) initState
-       let app req =
+       let app :: Wai.Application
+           app req respond =
             case parseMethod $ Wai.requestMethod req of
               Left _ ->
-                  return invalidReq
+                  respond invalidReq
               Right stdMethod ->
                   case HM.lookup stdMethod $ ss_treeMap spockState of
                     Just routeTree ->
@@ -166,11 +172,11 @@ buildApp spockLift spockActions =
                                  forM_ (HM.elems uploadedFiles) $ \uploadedFile ->
                                      do stillThere <- doesFileExist (uf_tempLocation uploadedFile)
                                         when stillThere $ removeFile (uf_tempLocation uploadedFile)
-                                 return $ respStateToResponse respState
+                                 respond $ respStateToResponse respState
                           Nothing ->
-                              return notFound
+                              respond notFound
                     Nothing ->
-                        return notFound
+                        respond notFound
        return $ ss_middleware spockState $ app
 
 -- | Hook up a 'Wai.Middleware'

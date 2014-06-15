@@ -1,5 +1,5 @@
 name:                Spock
-version:             0.5.1.0
+version:             0.6.0.0
 synopsis:            Another Haskell web framework for rapid development
 description:         This toolbox provides everything you need to get a quick start into web hacking with haskell: routing, middleware, json, blaze, sessions, cookies, database helper, csrf-protection, global state
 Homepage:            https://github.com/agrafix/Spock
@@ -22,7 +22,8 @@ library
                        Web.Spock.Digestive,
                        Web.Spock.Core,
                        Web.Spock.Wire,
-                       Web.Spock.Routing
+                       Web.Spock.Routing,
+                       Web.Spock.Util
   build-depends:       aeson >= 0.6.2.1 && < 0.8,
                        base >= 4 && < 5,
                        base64-bytestring ==1.*,
@@ -52,11 +53,10 @@ library
                        unordered-containers ==0.2.*,
                        vault ==0.3.*,
                        vector ==0.10.*,
-                       wai-extra >=2.0.0.1,
-                       wai-util ==0.7,
-                       warp >= 2.0.0.1  && < 2.1,
-                       xsd ==0.4.*,
-                       wai >=2.0
+                       wai >=3.0 && <4.0,
+                       wai-extra >=3.0 && <4.0,
+                       warp >=3.0 && <4.0,
+                       xsd ==0.4.*
   ghc-options: -Wall -fno-warn-orphans
 
 test-suite spocktests
@@ -94,10 +94,9 @@ test-suite spocktests
                        unordered-containers ==0.2.*,
                        vault ==0.3.*,
                        vector ==0.10.*,
-                       wai >=2.0,
-                       wai-extra >=2.0.0.1,
-                       wai-util ==0.7,
-                       warp >= 2.0.0.1  && < 2.1,
+                       wai >=3.0 && <4.0,
+                       wai-extra >=3.0 && <4.0,
+                       warp >=3.0 && <4.0,
                        xsd ==0.4.*
   ghc-options: -Wall -fno-warn-orphans
 
