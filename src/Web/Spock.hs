@@ -6,6 +6,7 @@
 module Web.Spock
     ( -- * Spock's core
       spock, SpockM, SpockAction
+    , spockT, SpockT, ActionT
      -- * Defining routes
     , get, post, C.head, put, delete, patch, defRoute, Http.StdMethod (..)
      -- * Handeling requests
@@ -28,8 +29,6 @@ module Web.Spock
     , safeActionPath
       -- * Digestive Functors
     , runForm
-      -- * Raw Spock
-    , SpockT, ActionT, spockT
       -- * Internals for extending Spock
     , getSpockHeart, runSpockIO, WebStateM, WebState
     )
