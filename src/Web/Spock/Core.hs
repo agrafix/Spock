@@ -8,6 +8,7 @@ module Web.Spock.Core
     , files, params, param, setStatus, setHeader, redirect
     , setCookie, setCookie'
     , bytes, lazyBytes, text, html, file, json, blaze
+    , combineRoute, subcomponent
     )
 where
 

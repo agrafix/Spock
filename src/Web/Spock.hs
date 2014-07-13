@@ -8,7 +8,9 @@ module Web.Spock
       spock, SpockM, SpockAction
     , spockT, SpockT, ActionT
      -- * Defining routes
-    , get, post, C.head, put, delete, patch, defRoute, Http.StdMethod (..)
+    , get, post, C.head, put, delete, patch, defRoute
+    , subcomponent, Http.StdMethod (..)
+    , combineRoute
      -- * Handeling requests
     , request, header, cookie, body, jsonBody, files, UploadedFile (..)
     , params, param

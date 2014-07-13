@@ -13,7 +13,6 @@ import Control.Applicative
 import Control.Exception
 import Control.Monad.RWS.Strict
 import Control.Monad.Reader.Class ()
-import Control.Monad.State.Strict
 import Control.Monad.Trans.Resource
 import Data.Hashable
 import Data.Maybe
@@ -40,10 +39,13 @@ instance Hashable StdMethod where
 type SpockRoutingTree m = RoutingTree (ActionT m ())
 type SpockTreeMap m = HM.HashMap StdMethod (SpockRoutingTree m)
 
+type SpockRouteMap m = HM.HashMap StdMethod (HM.HashMap T.Text (ActionT m ()))
+
 data SpockState m
    = SpockState
-   { ss_treeMap :: !(SpockTreeMap m)
+   { ss_treeMap :: !(SpockRouteMap m)
    , ss_middleware :: Wai.Middleware
+   , ss_spockLift :: forall a. m a -> IO a
    }
 
 data UploadedFile
@@ -73,23 +75,18 @@ data ResponseState
    , rs_responseBody :: ResponseBody
    }
 
+type BaseRoute = T.Text
+
 newtype ActionT m a
     = ActionT { runActionT :: RWST RequestInfo () ResponseState m a }
       deriving (Monad, Functor, Applicative, MonadIO, MonadTrans, MonadReader RequestInfo, MonadState ResponseState)
 
 newtype SpockT (m :: * -> *) a
-    = SpockT { runSpockT :: StateT (SpockState m) m a }
-      deriving (Monad, Functor, Applicative, MonadIO, MonadState (SpockState m))
+    = SpockT { runSpockT :: RWST BaseRoute () (SpockState m) m a }
+      deriving (Monad, Functor, Applicative, MonadIO, MonadReader BaseRoute, MonadState (SpockState m))
 
 instance MonadTrans SpockT where
     lift = SpockT . lift
-
-initState :: forall (m :: * -> *). SpockState m
-initState =
-    SpockState
-    { ss_treeMap = HM.empty
-    , ss_middleware = id
-    }
 
 respStateToResponse :: ResponseState -> Wai.Response
 respStateToResponse (ResponseState headers status body) =
@@ -135,14 +132,21 @@ buildApp :: forall m. (MonadIO m)
          -> SpockT m ()
          -> IO Wai.Application
 buildApp spockLift spockActions =
-    do spockState <- spockLift $ execStateT (runSpockT spockActions) initState
-       let app :: Wai.Application
+    do let initState =
+               SpockState
+               { ss_treeMap = HM.empty
+               , ss_middleware = id
+               , ss_spockLift = spockLift
+               }
+       (spockState, ()) <- spockLift $ execRWST (runSpockT spockActions) "/" initState
+       let routingTreeMap = buildRoutingTree (ss_treeMap spockState)
+           app :: Wai.Application
            app req respond =
             case parseMethod $ Wai.requestMethod req of
               Left _ ->
                   respond invalidReq
               Right stdMethod ->
-                  case HM.lookup stdMethod $ ss_treeMap spockState of
+                  case HM.lookup stdMethod routingTreeMap of
                     Just routeTree ->
                         case matchRoute' (Wai.pathInfo req) routeTree of
                           Just (captures, action) ->
@@ -187,7 +191,57 @@ middleware mw =
 -- | Define a route matching a provided 'StdMethod' and route
 defRoute :: (MonadIO m) => StdMethod -> T.Text -> ActionT m () -> SpockT m ()
 defRoute method route action =
-    modify $ \st -> st { ss_treeMap = HM.insertWith updFun method (addToTree emptyRoutingTree) (ss_treeMap st) }
+    do baseRoute <- ask
+       let fullRoute = baseRoute `combineRoute` route
+       modify $ \st -> st { ss_treeMap = HM.insertWith HM.union method (HM.singleton fullRoute action) (ss_treeMap st) }
+
+-- | Combine two routes, ensuring that the slashes don't get messed up
+combineRoute :: T.Text -> T.Text -> T.Text
+combineRoute r1 r2 =
+    case T.uncons r1 of
+      Nothing -> T.concat ["/", r2']
+      Just ('/', _) -> T.concat [r1', r2']
+      Just _ -> T.concat ["/", r1', r2']
     where
-      updFun _ oldTree = addToTree oldTree
-      addToTree = addToRoutingTree route action
+      r1' =
+          if T.last r1 == '/'
+          then r1
+          else if T.null r2
+               then r1
+               else T.concat [r1, "/"]
+      r2' =
+          if T.null r2
+          then ""
+          else if T.head r2 == '/' then T.drop 1 r2 else r2
+
+-- | Define a subcomponent
+--
+-- > subcomponent "/api" $
+-- >    do get "/user" $ text "USER"
+-- >       post "/new-user" $ text "OK!"
+--
+-- >>> curl http://localhost:8080/api/user
+-- USER
+--
+subcomponent :: (MonadIO m) => T.Text -> SpockT m () -> SpockT m ()
+subcomponent baseRoute defs =
+    do parentState <- get
+       parentRoute <- ask
+       let initState =
+               parentState
+               { ss_treeMap = HM.empty }
+       (finalState, ()) <-
+           liftIO $ (ss_spockLift parentState) $
+           execRWST (runSpockT defs) (parentRoute `combineRoute` baseRoute) initState
+       modify $ \st ->
+           st
+           { ss_treeMap = HM.union (ss_treeMap st) (ss_treeMap finalState)
+           , ss_middleware = (ss_middleware finalState) . (ss_middleware st)
+           }
+
+buildRoutingTree :: SpockRouteMap m -> SpockTreeMap m
+buildRoutingTree routeMap =
+    HM.map (\v -> foldl treeBuilder emptyRoutingTree $ HM.toList v) routeMap
+    where
+      treeBuilder tree (route, action) =
+          addToRoutingTree route action tree
