@@ -150,10 +150,9 @@ buildApp spockLift spockActions =
                     Just routeTree ->
                         case matchRoute' (Wai.pathInfo req) routeTree of
                           Just (captures, action) ->
-                              do (bodyParams, bodyFiles) <-
-                                     runResourceT $
-                                     withInternalState $ \st ->
-                                         P.parseRequestBody (P.tempFileBackEnd st) req
+                              runResourceT $
+                              withInternalState $ \st ->
+                              do (bodyParams, bodyFiles) <- P.parseRequestBody (P.tempFileBackEnd st) req
                                  let uploadedFiles =
                                          HM.fromList $
                                          map (\(k, fileInfo) ->
@@ -168,15 +167,15 @@ buildApp spockLift spockActions =
                                      queryParams = postParams ++ getParams
                                      env = RequestInfo req captures queryParams uploadedFiles
                                      resp = errorResponse status200 ""
-                                 (respState, _) <-
+                                 (respState, _) <- liftIO $
                                      (spockLift $ execRWST (runActionT action) env resp)
                                      `catch` \(e :: SomeException) ->
                                          do putStrLn $ "Spock Error: " ++ show e
                                             return (serverError, ())
                                  forM_ (HM.elems uploadedFiles) $ \uploadedFile ->
                                      do stillThere <- doesFileExist (uf_tempLocation uploadedFile)
-                                        when stillThere $ removeFile (uf_tempLocation uploadedFile)
-                                 respond $ respStateToResponse respState
+                                        when stillThere $ liftIO $ removeFile (uf_tempLocation uploadedFile)
+                                 liftIO $ respond $ respStateToResponse respState
                           Nothing ->
                               respond notFound
                     Nothing ->
