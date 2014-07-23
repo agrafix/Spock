@@ -234,7 +234,7 @@ subcomponent baseRoute defs =
            execRWST (runSpockT defs) (parentRoute `combineRoute` baseRoute) initState
        modify $ \st ->
            st
-           { ss_treeMap = HM.union (ss_treeMap st) (ss_treeMap finalState)
+           { ss_treeMap = HM.unionWith HM.union (ss_treeMap st) (ss_treeMap finalState)
            , ss_middleware = (ss_middleware finalState) . (ss_middleware st)
            }
 
