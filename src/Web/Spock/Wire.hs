@@ -222,21 +222,22 @@ combineRoute r1 r2 =
 -- >>> curl http://localhost:8080/api/user
 -- USER
 --
-subcomponent :: (MonadIO m) => T.Text -> SpockT m () -> SpockT m ()
+subcomponent :: (MonadIO m) => T.Text -> SpockT m a -> SpockT m a
 subcomponent baseRoute defs =
     do parentState <- get
        parentRoute <- ask
        let initState =
                parentState
                { ss_treeMap = HM.empty }
-       (finalState, ()) <-
+       (a, finalState, ()) <-
            liftIO $ (ss_spockLift parentState) $
-           execRWST (runSpockT defs) (parentRoute `combineRoute` baseRoute) initState
+           runRWST (runSpockT defs) (parentRoute `combineRoute` baseRoute) initState
        modify $ \st ->
            st
            { ss_treeMap = HM.unionWith HM.union (ss_treeMap st) (ss_treeMap finalState)
            , ss_middleware = (ss_middleware finalState) . (ss_middleware st)
            }
+       return a
 
 buildRoutingTree :: SpockRouteMap m -> SpockTreeMap m
 buildRoutingTree routeMap =
