@@ -25,7 +25,7 @@ module Web.Spock
     , HasSpock (runQuery, getState)
       -- * Sessions
     , SessionCfg (..)
-    , readSession, writeSession, modifySession
+    , readSession, writeSession, modifySession, clearAllSessions
       -- * Safe actions
     , SafeAction (..)
     , safeActionPath
@@ -98,3 +98,10 @@ readSession :: SpockAction conn sess st sess
 readSession =
     do mgr <- getSessMgr
        sm_readSession mgr
+
+-- | Globally delete all existing sessions. This is useful for example if you want
+-- to require all users to relogin
+clearAllSessions :: SpockAction conn sess st ()
+clearAllSessions =
+    do mgr <- getSessMgr
+       sm_clearAllSessions mgr

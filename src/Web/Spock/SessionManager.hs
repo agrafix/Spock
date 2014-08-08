@@ -37,6 +37,7 @@ createSessionManager cfg =
                   { sm_readSession = readSessionImpl vaultKey cacheHM
                   , sm_writeSession = writeSessionImpl vaultKey cacheHM
                   , sm_modifySession = modifySessionImpl vaultKey cacheHM
+                  , sm_clearAllSessions = clearAllSessionsImpl cacheHM
                   , sm_middleware = sessionMiddleware cfg vaultKey cacheHM
                   , sm_addSafeAction = addSafeActionImpl vaultKey cacheHM
                   , sm_lookupSafeAction = lookupSafeActionImpl vaultKey cacheHM
@@ -217,6 +218,11 @@ deleteSessionImpl :: UserSessions conn sess st
 deleteSessionImpl sessionRef sid =
     do atomically $ modifyTVar' sessionRef (\hm -> HM.delete sid hm)
        return ()
+
+clearAllSessionsImpl :: UserSessions conn sess st
+                     -> SpockAction conn sess st ()
+clearAllSessionsImpl sessionRef =
+    liftIO $ atomically $ modifyTVar' sessionRef (const HM.empty)
 
 housekeepSessions :: UserSessions conn sess st -> IO ()
 housekeepSessions sessionRef =

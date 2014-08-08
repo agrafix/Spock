@@ -140,6 +140,7 @@ data SessionManager conn sess st
    { sm_readSession :: SpockAction conn sess st sess
    , sm_writeSession :: sess -> SpockAction conn sess st ()
    , sm_modifySession :: (sess -> sess) -> SpockAction conn sess st ()
+   , sm_clearAllSessions :: SpockAction conn sess st ()
    , sm_middleware :: Middleware
    , sm_addSafeAction :: PackedSafeAction conn sess st -> SpockAction conn sess st SafeActionHash
    , sm_lookupSafeAction :: SafeActionHash -> SpockAction conn sess st (Maybe (PackedSafeAction conn sess st))
