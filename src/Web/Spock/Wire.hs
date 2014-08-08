@@ -44,7 +44,7 @@ type SpockRouteMap m = HM.HashMap StdMethod (HM.HashMap T.Text (ActionT m ()))
 data SpockState m
    = SpockState
    { ss_treeMap :: !(SpockRouteMap m)
-   , ss_middleware :: Wai.Middleware
+   , ss_middleware :: [Wai.Middleware]
    , ss_spockLift :: forall a. m a -> IO a
    }
 
@@ -67,13 +67,14 @@ data ResponseBody
    = ResponseFile FilePath
    | ResponseLBS BSL.ByteString
    | ResponseRedirect T.Text
+   deriving (Show, Eq)
 
 data ResponseState
    = ResponseState
    { rs_responseHeaders :: [(T.Text, T.Text)]
    , rs_status :: Status
    , rs_responseBody :: ResponseBody
-   }
+   } deriving (Show, Eq)
 
 type BaseRoute = T.Text
 
@@ -135,7 +136,7 @@ buildApp spockLift spockActions =
     do let initState =
                SpockState
                { ss_treeMap = HM.empty
-               , ss_middleware = id
+               , ss_middleware = []
                , ss_spockLift = spockLift
                }
        (spockState, ()) <- spockLift $ execRWST (runSpockT spockActions) "/" initState
@@ -170,7 +171,7 @@ buildApp spockLift spockActions =
                                  (respState, _) <- liftIO $
                                      (spockLift $ execRWST (runActionT action) env resp)
                                      `catch` \(e :: SomeException) ->
-                                         do putStrLn $ "Spock Error: " ++ show e
+                                         do putStrLn $ "Spock Error while handeling " ++ show (Wai.pathInfo req) ++ ": " ++ show e
                                             return (serverError, ())
                                  forM_ (HM.elems uploadedFiles) $ \uploadedFile ->
                                      do stillThere <- doesFileExist (uf_tempLocation uploadedFile)
@@ -180,12 +181,12 @@ buildApp spockLift spockActions =
                               respond notFound
                     Nothing ->
                         respond notFound
-       return $ ss_middleware spockState $ app
+       return $ foldl (.) id (ss_middleware spockState) $ app
 
 -- | Hook up a 'Wai.Middleware'
 middleware :: MonadIO m => Wai.Middleware -> SpockT m ()
 middleware mw =
-    modify $ \st -> st { ss_middleware = mw . (ss_middleware st) }
+    modify $ \st -> st { ss_middleware = (ss_middleware st ++ [mw]) }
 
 -- | Define a route matching a provided 'StdMethod' and route
 defRoute :: (MonadIO m) => StdMethod -> T.Text -> ActionT m () -> SpockT m ()
@@ -228,14 +229,16 @@ subcomponent baseRoute defs =
        parentRoute <- ask
        let initState =
                parentState
-               { ss_treeMap = HM.empty }
+               { ss_treeMap = HM.empty
+               , ss_middleware = []
+               }
        (a, finalState, ()) <-
            liftIO $ (ss_spockLift parentState) $
            runRWST (runSpockT defs) (parentRoute `combineRoute` baseRoute) initState
        modify $ \st ->
            st
            { ss_treeMap = HM.unionWith HM.union (ss_treeMap st) (ss_treeMap finalState)
-           , ss_middleware = (ss_middleware finalState) . (ss_middleware st)
+           , ss_middleware = (ss_middleware st) ++ (ss_middleware finalState)
            }
        return a
 

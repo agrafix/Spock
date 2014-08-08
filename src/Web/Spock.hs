@@ -76,9 +76,9 @@ spock port sessionCfg poolOrConn initialState defs =
            runM m = runResourceT $ runReaderT (runWebStateM m) internalState
 
        spockT port runM $
-               do middleware (sm_middleware sessionMgr)
-                  hookSafeActions
+               do hookSafeActions
                   defs
+                  middleware (sm_middleware sessionMgr)
 
 -- | Write to the current session. Note that all data is stored on the server.
 -- The user only reciedes a sessionId to be identified.
