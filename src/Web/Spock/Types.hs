@@ -23,7 +23,7 @@ import qualified Data.Conduit.Pool as CP
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 
--- | Insive the SpockM monad, you may define routes and middleware.
+-- | Inside the SpockM monad, you may define routes and middleware.
 type SpockM conn sess st = SpockT (WebStateM conn sess st)
 
 -- | The SpockAction is the monad of all route-actions. You have access
