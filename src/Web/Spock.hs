@@ -22,7 +22,7 @@ module Web.Spock
       -- * Database
     , PoolOrConn (..), ConnBuilder (..), PoolCfg (..)
       -- * Accessing Database and State
-    , HasSpock (runQuery, getState)
+    , HasSpock (runQuery, getState), SpockConn, SpockState, SpockSession
       -- * Sessions
     , SessionCfg (..)
     , readSession, writeSession, modifySession, clearAllSessions
