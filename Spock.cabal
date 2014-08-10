@@ -1,5 +1,5 @@
 name:                Spock
-version:             0.6.2.2
+version:             0.6.2.3
 synopsis:            Another Haskell web framework for rapid development
 description:         This toolbox provides everything you need to get a quick start into web hacking with haskell: routing, middleware, json, blaze, sessions, cookies, database helper, csrf-protection, global state
 Homepage:            https://github.com/agrafix/Spock
@@ -24,7 +24,7 @@ library
                        Web.Spock.Wire,
                        Web.Spock.Routing,
                        Web.Spock.Util
-  build-depends:       aeson >= 0.6.2.1 && < 0.8,
+  build-depends:       aeson >= 0.6.2.1 && < 0.9,
                        base >= 4 && < 5,
                        base64-bytestring ==1.*,
                        blaze-html ==0.7.*,
@@ -64,8 +64,8 @@ test-suite spocktests
   hs-source-dirs:      src
   main-is:             Tests.hs
   other-modules:       Tests.Routing
-  build-depends:       HTF ==0.11.*,
-                       aeson >= 0.6.2.1 && < 0.8,
+  build-depends:       HTF >=0.11 && <0.13,
+                       aeson >= 0.6.2.1 && < 0.9,
                        base >= 4 && < 5,
                        base64-bytestring ==1.*,
                        blaze-html ==0.7.*,
