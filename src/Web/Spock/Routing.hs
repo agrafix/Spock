@@ -160,29 +160,6 @@ matchRoute' routeParts globalTree =
                                   vec
                            _ -> V.fromList $ snd $ findRoute xs (rt_children rt) paramMap'
 
-{-
-data RouteNode
-   = RouteNodeRegex !CaptureVar !RegexWrapper
-   | RouteNodeCapture !CaptureVar
-   | RouteNodeText !T.Text
-   | RouteNodeRoot
-   deriving (Show, Eq)
-
-data RouteData a
-   = RouteData
-   { rd_node :: !RouteNode
-   , rd_data :: Maybe a
-   }
-   deriving (Show, Eq)
-
-data RoutingTree a
-   = RoutingTree
-   { rt_node :: !(RouteData a)
-   , rt_children :: !(V.Vector (RoutingTree a))
-   }
-   deriving (Show, Eq)
--}
-
 matchNode :: T.Text -> RouteNode -> (Bool, Maybe (CaptureVar, T.Text))
 matchNode _ RouteNodeRoot = (False, Nothing)
 matchNode t (RouteNodeText m) = (m == t, Nothing)

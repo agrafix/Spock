@@ -214,18 +214,6 @@ buildApp spockLift spockActions =
                         respond notFound
        return $ foldl (.) id (ss_middleware spockState) $ app
 
-{-
-data ActionOrResponse m
-    = ARAction (RWST RequestInfo () ResponseState m)
-    | ARResponse ResponseState
-
-data ActionInterupt
-    = ActionRedirect T.Text
-    | ActionTryNext
-    | ActionError String
-    deriving (Show)
--}
-
 -- | Hook up a 'Wai.Middleware'
 middleware :: MonadIO m => Wai.Middleware -> SpockT m ()
 middleware mw =
