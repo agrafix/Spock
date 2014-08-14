@@ -3,11 +3,13 @@
 module Web.Spock.Routing where
 
 import Data.Hashable
+import Data.Maybe
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as VM
 import qualified Text.Regex as Regex
 import qualified Data.HashMap.Strict as HM
+import Debug.Trace
 
 type ParamMap = HM.HashMap CaptureVar T.Text
 
@@ -116,46 +118,70 @@ parseRouteNode node =
 emptyParamMap :: ParamMap
 emptyParamMap = HM.empty
 
-matchRoute :: T.Text -> RoutingTree a -> Maybe (ParamMap, a)
+matchRoute :: T.Text -> RoutingTree a -> [(ParamMap, a)]
 matchRoute route globalTree =
     matchRoute' (T.splitOn "/" route) globalTree
 
-matchRoute' :: [T.Text] -> RoutingTree a -> Maybe (ParamMap, a)
+matchRoute' :: [T.Text] -> RoutingTree a -> [(ParamMap, a)]
 matchRoute' routeParts globalTree =
     case filter (not . T.null) routeParts of
-      [] -> fmap (\d -> (emptyParamMap, d)) $ rd_data $ rt_node globalTree
+      [] ->
+          case rd_data $ rt_node globalTree of
+            Nothing -> []
+            Just action -> [(emptyParamMap, action)]
       xs ->
-          case findRoute xs globalTree emptyParamMap of
-            (_, Nothing) -> Nothing
-            (pmap, Just x) -> Just (pmap, x)
+          let (_, matches) = findRoute xs (rt_children globalTree) emptyParamMap
+          in matches
     where
-      applyParams :: Maybe (CaptureVar, T.Text) -> ParamMap -> ParamMap
-      applyParams Nothing x = x
-      applyParams (Just (var, t)) x = HM.insert var t x
+      findRoute :: [T.Text] -> V.Vector (RoutingTree a) -> ParamMap -> (Bool, [(ParamMap, a)])
+      findRoute [] trees _ =
+          (V.null trees, [])
+      findRoute (textNode : xs) trees paramMap =
+          let foundPaths = V.foldl' matchTree V.empty trees
+          in (V.null foundPaths, V.toList foundPaths)
+          where
+            matchTree :: V.Vector (ParamMap, a) -> RoutingTree a -> V.Vector (ParamMap, a)
+            matchTree vec rt =
+                case matchNode textNode (rd_node $ rt_node rt) of
+                  (False, _) ->
+                      trace ("No match: " ++ show textNode ++ " @ " ++ (show $ rd_node $ rt_node rt)) vec
+                  (True, mCapture) ->
+                      let paramMap' =
+                              case mCapture of
+                                Nothing -> paramMap
+                                Just (var, value) ->
+                                    HM.insert var value paramMap
+                          nodeData = rd_data $ rt_node rt
+                          nodeChildren = rt_children rt
+                      in case xs of
+                           [] | isJust nodeData ->
+                                  V.snoc vec (paramMap', fromJust nodeData)
+                              | otherwise ->
+                                  vec
+                           _ -> V.fromList $ snd $ findRoute xs (rt_children rt) paramMap'
 
-      handleChildren xs children pmap =
-          let loop st [] = st
-              loop (st@(accumParams, res)) (child:leftoverChildren) =
-                  case res of
-                    Nothing ->
-                        loop (findRoute xs child accumParams) leftoverChildren
-                    Just _ ->
-                        st
-          in loop (pmap, Nothing) $ V.toList children
+{-
+data RouteNode
+   = RouteNodeRegex !CaptureVar !RegexWrapper
+   | RouteNodeCapture !CaptureVar
+   | RouteNodeText !T.Text
+   | RouteNodeRoot
+   deriving (Show, Eq)
 
-      findRoute :: [T.Text] -> RoutingTree a -> ParamMap -> (ParamMap, Maybe a)
-      findRoute [] _ pmap = (pmap, Nothing)
-      findRoute xs (RoutingTree (RouteData RouteNodeRoot _) children) pmap =
-          handleChildren xs children pmap
-      findRoute (x:xs) tree pmap =
-          case matchNode x (rd_node $ rt_node tree) of
-            (True, params) ->
-                let params' = applyParams params pmap
-                in case xs of
-                     [] -> (params', rd_data $ rt_node tree)
-                     _ -> handleChildren xs (rt_children tree) params'
-            (False, _) ->
-                (pmap, Nothing)
+data RouteData a
+   = RouteData
+   { rd_node :: !RouteNode
+   , rd_data :: Maybe a
+   }
+   deriving (Show, Eq)
+
+data RoutingTree a
+   = RoutingTree
+   { rt_node :: !(RouteData a)
+   , rt_children :: !(V.Vector (RoutingTree a))
+   }
+   deriving (Show, Eq)
+-}
 
 matchNode :: T.Text -> RouteNode -> (Bool, Maybe (CaptureVar, T.Text))
 matchNode _ RouteNodeRoot = (False, Nothing)

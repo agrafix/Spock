@@ -16,20 +16,26 @@ test_matchNode =
 
 test_matchRoute :: IO ()
 test_matchRoute =
-    do assertEqual Nothing (matchRoute "random" routingTree)
-       assertEqual (Just (emptyParamMap, [1])) (matchRoute "/" routingTree)
-       assertEqual Nothing (matchRoute "/baz" routingTree)
-       assertEqual (Just (emptyParamMap, [2])) (matchRoute "/bar" routingTree)
-       assertEqual (Just (HM.fromList [(CaptureVar "baz", "5")], [3])) (matchRoute "/bar/5" routingTree)
-       assertEqual (Just (HM.fromList [(CaptureVar "baz", "5")], [3])) (matchRoute "/bar/5" routingTree)
-       assertEqual (Just (HM.fromList [(CaptureVar "baz", "23")], [4])) (matchRoute "/bar/23/baz" routingTree)
+    do assertEqual noMatches (matchRoute "random" routingTree)
+       assertEqual (oneMatch emptyParamMap [1]) (matchRoute "/" routingTree)
+       assertEqual noMatches (matchRoute "/baz" routingTree)
+       assertEqual (oneMatch emptyParamMap [2]) (matchRoute "/bar" routingTree)
+       assertEqual (oneMatch (HM.fromList [(CaptureVar "baz", "5")]) [3]) (matchRoute "/bar/5" routingTree)
+       assertEqual multiMatch (matchRoute "/bar/bingo" routingTree)
+       assertEqual (oneMatch (HM.fromList [(CaptureVar "baz", "23")]) [4]) (matchRoute "/bar/23/baz" routingTree)
     where
+      multiMatch =
+          ((oneMatch emptyParamMap [5])
+            ++ oneMatch (HM.fromList [(CaptureVar "baz", "bingo")]) [3])
+      noMatches = []
+      oneMatch pm m = [(pm, m)]
       routingTree =
           foldl (\tree (route, action) -> addToRoutingTree route action tree) emptyRoutingTree routes
       routes =
           [ ("/", [1])
           , ("/bar", [2 :: Int])
           , ("/bar/:baz", [3])
+          , ("/bar/bingo", [5])
           , ("/bar/:baz/baz", [4])
           ]
 

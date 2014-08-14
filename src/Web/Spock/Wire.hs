@@ -12,6 +12,7 @@ import Web.Spock.Routing
 import Control.Applicative
 import Control.Exception
 import Control.Monad.RWS.Strict
+import Control.Monad.Error
 import Control.Monad.Reader.Class ()
 import Control.Monad.Trans.Resource
 import Data.Hashable
@@ -78,9 +79,22 @@ data ResponseState
 
 type BaseRoute = T.Text
 
+data ActionInterupt
+    = ActionRedirect T.Text
+    | ActionTryNext
+    | ActionError String
+    deriving (Show)
+
+instance Error ActionInterupt where
+    noMsg = ActionError "Unkown Internal Action Error"
+    strMsg = ActionError
+
 newtype ActionT m a
-    = ActionT { runActionT :: RWST RequestInfo () ResponseState m a }
-      deriving (Monad, Functor, Applicative, MonadIO, MonadTrans, MonadReader RequestInfo, MonadState ResponseState)
+    = ActionT { runActionT :: ErrorT ActionInterupt (RWST RequestInfo () ResponseState m) a }
+      deriving (Monad, Functor, Applicative, MonadIO, MonadReader RequestInfo, MonadState ResponseState, MonadError ActionInterupt)
+
+instance MonadTrans ActionT where
+    lift = ActionT . lift . lift
 
 newtype SpockT (m :: * -> *) a
     = SpockT { runSpockT :: RWST BaseRoute () (SpockState m) m a }
@@ -149,39 +163,68 @@ buildApp spockLift spockActions =
               Right stdMethod ->
                   case HM.lookup stdMethod routingTreeMap of
                     Just routeTree ->
-                        case matchRoute' (Wai.pathInfo req) routeTree of
-                          Just (captures, action) ->
-                              runResourceT $
-                              withInternalState $ \st ->
-                              do (bodyParams, bodyFiles) <- P.parseRequestBody (P.tempFileBackEnd st) req
-                                 let uploadedFiles =
-                                         HM.fromList $
+                        runResourceT $
+                        withInternalState $ \st ->
+                            do (bodyParams, bodyFiles) <- P.parseRequestBody (P.tempFileBackEnd st) req
+                               let uploadedFiles =
+                                       HM.fromList $
                                          map (\(k, fileInfo) ->
                                                   ( T.decodeUtf8 k
                                                   , UploadedFile (T.decodeUtf8 $ P.fileName fileInfo) (T.decodeUtf8 $ P.fileContentType fileInfo) (P.fileContent fileInfo)
                                                   )
                                              ) bodyFiles
-                                     postParams =
-                                         map (\(k, v) -> (T.decodeUtf8 k, T.decodeUtf8 v)) bodyParams
-                                     getParams =
-                                         map (\(k, mV) -> (T.decodeUtf8 k, T.decodeUtf8 $ fromMaybe BS.empty mV)) $ Wai.queryString req
-                                     queryParams = postParams ++ getParams
-                                     env = RequestInfo req captures queryParams uploadedFiles
-                                     resp = errorResponse status200 ""
-                                 (respState, _) <- liftIO $
-                                     (spockLift $ execRWST (runActionT action) env resp)
+                                   postParams =
+                                       map (\(k, v) -> (T.decodeUtf8 k, T.decodeUtf8 v)) bodyParams
+                                   getParams =
+                                       map (\(k, mV) -> (T.decodeUtf8 k, T.decodeUtf8 $ fromMaybe BS.empty mV)) $ Wai.queryString req
+                                   queryParams = postParams ++ getParams
+                                   resp = errorResponse status200 ""
+                                   allActions = matchRoute' (Wai.pathInfo req) routeTree
+
+                                   applyAction :: [(ParamMap, ActionT m ())] -> m ResponseState
+                                   applyAction [] =
+                                       return $ errorResponse status404 "404 - File not found"
+                                   applyAction ((captures, selectedAction) : xs) =
+                                       do let env = RequestInfo req captures queryParams uploadedFiles
+                                          (r, respState, _) <-
+                                              runRWST (runErrorT $ runActionT $ selectedAction) env resp
+                                          case r of
+                                            Left (ActionRedirect loc) ->
+                                                return $ ResponseState [] status302 (ResponseRedirect loc)
+                                            Left ActionTryNext ->
+                                                applyAction xs
+                                            Left (ActionError errorMsg) ->
+                                                do liftIO $ putStrLn $ "Spock Error while handeling "
+                                                              ++ show (Wai.pathInfo req) ++ ": " ++ errorMsg
+                                                   return serverError
+                                            Right () ->
+                                                return respState
+
+                               respState <-
+                                   liftIO $
+                                   (spockLift $ applyAction allActions)
                                      `catch` \(e :: SomeException) ->
                                          do putStrLn $ "Spock Error while handeling " ++ show (Wai.pathInfo req) ++ ": " ++ show e
-                                            return (serverError, ())
-                                 forM_ (HM.elems uploadedFiles) $ \uploadedFile ->
-                                     do stillThere <- doesFileExist (uf_tempLocation uploadedFile)
-                                        when stillThere $ liftIO $ removeFile (uf_tempLocation uploadedFile)
-                                 liftIO $ respond $ respStateToResponse respState
-                          Nothing ->
-                              respond notFound
+                                            return serverError
+                               forM_ (HM.elems uploadedFiles) $ \uploadedFile ->
+                                   do stillThere <- doesFileExist (uf_tempLocation uploadedFile)
+                                      when stillThere $ liftIO $ removeFile (uf_tempLocation uploadedFile)
+                               liftIO $ respond $ respStateToResponse respState
                     Nothing ->
                         respond notFound
        return $ foldl (.) id (ss_middleware spockState) $ app
+
+{-
+data ActionOrResponse m
+    = ARAction (RWST RequestInfo () ResponseState m)
+    | ARResponse ResponseState
+
+data ActionInterupt
+    = ActionRedirect T.Text
+    | ActionTryNext
+    | ActionError String
+    deriving (Show)
+-}
 
 -- | Hook up a 'Wai.Middleware'
 middleware :: MonadIO m => Wai.Middleware -> SpockT m ()

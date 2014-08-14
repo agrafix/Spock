@@ -15,7 +15,7 @@ module Web.Spock
     , request, header, cookie, body, jsonBody, files, UploadedFile (..)
     , params, param
      -- * Sending responses
-    , setStatus, setHeader, redirect, setCookie, setCookie', bytes, lazyBytes
+    , setStatus, setHeader, redirect, jumpNext, setCookie, setCookie', bytes, lazyBytes
     , text, html, file, json, blaze
      -- * Adding middleware
     , middleware

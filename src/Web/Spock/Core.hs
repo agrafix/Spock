@@ -6,6 +6,7 @@ module Web.Spock.Core
     , defRoute, get, post, head, put, delete, patch
     , request, header, cookie, body, jsonBody
     , files, params, param, setStatus, setHeader, redirect
+    , jumpNext
     , setCookie, setCookie'
     , bytes, lazyBytes, text, html, file, json, blaze
     , combineRoute, subcomponent
@@ -14,6 +15,7 @@ where
 
 import Control.Arrow (first)
 import Control.Monad
+import Control.Monad.Error
 import Control.Monad.Reader
 import Control.Monad.State hiding (get, put)
 import Data.Time
@@ -121,12 +123,11 @@ param :: (PathPiece p, MonadIO m) => T.Text -> ActionT m (Maybe p)
 param k =
     do p <- asks ri_params
        qp <- asks ri_queryParams
-       let findP f wrapK x = join $ fmap fromPathPiece (f (wrapK k) x)
-           paramVal = findP HM.lookup CaptureVar p
-           queryVal = findP lookup id qp
-       case paramVal of
-         Just pVal -> return (Just pVal)
-         Nothing -> return queryVal
+       case HM.lookup (CaptureVar k) p of
+         Just val ->
+             maybe jumpNext return $ fromPathPiece val
+         Nothing ->
+             return $ join $ fmap fromPathPiece (lookup k qp)
 
 -- | Set a response status
 setStatus :: MonadIO m => Status -> ActionT m ()
@@ -138,10 +139,13 @@ setHeader :: MonadIO m => T.Text -> T.Text -> ActionT m ()
 setHeader k v =
     modify $ \rs -> rs { rs_responseHeaders = ((k, v) : filter ((/= k) . fst) (rs_responseHeaders rs)) }
 
+-- | Abort the current action and jump the next one matching the route
+jumpNext :: MonadIO m => ActionT m a
+jumpNext = throwError ActionTryNext
+
 -- | Redirect to a given url
 redirect :: MonadIO m => T.Text -> ActionT m ()
-redirect url =
-    modify $ \rs -> rs { rs_responseBody = ResponseRedirect url }
+redirect = throwError . ActionRedirect
 
 -- | Set a cookie living for a given number of seconds
 setCookie :: MonadIO m => T.Text -> T.Text -> NominalDiffTime -> ActionT m ()
