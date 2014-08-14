@@ -158,7 +158,7 @@ matchRoute' routeParts globalTree =
                                   V.snoc vec (paramMap', fromJust nodeData)
                               | otherwise ->
                                   vec
-                           _ -> V.fromList $ snd $ findRoute xs (rt_children rt) paramMap'
+                           _ -> V.fromList $ snd $ findRoute xs nodeChildren paramMap'
 
 matchNode :: T.Text -> RouteNode -> (Bool, Maybe (CaptureVar, T.Text))
 matchNode _ RouteNodeRoot = (False, Nothing)

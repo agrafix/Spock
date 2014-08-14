@@ -154,7 +154,8 @@ buildApp spockLift spockActions =
                , ss_spockLift = spockLift
                }
        (spockState, ()) <- spockLift $ execRWST (runSpockT spockActions) "/" initState
-       let routingTreeMap = buildRoutingTree (ss_treeMap spockState)
+       let spockMiddleware = foldl (.) id (ss_middleware spockState)
+           routingTreeMap = buildRoutingTree (ss_treeMap spockState)
            app :: Wai.Application
            app req respond =
             case parseMethod $ Wai.requestMethod req of
@@ -212,7 +213,7 @@ buildApp spockLift spockActions =
                                liftIO $ respond $ respStateToResponse respState
                     Nothing ->
                         respond notFound
-       return $ foldl (.) id (ss_middleware spockState) $ app
+       return $ spockMiddleware $ app
 
 -- | Hook up a 'Wai.Middleware'
 middleware :: MonadIO m => Wai.Middleware -> SpockT m ()
