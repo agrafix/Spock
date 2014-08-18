@@ -9,7 +9,6 @@ import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as VM
 import qualified Text.Regex as Regex
 import qualified Data.HashMap.Strict as HM
-import Debug.Trace
 
 type ParamMap = HM.HashMap CaptureVar T.Text
 
@@ -144,7 +143,7 @@ matchRoute' routeParts globalTree =
             matchTree vec rt =
                 case matchNode textNode (rd_node $ rt_node rt) of
                   (False, _) ->
-                      trace ("No match: " ++ show textNode ++ " @ " ++ (show $ rd_node $ rt_node rt)) vec
+                      vec
                   (True, mCapture) ->
                       let paramMap' =
                               case mCapture of

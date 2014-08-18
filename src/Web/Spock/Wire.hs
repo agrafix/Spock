@@ -200,7 +200,6 @@ buildApp spockLift spockActions =
                                                    return serverError
                                             Right () ->
                                                 return respState
-
                                respState <-
                                    liftIO $
                                    (spockLift $ applyAction allActions)

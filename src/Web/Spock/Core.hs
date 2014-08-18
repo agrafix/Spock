@@ -125,7 +125,12 @@ param k =
        qp <- asks ri_queryParams
        case HM.lookup (CaptureVar k) p of
          Just val ->
-             maybe jumpNext return $ fromPathPiece val
+             case fromPathPiece val of
+               Nothing ->
+                   do liftIO $ putStrLn ("Cannot parse " ++ show k ++ " with value " ++ show val ++ " as path piece!")
+                      jumpNext
+               Just pathPieceVal ->
+                   return pathPieceVal
          Nothing ->
              return $ join $ fmap fromPathPiece (lookup k qp)
 
