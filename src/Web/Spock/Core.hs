@@ -130,7 +130,7 @@ param k =
                    do liftIO $ putStrLn ("Cannot parse " ++ show k ++ " with value " ++ show val ++ " as path piece!")
                       jumpNext
                Just pathPieceVal ->
-                   return pathPieceVal
+                   return $ Just pathPieceVal
          Nothing ->
              return $ join $ fmap fromPathPiece (lookup k qp)
 
