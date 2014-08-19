@@ -129,18 +129,16 @@ matchRoute' routeParts globalTree =
             Nothing -> []
             Just action -> [(emptyParamMap, action)]
       xs ->
-          let (_, matches) = findRoute xs (rt_children globalTree) emptyParamMap
-          in matches
+          findRoute xs (rt_children globalTree)
     where
-      findRoute :: [T.Text] -> V.Vector (RoutingTree a) -> ParamMap -> (Bool, [(ParamMap, a)])
-      findRoute [] trees _ =
-          (V.null trees, [])
-      findRoute (textNode : xs) trees paramMap =
-          let foundPaths = V.foldl' matchTree V.empty trees
-          in (V.null foundPaths, V.toList foundPaths)
+      findRoute :: [T.Text] -> V.Vector (RoutingTree a) -> [(ParamMap, a)]
+      findRoute fullPath trees =
+          let foundPaths = V.foldl' (matchTree fullPath emptyParamMap) V.empty trees
+          in V.toList foundPaths
           where
-            matchTree :: V.Vector (ParamMap, a) -> RoutingTree a -> V.Vector (ParamMap, a)
-            matchTree vec rt =
+            matchTree :: [T.Text] -> ParamMap -> V.Vector (ParamMap, a) -> RoutingTree a -> V.Vector (ParamMap, a)
+            matchTree [] _ vec _ = vec
+            matchTree (textNode : xs) paramMap vec rt =
                 case matchNode textNode (rd_node $ rt_node rt) of
                   (False, _) ->
                       vec
@@ -157,7 +155,9 @@ matchRoute' routeParts globalTree =
                                   V.snoc vec (paramMap', fromJust nodeData)
                               | otherwise ->
                                   vec
-                           _ -> V.fromList $ snd $ findRoute xs nodeChildren paramMap'
+                           _ ->
+                               let foundPaths = V.foldl' (matchTree xs paramMap') V.empty nodeChildren
+                               in V.concat [foundPaths, vec]
 
 matchNode :: T.Text -> RouteNode -> (Bool, Maybe (CaptureVar, T.Text))
 matchNode _ RouteNodeRoot = (False, Nothing)
