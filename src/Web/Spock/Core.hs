@@ -98,7 +98,13 @@ cookie name =
 body :: MonadIO m => ActionT m BS.ByteString
 body =
     do req <- request
-       liftIO $ Wai.requestBody req
+       let parseBody = liftIO $ Wai.requestBody req
+           parseAll chunks =
+               do bs <- parseBody
+                  if BS.null bs
+                  then return chunks
+                  else parseAll (chunks `BS.append` bs)
+       parseAll BS.empty
 
 -- | Parse the request body as json
 jsonBody :: (MonadIO m, A.FromJSON a) => ActionT m (Maybe a)
