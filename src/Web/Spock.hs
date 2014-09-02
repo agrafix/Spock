@@ -12,7 +12,7 @@ module Web.Spock
     , subcomponent, Http.StdMethod (..)
     , combineRoute
      -- * Handeling requests
-    , request, header, cookie, body, jsonBody, files, UploadedFile (..)
+    , request, header, cookie, body, jsonBody, jsonBody', files, UploadedFile (..)
     , params, param
      -- * Sending responses
     , setStatus, setHeader, redirect, jumpNext, setCookie, setCookie', bytes, lazyBytes

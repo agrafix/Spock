@@ -1,10 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE DoAndIfThenElse #-}
 module Web.Spock.Core
     ( SpockT, ActionT, spockT
     , middleware, UploadedFile (..)
     , defRoute, get, post, head, put, delete, patch
-    , request, header, cookie, body, jsonBody
+    , request, header, cookie, body, jsonBody, jsonBody'
     , files, params, param, setStatus, setHeader, redirect
     , jumpNext
     , setCookie, setCookie'
@@ -111,6 +112,18 @@ jsonBody :: (MonadIO m, A.FromJSON a) => ActionT m (Maybe a)
 jsonBody =
     do b <- body
        return $ A.decodeStrict b
+
+-- | Parse the request body as json and fails with 500 status code on error
+jsonBody' :: (MonadIO m, A.FromJSON a) => ActionT m a
+jsonBody' =
+    do b <- body
+       case A.eitherDecodeStrict' b of
+         Left err ->
+             do setStatus status500
+                text (T.pack $ "Failed to parse json: " ++ err)
+                throwError ActionDone
+         Right val ->
+             return val
 
 -- | Get uploaded files
 files :: MonadIO m => ActionT m (HM.HashMap T.Text UploadedFile)
