@@ -83,6 +83,7 @@ data ActionInterupt
     = ActionRedirect T.Text
     | ActionTryNext
     | ActionError String
+    | ActionDone
     deriving (Show)
 
 instance Error ActionInterupt where
@@ -198,6 +199,8 @@ buildApp spockLift spockActions =
                                                 do liftIO $ putStrLn $ "Spock Error while handeling "
                                                               ++ show (Wai.pathInfo req) ++ ": " ++ errorMsg
                                                    return serverError
+                                            Left ActionDone ->
+                                                return respState
                                             Right () ->
                                                 return respState
                                respState <-
