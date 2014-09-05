@@ -6,7 +6,7 @@ module Web.Spock.Core
     , middleware, UploadedFile (..)
     , defRoute, get, post, head, put, delete, patch
     , request, header, cookie, body, jsonBody, jsonBody'
-    , files, params, param, setStatus, setHeader, redirect
+    , files, params, param, param', setStatus, setHeader, redirect
     , jumpNext
     , setCookie, setCookie'
     , bytes, lazyBytes, text, html, file, json, blaze
@@ -151,6 +151,17 @@ param k =
                    return $ Just pathPieceVal
          Nothing ->
              return $ join $ fmap fromPathPiece (lookup k qp)
+
+-- | Like 'param', but outputs an error when a param is missing
+param' :: (PathPiece p, MonadIO m) => T.Text -> ActionT m p
+param' k =
+    do mParam <- param k
+       case mParam of
+         Nothing ->
+             do setStatus status500
+                text (T.concat [ "Missing parameter ", k ])
+         Just val ->
+             return val
 
 -- | Set a response status
 setStatus :: MonadIO m => Status -> ActionT m ()
