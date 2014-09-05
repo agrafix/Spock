@@ -121,7 +121,6 @@ jsonBody' =
          Left err ->
              do setStatus status500
                 text (T.pack $ "Failed to parse json: " ++ err)
-                throwError ActionDone
          Right val ->
              return val
 
@@ -168,7 +167,7 @@ jumpNext :: MonadIO m => ActionT m a
 jumpNext = throwError ActionTryNext
 
 -- | Redirect to a given url
-redirect :: MonadIO m => T.Text -> ActionT m ()
+redirect :: MonadIO m => T.Text -> ActionT m a
 redirect = throwError . ActionRedirect
 
 -- | Set a cookie living for a given number of seconds
@@ -194,41 +193,43 @@ setCookie' name value validUntil =
                       ]
 
 -- | Send a 'ByteString' as response body. Provide your own "Content-Type"
-bytes :: MonadIO m => BS.ByteString -> ActionT m ()
+bytes :: MonadIO m => BS.ByteString -> ActionT m a
 bytes val =
     lazyBytes $ BSL.fromStrict val
 
 -- | Send a lazy 'ByteString' as response body. Provide your own "Content-Type"
-lazyBytes :: MonadIO m => BSL.ByteString -> ActionT m ()
+lazyBytes :: MonadIO m => BSL.ByteString -> ActionT m a
 lazyBytes val =
-    modify $ \rs -> rs { rs_responseBody = ResponseLBS val }
+    do modify $ \rs -> rs { rs_responseBody = ResponseLBS val }
+       throwError ActionDone
 
 -- | Send text as a response body. Content-Type will be "text/plain"
-text :: MonadIO m => T.Text -> ActionT m ()
+text :: MonadIO m => T.Text -> ActionT m a
 text val =
     do setHeader "Content-Type" "text/plain"
        bytes $ T.encodeUtf8 val
 
 -- | Send a text as response body. Content-Type will be "text/plain"
-html :: MonadIO m => T.Text -> ActionT m ()
+html :: MonadIO m => T.Text -> ActionT m a
 html val =
     do setHeader "Content-Type" "text/html"
        bytes $ T.encodeUtf8 val
 
 -- | Send a file as response
-file :: MonadIO m => T.Text -> FilePath -> ActionT m ()
+file :: MonadIO m => T.Text -> FilePath -> ActionT m a
 file contentType filePath =
      do setHeader "Content-Type" contentType
         modify $ \rs -> rs { rs_responseBody = ResponseFile filePath }
+        throwError ActionDone
 
 -- | Send json as response. Content-Type will be "application/json"
-json :: (A.ToJSON a, MonadIO m) => a -> ActionT m ()
+json :: (A.ToJSON a, MonadIO m) => a -> ActionT m b
 json val =
     do setHeader "Content-Type" "application/json"
        lazyBytes $ A.encode val
 
 -- | Send blaze html as response. Content-Type will be "text/html"
-blaze :: MonadIO m => Html -> ActionT m ()
+blaze :: MonadIO m => Html -> ActionT m a
 blaze val =
     do setHeader "Content-Type" "text/html"
        lazyBytes $ renderHtml val

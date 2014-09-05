@@ -13,7 +13,7 @@ module Web.Spock
     , combineRoute
      -- * Handeling requests
     , request, header, cookie, body, jsonBody, jsonBody', files, UploadedFile (..)
-    , params, param
+    , params, param, param'
      -- * Sending responses
     , setStatus, setHeader, redirect, jumpNext, setCookie, setCookie', bytes, lazyBytes
     , text, html, file, json, blaze
