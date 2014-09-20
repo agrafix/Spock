@@ -44,7 +44,6 @@ import Web.Spock.SessionManager
 import Web.Spock.Types
 import qualified Web.Spock.Core as C
 
-import Control.Applicative
 import Control.Monad.Trans.Reader
 import Control.Monad.Trans.Resource
 import Data.Pool
@@ -58,15 +57,13 @@ spock port sessionCfg poolOrConn initialState defs =
     do sessionMgr <- createSessionManager sessionCfg
        connectionPool <-
            case poolOrConn of
-             PCConduitPool p ->
-                 return (ConduitPool p)
              PCPool p ->
-                 return (DataPool p)
+                 return p
              PCConn cb ->
                  let pc = cb_poolConfiguration cb
-                 in DataPool <$> createPool (cb_createConn cb) (cb_destroyConn cb)
-                                  (pc_stripes pc) (pc_keepOpenTime pc)
-                                   (pc_resPerStripe pc)
+                 in createPool (cb_createConn cb) (cb_destroyConn cb)
+                        (pc_stripes pc) (pc_keepOpenTime pc)
+                        (pc_resPerStripe pc)
        let internalState =
                WebState
                { web_dbConn = connectionPool

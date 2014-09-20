@@ -19,7 +19,6 @@ import Data.Pool
 import Data.Time.Clock ( UTCTime(..), NominalDiffTime )
 import Data.Typeable
 import Network.Wai
-import qualified Data.Conduit.Pool as CP
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 
@@ -51,7 +50,6 @@ data ConnBuilder a
 -- a connection pool. See 'ConnBuilder'
 data PoolOrConn a
    = PCPool (Pool a)
-   | PCConduitPool (CP.Pool a)
    | PCConn (ConnBuilder a)
 
 -- | Configuration for the session manager
@@ -63,13 +61,9 @@ data SessionCfg a
    , sc_emptySession :: a
    }
 
-data ConnectionPool conn
-   = DataPool (Pool conn)
-   | ConduitPool (CP.Pool conn)
-
 data WebState conn sess st
    = WebState
-   { web_dbConn :: ConnectionPool conn
+   { web_dbConn :: Pool conn
    , web_sessionMgr :: SessionManager conn sess st
    , web_state :: st
    }

@@ -13,7 +13,6 @@ import Data.Pool
 import Data.Time.Clock ( UTCTime(..) )
 import Web.PathPieces
 import qualified Data.ByteString.Lazy as BSL
-import qualified Data.Conduit.Pool as CP
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Text.XML.XSD.DateTime as XSD
@@ -40,13 +39,7 @@ instance HasSpock (WebStateM conn sess st) where
 runQueryImpl :: (conn -> IO a) -> WebStateM conn sess st a
 runQueryImpl query =
     do pool <- asks web_dbConn
-       let fun =
-               case pool of
-                 DataPool p ->
-                     withResource p
-                 ConduitPool p ->
-                     CP.withResource p
-       liftIO (fun query)
+       liftIO (withResource pool $ query)
 
 getStateImpl :: WebStateM conn sess st st
 getStateImpl = asks web_state

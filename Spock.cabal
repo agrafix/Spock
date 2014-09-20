@@ -40,7 +40,6 @@ library
                        mtl ==2.1.*,
                        old-locale ==1.*,
                        path-pieces >=0.1.4,
-                       pool-conduit ==0.1.*,
                        random ==1.*,
                        regex-compat ==0.95.*,
                        resource-pool ==0.2.*,
