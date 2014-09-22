@@ -1,5 +1,5 @@
 name:                Spock
-version:             0.6.5.0
+version:             0.6.6.0
 synopsis:            Another Haskell web framework for rapid development
 description:         This toolbox provides everything you need to get a quick start into web hacking with haskell: routing, middleware, json, blaze, sessions, cookies, database helper, csrf-protection, global state
 Homepage:            https://github.com/agrafix/Spock
@@ -14,15 +14,15 @@ cabal-version:       >=1.8
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Web.Spock
+  exposed-modules:     Web.Spock,
+                       Web.Spock.Routing,
+                       Web.Spock.Wire
   other-modules:       Web.Spock.SessionManager,
                        Web.Spock.Monad,
                        Web.Spock.Types,
                        Web.Spock.SafeActions,
                        Web.Spock.Digestive,
                        Web.Spock.Core,
-                       Web.Spock.Wire,
-                       Web.Spock.Routing,
                        Web.Spock.Util
   build-depends:       aeson >= 0.6.2.1 && < 0.9,
                        base >= 4 && < 5,
@@ -60,43 +60,15 @@ library
 
 test-suite spocktests
   type:                exitcode-stdio-1.0
-  hs-source-dirs:      src
-  main-is:             Tests.hs
-  other-modules:       Tests.Routing
-  build-depends:       HTF >=0.11 && <0.13,
-                       aeson >= 0.6.2.1 && < 0.9,
+  hs-source-dirs:      test
+  main-is:             Spec.hs
+  other-modules:       Web.Spock.WireSpec, Web.Spock.RoutingSpec
+  build-depends:       QuickCheck,
+                       Spock,
                        base >= 4 && < 5,
-                       base64-bytestring ==1.*,
-                       blaze-html ==0.7.*,
-                       bytestring ==0.10.*,
-                       case-insensitive ==1.1.*,
-                       conduit >= 1.0 && < 1.2,
-                       containers ==0.5.*,
-                       digestive-functors ==0.7.*,
-                       directory ==1.2.*,
-                       hashable ==1.2.*,
-                       http-types ==0.8.*,
-                       monad-control ==0.3.*,
-                       mtl ==2.1.*,
-                       old-locale ==1.*,
-                       path-pieces >=0.1.4,
-                       pool-conduit ==0.1.*,
-                       random ==1.*,
-                       regex-compat ==0.95.*,
-                       resource-pool ==0.2.*,
-                       resourcet >= 0.4 && < 1.2,
-                       stm ==2.4.*,
-                       text >= 0.11.3.1 && < 1.2,
-                       time ==1.4.*,
-                       transformers ==0.3.*,
-                       transformers-base ==0.4.*,
-                       unordered-containers ==0.2.*,
-                       vault ==0.3.*,
+                       hspec >=1.11 && <1.12,
                        vector ==0.10.*,
-                       wai >=3.0 && <4.0,
-                       wai-extra >=3.0 && <4.0,
-                       warp >=3.0 && <4.0,
-                       xsd ==0.4.*
+                       unordered-containers ==0.2.*
   ghc-options: -Wall -fno-warn-orphans
 
 source-repository head
