@@ -20,7 +20,10 @@ everything you need to get a quick start into web hacking with haskell:
 * csrf-protection
 * global state
 
-Benchmarks: https://github.com/agrafix/Spock-scotty-benchmark
+Benchmarks:
+
+* https://github.com/philopon/apiary-benchmark
+* https://github.com/agrafix/Spock-scotty-benchmark
 
 # Usage
 
@@ -54,8 +57,14 @@ The following Spock extensions exist:
 
 # Example Projects
 
+* http://findmelike.com/
 * https://github.com/agrafix/funblog
 * https://github.com/openbrainsrc/makeci
+
+# Companies using Spock
+
+* http://cp-med.com/
+* http://openbrain.co.uk/
 
 # Notes
 
