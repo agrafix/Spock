@@ -22,8 +22,8 @@ library
                        Web.Spock.Types,
                        Web.Spock.SafeActions,
                        Web.Spock.Digestive,
-                       Web.Spock.Core,
-                       Web.Spock.Util
+                       Web.Spock.Util,
+                       Web.Spock.Core
   build-depends:       aeson >= 0.6.2.1 && < 0.9,
                        base >= 4 && < 5,
                        base64-bytestring ==1.*,
@@ -66,7 +66,7 @@ test-suite spocktests
   build-depends:       QuickCheck,
                        Spock,
                        base >= 4 && < 5,
-                       hspec >=1.11 && <1.12,
+                       hspec2 >=0.4 && <0.5,
                        vector ==0.10.*,
                        unordered-containers ==0.2.*
   ghc-options: -Wall -fno-warn-orphans
