@@ -7,8 +7,9 @@ module Web.Spock.SafeActions where
 
 import Web.Spock.Core
 import Web.Spock.Types
-import Network.HTTP.Types.Status
 
+import Data.Monoid
+import Network.HTTP.Types.Status
 import qualified Data.Text as T
 
 -- | Wire up a safe action: Safe actions are actions that are protected from
@@ -24,7 +25,7 @@ import qualified Data.Text as T
 -- > get "/user-details/:userId" $
 -- >   do userId <- param' "userId"
 -- >      deleteUrl <- safeActionPath (DeleteUser userId)
--- >      html $ T.concat [ "Click <a href='", TL.fromStrict deleteUrl, "'>here</a> to delete user!" ]
+-- >      html $ "Click <a href='" <> deleteUrl <> "'>here</a> to delete user!"
 --
 -- Note that safeActions currently only support GET and POST requests.
 --
@@ -39,7 +40,7 @@ safeActionPath :: forall conn sess st a.
 safeActionPath safeAction =
     do mgr <- getSessMgr
        hash <- (sm_addSafeAction mgr) (PackedSafeAction safeAction)
-       return $ T.concat [ "/h/", hash ]
+       return $ "/h/" <> hash
 
 hookSafeActions :: forall conn sess st.
                    ( HasSpock (SpockAction conn sess st)
