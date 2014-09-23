@@ -11,6 +11,7 @@ module Web.Spock.Core
     , setCookie, setCookie'
     , bytes, lazyBytes, text, html, file, json, blaze
     , combineRoute, subcomponent
+    , requireBasicAuth
     )
 where
 
@@ -19,6 +20,7 @@ import Control.Monad
 import Control.Monad.Error
 import Control.Monad.Reader
 import Control.Monad.State hiding (get, put)
+import Data.Monoid
 import Data.Time
 import Network.HTTP.Types.Method
 import Network.HTTP.Types.Status
@@ -31,6 +33,7 @@ import Web.Spock.Routing
 import Web.Spock.Wire
 import qualified Data.Aeson as A
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Base64 as B64
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.CaseInsensitive as CI
 import qualified Data.HashMap.Strict as HM
@@ -244,3 +247,33 @@ blaze :: MonadIO m => Html -> ActionT m a
 blaze val =
     do setHeader "Content-Type" "text/html"
        lazyBytes $ renderHtml val
+
+-- | Basic authentification
+-- provide a title for the prompt and a function to validate
+-- user and password. Usage example:
+--
+-- > get "/my-secret-page" $
+-- >   requireBasicAuth "Secret Page" (\user pass -> return (user == "admin" && pass == "1234")) $
+-- >   do html "This is top secret content. Login using that secret code I provided ;-)"
+--
+requireBasicAuth :: MonadIO m => T.Text -> (T.Text -> T.Text -> m Bool) -> ActionT m a -> ActionT m a
+requireBasicAuth realmTitle authFun cont =
+    do mAuthHeader <- header "Authorization"
+       case mAuthHeader of
+         Nothing ->
+             authFailed
+         Just authHeader ->
+             let (_, rawValue) =
+                     T.breakOn " " authHeader
+                 (user, rawPass) =
+                     (T.breakOn ":" . T.decodeUtf8 . B64.decodeLenient . T.encodeUtf8 . T.strip) rawValue
+                 pass = T.drop 1 rawPass
+             in do isOk <- lift $ authFun user pass
+                   if isOk
+                   then cont
+                   else authFailed
+    where
+      authFailed =
+          do setStatus status401
+             setHeader "WWW-Authenticate" ("Basic realm=\"" <> realmTitle <> "\"")
+             html "<h1>Authentication required.</h1>"

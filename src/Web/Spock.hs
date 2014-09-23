@@ -26,6 +26,8 @@ module Web.Spock
       -- * Sessions
     , SessionCfg (..)
     , readSession, writeSession, modifySession, clearAllSessions
+      -- * Basic HTTP-Auth
+    , requireBasicAuth
       -- * Safe actions
     , SafeAction (..)
     , safeActionPath
