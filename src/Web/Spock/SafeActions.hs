@@ -22,9 +22,9 @@ import qualified Data.Text as T
 -- >          redirect "/user-list"
 -- >
 -- > get "/user-details/:userId" $
--- >   do userId <- param "userId"
+-- >   do userId <- param' "userId"
 -- >      deleteUrl <- safeActionPath (DeleteUser userId)
--- >      html $ TL.concat [ "Click <a href='", TL.fromStrict deleteUrl, "'>here</a> to delete user!" ]
+-- >      html $ T.concat [ "Click <a href='", TL.fromStrict deleteUrl, "'>here</a> to delete user!" ]
 --
 -- Note that safeActions currently only support GET and POST requests.
 --
