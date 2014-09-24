@@ -112,7 +112,7 @@ respStateToResponse (ResponseState headers status body) =
       ResponseLBS bsl ->
           Wai.responseLBS status waiHeaders bsl
       ResponseRedirect target ->
-          Wai.responseLBS status302 [("Location", T.encodeUtf8 target)] BSL.empty
+          Wai.responseLBS status302 (("Location", T.encodeUtf8 target) : waiHeaders) BSL.empty
     where
       waiHeaders = map (\(k, v) -> (CI.mk $ T.encodeUtf8 k, T.encodeUtf8 v)) headers
 
@@ -192,7 +192,8 @@ buildApp spockLift spockActions =
                                               runRWST (runErrorT $ runActionT $ selectedAction) env resp
                                           case r of
                                             Left (ActionRedirect loc) ->
-                                                return $ ResponseState [] status302 (ResponseRedirect loc)
+                                                return $ ResponseState (rs_responseHeaders respState)
+                                                       status302 (ResponseRedirect loc)
                                             Left ActionTryNext ->
                                                 applyAction xs
                                             Left (ActionError errorMsg) ->
