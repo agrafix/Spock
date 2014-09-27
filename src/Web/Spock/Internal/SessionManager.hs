@@ -1,13 +1,13 @@
 {-# LANGUAGE FlexibleContexts, DeriveGeneric, OverloadedStrings, DoAndIfThenElse, RankNTypes #-}
-module Web.Spock.SessionManager
+module Web.Spock.Internal.SessionManager
     ( createSessionManager
     , SessionId, Session(..), SessionManager(..)
     )
 where
 
-import Web.Spock.Types
-import Web.Spock.Core
-import Web.Spock.Util
+import Web.Spock.Internal.Types
+import Web.Spock.Internal.CoreAction
+import Web.Spock.Internal.Util
 
 import Control.Arrow (first)
 import Control.Concurrent

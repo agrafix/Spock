@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Web.Spock.WireSpec (spec) where
+module Web.Spock.Internal.WireSpec (spec) where
 
-import Web.Spock.Wire
+import Web.Spock.Internal.Wire
 import Test.Hspec
 
 spec :: Spec

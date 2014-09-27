@@ -2,9 +2,9 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE TypeFamilies #-}
-module Web.Spock.Monad where
+module Web.Spock.Internal.Monad where
 
-import Web.Spock.Types
+import Web.Spock.Internal.Types
 
 import Control.Monad
 import Control.Monad.Reader

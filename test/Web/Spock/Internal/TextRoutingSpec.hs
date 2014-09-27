@@ -1,9 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Web.Spock.RoutingSpec (spec) where
+module Web.Spock.Internal.TextRoutingSpec (spec) where
 
 import Test.Hspec
 
-import Web.Spock.Routing
+import Web.Spock.Internal.TextRouting
 import qualified Data.Vector as V
 import qualified Data.HashMap.Strict as HM
 
