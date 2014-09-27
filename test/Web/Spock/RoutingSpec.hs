@@ -19,8 +19,10 @@ matchNodeDesc =
     describe "matchNode" $
     do it "shouldn't match to root node" $
           matchNode "foo" RouteNodeRoot `shouldBe` (False, Nothing)
-       it "should capture basic variables" $
-          matchNode "123" (RouteNodeCapture (CaptureVar "x")) `shouldBe` (True, Just (CaptureVar "x", "123"))
+       it "should capture basic variables" $ do
+          matchNode "123" (RouteNodeCapture (CaptureVar "x") "") `shouldBe` (True, Just (CaptureVar "x", "123"))
+          matchNode "123.html" (RouteNodeCapture (CaptureVar "x") ".html") `shouldBe` (True, Just (CaptureVar "x", "123"))
+          matchNode "123" (RouteNodeCapture (CaptureVar "x") ".html") `shouldBe` (False, Nothing)
        it "should work with regex" $
           matchNode "123" (RouteNodeRegex (CaptureVar "x") (buildRegex "^[0-9]+$")) `shouldBe` (True, Just (CaptureVar "x", "123"))
 
@@ -44,6 +46,8 @@ matchRouteDesc =
        it "should handle multiple possibile matches correctly" $
           do matchRoute "/bar/bingo" routingTree `shouldBe` multiMatch
              matchRoute "/entry/1/audit" routingTree `shouldBe` multiMatch'
+       it "should allow suffixes" $
+          do matchRoute "/bar/foo.html" routingTree `shouldBe` oneMatch (vMap [("baz", "foo")]) [10]
     where
       vMap kv =
           HM.fromList $ map (\(k, v) -> (CaptureVar k, v)) kv
@@ -69,6 +73,7 @@ matchRouteDesc =
           , ("/entry/bytags/:cid/:since", [7])
           , ("/entry/:eid/audit", [8])
           , ("/entry/:eid/rel/:cid", [9])
+          , ("/bar/:baz.html", [10])
           ]
 
 parseRouteNodeDesc :: Spec
@@ -76,8 +81,9 @@ parseRouteNodeDesc =
     describe "parseRouteNode" $
     do it "parses text nodes correctly" $
           parseRouteNode "foo" `shouldBe` RouteNodeText "foo"
-       it "parses capture variables" $
-          parseRouteNode ":bar" `shouldBe` RouteNodeCapture (CaptureVar "bar")
+       it "parses capture variables" $ do
+          parseRouteNode ":bar" `shouldBe` RouteNodeCapture (CaptureVar "bar") ""
+          parseRouteNode ":bar.html.gz" `shouldBe` RouteNodeCapture (CaptureVar "bar") ".html.gz"
        it "parses regex capture variables" $
           parseRouteNode "{bar:^[0-9]$}" `shouldBe` RouteNodeRegex (CaptureVar "bar") (buildRegex "^[0-9]$")
 
@@ -103,7 +109,7 @@ addToRoutingTreeDesc =
                    [ RoutingTree { rt_node = RouteData{rd_node = RouteNodeText "foo", rd_data = Nothing}
                                  , rt_children =
                                      V.fromList
-                                          [ RoutingTree { rt_node = RouteData { rd_node = RouteNodeCapture (CaptureVar "bar")
+                                          [ RoutingTree { rt_node = RouteData { rd_node = RouteNodeCapture (CaptureVar "bar") ""
                                                                               , rd_data = Just [True]
                                                                               }
                                                         , rt_children = V.fromList xs}]}]}
