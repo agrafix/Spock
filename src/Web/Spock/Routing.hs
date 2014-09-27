@@ -31,7 +31,7 @@ instance Show RegexWrapper where
 
 data RouteNode
    = RouteNodeRegex !CaptureVar !RegexWrapper
-   | RouteNodeCapture !CaptureVar
+   | RouteNodeCapture !CaptureVar !T.Text
    | RouteNodeText !T.Text
    | RouteNodeRoot
    deriving (Show, Eq)
@@ -96,7 +96,8 @@ parseRouteNode :: T.Text -> RouteNode
 parseRouteNode node =
     case T.uncons node of
       Just (':', var) ->
-          RouteNodeCapture $ CaptureVar var
+          let (v, e) = T.breakOn "." var
+          in RouteNodeCapture (CaptureVar v) e
       Just ('{', rest) ->
           case T.uncons (T.reverse rest) of
             Just ('}', def) ->
@@ -162,7 +163,11 @@ matchRoute' routeParts globalTree =
 matchNode :: T.Text -> RouteNode -> (Bool, Maybe (CaptureVar, T.Text))
 matchNode _ RouteNodeRoot = (False, Nothing)
 matchNode t (RouteNodeText m) = (m == t, Nothing)
-matchNode t (RouteNodeCapture var) = (True, Just (var, t))
+matchNode t (RouteNodeCapture var suffix)
+    | s == suffix = (True, Just (var, v))
+    | otherwise   = (False, Nothing)
+  where
+    (v, s) = T.breakOn "." t
 matchNode t (RouteNodeRegex var regex) =
     case Regex.matchRegex (rw_regex regex) (T.unpack t) of
       Nothing -> (False, Nothing)
