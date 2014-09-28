@@ -115,17 +115,20 @@ match (PathMap _ m pm) (pp:pps) =
       varMatches = lookupPolyMap pp pps pm
   in staticMatches ++ varMatches
 
+-- | A route parameter
 var :: (Typeable a, PathPiece a) => Path (a ': '[])
 var = VarCons Empty
 
 type Var a = Path (a ': '[])
 
+-- | A static route piece
 static :: String -> Path '[]
 static s = StaticCons (T.pack s) Empty
 
 instance (a ~ '[]) => IsString (Path a) where
     fromString = static
 
+-- | The root of a path piece. Use to define a handler for "/"
 root :: Path '[]
 root = Empty
 
@@ -134,13 +137,17 @@ root = Empty
 (</>) (StaticCons pathPiece xs) ys = (StaticCons pathPiece (xs </> ys))
 (</>) (VarCons xs) ys = (VarCons (xs </> ys))
 
-render :: Path as -> HList as -> [T.Text]
-render Empty _ = []
-render (StaticCons pathPiece pathXs) paramXs =
-    ( pathPiece : render pathXs paramXs )
-render (VarCons pathXs) (HCons val paramXs) =
-    ( toPathPiece val : render pathXs paramXs)
-render _ _ =
+renderRoute :: Path as -> HList as -> T.Text
+renderRoute p h =
+    T.intercalate "/" $ renderRoute' p h
+
+renderRoute' :: Path as -> HList as -> [T.Text]
+renderRoute' Empty _ = []
+renderRoute' (StaticCons pathPiece pathXs) paramXs =
+    ( pathPiece : renderRoute' pathXs paramXs )
+renderRoute' (VarCons pathXs) (HCons val paramXs) =
+    ( toPathPiece val : renderRoute' pathXs paramXs)
+renderRoute' _ _ =
     error "This will never happen."
 
 parse :: Path as -> [T.Text] -> Maybe (HList as)

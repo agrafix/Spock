@@ -13,10 +13,13 @@ module Web.Spock.Safe
     , spockT, SpockT, ActionT
     , spockApp
      -- * Defining routes
-    , Path, root, var, static
+    , Path, root, var, static, (</>)
+     -- * Rendering routes
+    , renderRoute
+     -- * Hooking routes
+    , subcomponent
     , get, post, head, put, delete, patch, hookRoute
-    , subcomponent, Http.StdMethod (..)
-    , (</>)
+    , Http.StdMethod (..)
      -- * Handeling requests
     , request, header, cookie, body, jsonBody, jsonBody', files, UploadedFile (..)
     , params, param, param'
@@ -123,12 +126,24 @@ delete = hookRoute DELETE
 patch :: MonadIO m => Path xs -> HListElim xs (ActionT m ()) -> SpockT m ()
 patch = hookRoute PATCH
 
+-- | Specify an action that will be run when a HTTP verb and the given route match
 hookRoute :: Monad m => StdMethod -> Path xs -> HListElim xs (ActionT m ()) -> SpockT m ()
 hookRoute m path action = SpockT $ C.hookRoute m path (HListElim' action)
 
+-- | Define a subcomponent. Usage example:
+--
+-- > subcomponent "site" $
+-- >   do get "home" homeHandler
+-- >      get ("misc" <> var) $ -- ...
+-- > subcomponent "admin" $
+-- >   do get "home" adminHomeHandler
+--
+-- The request "/site/home" will be routed to homeHandler and the
+-- request "/admin/home" will be routed to adminHomeHandler
 subcomponent :: Monad m => Path '[] -> SpockT m () -> SpockT m ()
 subcomponent p (SpockT subapp) = SpockT $ C.subcomponent p subapp
 
+-- | Hook wai middleware into Spock
 middleware :: Monad m => Wai.Middleware -> SpockT m ()
 middleware = SpockT . C.middleware
 

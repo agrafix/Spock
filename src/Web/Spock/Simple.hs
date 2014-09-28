@@ -10,11 +10,13 @@ module Web.Spock.Simple
     ( -- * Spock's core
       spock, SpockM, SpockAction
     , spockT, SpockT, ActionT
-    , spockApp, SpockRoute
+    , spockApp
      -- * Defining routes
+    , SpockRoute, (<#>)
+     -- * Hooking routes
+    , subcomponent
     , get, post, head, put, delete, patch, hookRoute
-    , subcomponent, Http.StdMethod (..)
-    , (<#>)
+    , Http.StdMethod (..)
      -- * Handeling requests
     , request, header, cookie, body, jsonBody, jsonBody', files, UploadedFile (..)
     , params, param, param'
@@ -103,6 +105,9 @@ spockApp liftFun (SpockT app) =
     W.buildApp textRegistry liftFun app
 
 -- | Combine two route components safely
+-- "/foo" <#> "/bar" ===> "/foo/bar"
+-- "foo" <#> "bar" ===> "/foo/bar"
+-- "foo <#> "/bar" ===> "/foo/bar"
 (<#>) :: SpockRoute -> SpockRoute -> SpockRoute
 (SpockRoute t) <#> (SpockRoute t') = SpockRoute $ unTPath $ combineRoute (TPath t) (TPath t')
 
@@ -130,15 +135,26 @@ delete = hookRoute DELETE
 patch :: MonadIO m => SpockRoute -> ActionT m () -> SpockT m ()
 patch = hookRoute PATCH
 
+-- | Specify an action that will be run when a HTTP verb and the given route match
 hookRoute :: Monad m => StdMethod -> SpockRoute -> ActionT m () -> SpockT m ()
 hookRoute m (SpockRoute path) action = SpockT $ C.hookRoute m (TPath path) (TAction action)
 
+-- | Define a subcomponent. Usage example:
+--
+-- > subcomponent "/site" $
+-- >   do get "/home" homeHandler
+-- >      get "/misc/:param" $ -- ...
+-- > subcomponent "/admin" $
+-- >   do get "/home" adminHomeHandler
+--
+-- The request /site/home will be routed to homeHandler and the
+-- request /admin/home will be routed to adminHomeHandler
 subcomponent :: Monad m => TextPath -> SpockT m () -> SpockT m ()
 subcomponent p (SpockT subapp) = SpockT $ C.subcomponent p subapp
 
+-- | Hook wai middleware into Spock
 middleware :: Monad m => Wai.Middleware -> SpockT m ()
 middleware = SpockT . C.middleware
-
 
 -- | Write to the current session. Note that all data is stored on the server.
 -- The user only reciedes a sessionId to be identified.
