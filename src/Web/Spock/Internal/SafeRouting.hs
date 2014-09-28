@@ -15,6 +15,7 @@ import Web.Spock.Internal.AbstractRouter
 import Data.HList
 import Data.Maybe
 import Data.Monoid
+import Data.String
 import Web.PathPieces
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
@@ -121,6 +122,12 @@ type Var a = Path (a ': '[])
 
 static :: String -> Path '[]
 static s = StaticCons (T.pack s) Empty
+
+instance (a ~ '[]) => IsString (Path a) where
+    fromString = static
+
+root :: Path '[]
+root = Empty
 
 (</>) :: Path as -> Path bs -> Path (HAppendList as bs)
 (</>) Empty xs = xs

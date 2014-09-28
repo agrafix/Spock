@@ -15,6 +15,7 @@ cabal-version:       >=1.8
 library
   hs-source-dirs:      src
   exposed-modules:     Web.Spock.Simple,
+                       Web.Spock.Safe,
                        Web.Spock.Specs.All
   other-modules:       Web.Spock.Internal.SessionManager,
                        Web.Spock.Internal.Monad,
@@ -29,6 +30,7 @@ library
                        Web.Spock.Internal.Wire,
                        Web.Spock.Internal.AbstractRouter,
                        Web.Spock.Specs.SimpleSpec,
+                       Web.Spock.Specs.SafeSpec,
                        Web.Spock.Specs.TextRoutingSpec,
                        Web.Spock.Specs.FrameworkSpecHelper
   build-depends:       aeson >= 0.6.2.1 && <0.9,
