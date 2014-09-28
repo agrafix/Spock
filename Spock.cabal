@@ -15,10 +15,7 @@ cabal-version:       >=1.8
 library
   hs-source-dirs:      src
   exposed-modules:     Web.Spock.Simple,
-                       Web.Spock.Internal.TextRouting,
-                       Web.Spock.Internal.SafeRouting,
-                       Web.Spock.Internal.Wire,
-                       Web.Spock.Internal.AbstractRouter
+                       Web.Spock.Specs.All
   other-modules:       Web.Spock.Internal.SessionManager,
                        Web.Spock.Internal.Monad,
                        Web.Spock.Internal.Types,
@@ -26,7 +23,14 @@ library
                        Web.Spock.Internal.Util,
                        Web.Spock.Internal.Core,
                        Web.Spock.Internal.CoreAction,
-                       Web.Spock.Internal.Wrapper
+                       Web.Spock.Internal.Wrapper,
+                       Web.Spock.Internal.TextRouting,
+                       Web.Spock.Internal.SafeRouting,
+                       Web.Spock.Internal.Wire,
+                       Web.Spock.Internal.AbstractRouter,
+                       Web.Spock.Specs.SimpleSpec,
+                       Web.Spock.Specs.TextRoutingSpec,
+                       Web.Spock.Specs.FrameworkSpecHelper
   build-depends:       aeson >= 0.6.2.1 && <0.9,
                        base >= 4 && < 5,
                        base64-bytestring ==1.*,
@@ -38,6 +42,8 @@ library
                        digestive-functors ==0.7.*,
                        directory ==1.2.*,
                        hashable ==1.2.*,
+                       hspec2 >=0.4 && <0.5,
+                       hspec-wai >=0.5 && <0.6,
                        HList >=0.3,
                        http-types ==0.8.*,
                        monad-control ==0.3.*,
@@ -67,18 +73,9 @@ test-suite spocktests
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Spec.hs
-  other-modules:       Web.Spock.Internal.TextRoutingSpec,
-                       Web.Spock.Internal.FrameworkSpecHelper,
-                       Web.Spock.SimpleSpec
-  build-depends:       QuickCheck,
-                       Spock,
+  build-depends:       hspec2 >=0.4 && <0.5,
                        base >= 4 && < 5,
-                       bytestring >=0.10 && <0.11,
-                       hspec2 >=0.4 && <0.5,
-                       hspec-wai >=0.5 && <0.6,
-                       vector ==0.10.*,
-                       unordered-containers ==0.2.*,
-                       wai >=3.0 && <4.0
+                       Spock
   ghc-options: -Wall -fno-warn-orphans
 
 source-repository head

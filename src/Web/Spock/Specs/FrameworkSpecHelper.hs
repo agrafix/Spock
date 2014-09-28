@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Web.Spock.Internal.FrameworkSpecHelper where
+module Web.Spock.Specs.FrameworkSpecHelper where
 
 import Test.Hspec
 import Test.Hspec.Wai

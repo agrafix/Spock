@@ -1,8 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Web.Spock.SimpleSpec where
+module Web.Spock.Specs.SimpleSpec where
 
 import Web.Spock.Simple
-import Web.Spock.Internal.FrameworkSpecHelper
+import Web.Spock.Specs.FrameworkSpecHelper
 
 import Test.Hspec
 
