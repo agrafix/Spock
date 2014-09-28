@@ -4,7 +4,6 @@
 {-# LANGUAGE KindSignatures #-}
 module Web.Spock.Internal.Wrapper where
 
-import Web.Spock.Internal.AbstractRouter
 import Web.Spock.Internal.Core
 import Web.Spock.Internal.Wire
 import Web.Spock.Internal.SessionManager
@@ -13,6 +12,7 @@ import Web.Spock.Internal.Types
 import Control.Monad.Trans.Reader
 import Control.Monad.Trans.Resource
 import Data.Pool
+import Web.Routing.AbstractRouter
 
 -- | Run a spock application using the warp server, a given db storageLayer and an initial state.
 -- Spock works with database libraries that already implement connection pooling and

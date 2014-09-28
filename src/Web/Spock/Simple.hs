@@ -49,7 +49,6 @@ import Web.Spock.Internal.CoreAction
 import Web.Spock.Internal.Digestive
 import Web.Spock.Internal.Monad
 import Web.Spock.Internal.SessionManager
-import Web.Spock.Internal.TextRouting
 import Web.Spock.Internal.Types
 import Web.Spock.Internal.Wrapper
 import qualified Web.Spock.Internal.Wire as W
@@ -61,6 +60,7 @@ import Data.Monoid
 import Data.String
 import Network.HTTP.Types.Method
 import Prelude hiding (head)
+import Web.Routing.TextRouting
 import qualified Data.Text as T
 import qualified Network.HTTP.Types as Http
 import qualified Network.Wai as Wai

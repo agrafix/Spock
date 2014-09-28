@@ -8,8 +8,6 @@
 {-# LANGUAGE PolyKinds #-}
 module Web.Spock.Internal.Wire where
 
-import Web.Spock.Internal.AbstractRouter
-
 import Control.Applicative
 import Control.Exception
 import Control.Monad.RWS.Strict
@@ -26,6 +24,7 @@ import Prelude
 import Prelude hiding (catch)
 #endif
 import System.Directory
+import Web.Routing.AbstractRouter
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.CaseInsensitive as CI

@@ -13,7 +13,6 @@ module Web.Spock.Internal.CoreAction
     )
 where
 
-import Web.Spock.Internal.AbstractRouter
 import Web.Spock.Internal.Wire
 
 import Control.Arrow (first)
@@ -29,6 +28,7 @@ import System.Locale
 import Text.Blaze.Html (Html)
 import Text.Blaze.Html.Renderer.Utf8 (renderHtml)
 import Web.PathPieces
+import Web.Routing.AbstractRouter
 import qualified Data.Aeson as A
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base64 as B64
