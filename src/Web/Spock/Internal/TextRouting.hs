@@ -1,20 +1,64 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-module Web.Spock.Routing where
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE TypeFamilies #-}
+module Web.Spock.Internal.TextRouting where
 
-import Data.Hashable
+import Web.Spock.Internal.AbstractRouter
+
 import Data.Maybe
+import Data.String
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as VM
 import qualified Text.Regex as Regex
 import qualified Data.HashMap.Strict as HM
 
-type ParamMap = HM.HashMap CaptureVar T.Text
+-- | Combine two routes, ensuring that the slashes don't get messed up
+combineRoute :: TPath '() -> TPath a -> TPath a
+combineRoute (TPath r1) (TPath r2) =
+    TPath $
+    case T.uncons r1 of
+      Nothing -> T.concat ["/", r2']
+      Just ('/', _) -> T.concat [r1', r2']
+      Just _ -> T.concat ["/", r1', r2']
+    where
+      r1' =
+          if T.last r1 == '/'
+          then r1
+          else if T.null r2
+               then r1
+               else T.concat [r1, "/"]
+      r2' =
+          if T.null r2
+          then ""
+          else if T.head r2 == '/' then T.drop 1 r2 else r2
 
-newtype CaptureVar
-      = CaptureVar { unCaptureVar :: T.Text }
-      deriving (Show, Eq, Hashable)
+type TextPath = TPath '()
+type TextAction m r = TAction m r '()
+
+newtype TPath (a :: ())
+    = TPath { unTPath :: T.Text }
+    deriving (Show, Eq, IsString, Read, Ord)
+
+newtype TAction m r (p :: ())
+    = TAction (m r)
+
+instance IsPath TPath where
+    type CaptureFreePath TPath = '()
+    combineSubcomp = combineRoute
+
+textRegistry :: AnyRouteRegistryIf TPath (TAction m r) m r (RoutingTree (m r))
+textRegistry =
+    AnyRouteRegistryIf
+    { rr_emptyRegistry = emptyRoutingTree
+    , rr_rootPath = "/"
+    , rr_defRoute =
+        \(TPath t) (TAction a) tree -> addToRoutingTree t a tree
+    , rr_matchRoute = (flip matchRoute')
+    }
 
 data RegexWrapper
    = RegexWrapper

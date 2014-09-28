@@ -1,4 +1,4 @@
-module Web.Spock.Util where
+module Web.Spock.Internal.Util where
 
 import Network.HTTP.Types
 import Network.Wai.Internal

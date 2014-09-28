@@ -1,9 +1,9 @@
 {-# LANGUAGE DoAndIfThenElse #-}
-module Web.Spock.Digestive
+module Web.Spock.Internal.Digestive
     ( runForm )
 where
 
-import Web.Spock.Core
+import Web.Spock.Internal.CoreAction
 
 import Control.Applicative
 import Control.Monad.Trans

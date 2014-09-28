@@ -1,0 +1,26 @@
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+module Web.Spock.Specs.SafeSpec where
+
+import Web.Spock.Safe
+import Web.Spock.Specs.FrameworkSpecHelper
+
+import Data.Monoid
+import Test.Hspec
+import qualified Data.Text as T
+
+app :: SpockT IO ()
+app =
+    do get root $ text "root"
+       get "verb-test" $ text "GET"
+       post "verb-test" $ text "POST"
+       put "verb-test" $ text "PUT"
+       delete "verb-test" $ text "DELETE"
+       patch "verb-test" $ text "PATCH"
+       get ("param-test" </> var) $ \(i :: Int) ->
+           text $ "int" <> (T.pack $ show i)
+       get ("param-test" </> "static") $
+           text "static"
+
+spec :: Spec
+spec = describe "SafeRouting" $ frameworkSpec (spockApp id app)

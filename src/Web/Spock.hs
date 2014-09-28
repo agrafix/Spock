@@ -38,13 +38,13 @@ module Web.Spock
     )
 where
 
-import Web.Spock.Core
-import Web.Spock.Digestive
-import Web.Spock.Monad
-import Web.Spock.SafeActions
-import Web.Spock.SessionManager
-import Web.Spock.Types
-import qualified Web.Spock.Core as C
+import Web.Spock.Internal.Core
+import Web.Spock.Internal.Digestive
+import Web.Spock.Internal.Monad
+import Web.Spock.Internal.SafeActions
+import Web.Spock.Internal.SessionManager
+import Web.Spock.Internal.Types
+import qualified Web.Spock.Internal.Core as C
 
 import Control.Monad.Trans.Reader
 import Control.Monad.Trans.Resource

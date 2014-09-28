@@ -1,19 +1,20 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE DoAndIfThenElse #-}
-module Web.Spock.Core
-    ( SpockT, ActionT, spockT
-    , middleware, UploadedFile (..)
-    , defRoute, get, post, head, put, delete, patch
+module Web.Spock.Internal.CoreAction
+    ( ActionT
+    , UploadedFile (..)
     , request, header, cookie, body, jsonBody, jsonBody'
     , files, params, param, param', setStatus, setHeader, redirect
     , jumpNext
     , setCookie, setCookie'
     , bytes, lazyBytes, text, html, file, json, blaze
-    , combineRoute, subcomponent
     , requireBasicAuth
     )
 where
+
+import Web.Spock.Internal.AbstractRouter
+import Web.Spock.Internal.Wire
 
 import Control.Arrow (first)
 import Control.Monad
@@ -22,15 +23,12 @@ import Control.Monad.Reader
 import Control.Monad.State hiding (get, put)
 import Data.Monoid
 import Data.Time
-import Network.HTTP.Types.Method
 import Network.HTTP.Types.Status
 import Prelude hiding (head)
 import System.Locale
 import Text.Blaze.Html (Html)
 import Text.Blaze.Html.Renderer.Utf8 (renderHtml)
 import Web.PathPieces
-import Web.Spock.Routing
-import Web.Spock.Wire
 import qualified Data.Aeson as A
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base64 as B64
@@ -40,43 +38,6 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Network.Wai as Wai
-import qualified Network.Wai.Handler.Warp as Warp
-
--- | Run a raw spock server on a defined port. If you don't need
--- a custom base monad you can just supply 'id' as lift function.
-spockT :: MonadIO m
-       => Warp.Port
-       -> (forall a. m a -> IO a)
-       -> SpockT m ()
-       -> IO ()
-spockT port liftSpock routeDefs =
-    do spockApp <- buildApp liftSpock routeDefs
-       putStrLn $ "Spock is up and running on port " ++ show port
-       Warp.run port spockApp
-
--- | Specify an action that will be run when the HTTP verb 'GET' and the given route match
-get :: MonadIO m => T.Text -> ActionT m () -> SpockT m ()
-get = defRoute GET
-
--- | Specify an action that will be run when the HTTP verb 'POST' and the given route match
-post :: MonadIO m => T.Text -> ActionT m () -> SpockT m ()
-post = defRoute POST
-
--- | Specify an action that will be run when the HTTP verb 'HEAD' and the given route match
-head :: MonadIO m => T.Text -> ActionT m () -> SpockT m ()
-head = defRoute HEAD
-
--- | Specify an action that will be run when the HTTP verb 'PUT' and the given route match
-put :: MonadIO m => T.Text -> ActionT m () -> SpockT m ()
-put = defRoute PUT
-
--- | Specify an action that will be run when the HTTP verb 'DELETE' and the given route match
-delete :: MonadIO m => T.Text -> ActionT m () -> SpockT m ()
-delete = defRoute DELETE
-
--- | Specify an action that will be run when the HTTP verb 'PATCH' and the given route match
-patch :: MonadIO m => T.Text -> ActionT m () -> SpockT m ()
-patch = defRoute PATCH
 
 -- | Get the original Wai Request object
 request :: MonadIO m => ActionT m Wai.Request

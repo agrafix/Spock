@@ -1,5 +1,5 @@
 name:                Spock
-version:             0.6.6.1
+version:             0.7.0.0
 synopsis:            Another Haskell web framework for rapid development
 description:         This toolbox provides everything you need to get a quick start into web hacking with haskell: routing, middleware, json, blaze, sessions, cookies, database helper, csrf-protection, global state
 Homepage:            https://github.com/agrafix/Spock
@@ -14,16 +14,25 @@ cabal-version:       >=1.8
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Web.Spock,
-                       Web.Spock.Routing,
-                       Web.Spock.Wire
-  other-modules:       Web.Spock.SessionManager,
-                       Web.Spock.Monad,
-                       Web.Spock.Types,
-                       Web.Spock.SafeActions,
-                       Web.Spock.Digestive,
-                       Web.Spock.Util,
-                       Web.Spock.Core
+  exposed-modules:     Web.Spock.Simple,
+                       Web.Spock.Safe,
+                       Web.Spock.Specs.All
+  other-modules:       Web.Spock.Internal.SessionManager,
+                       Web.Spock.Internal.Monad,
+                       Web.Spock.Internal.Types,
+                       Web.Spock.Internal.Digestive,
+                       Web.Spock.Internal.Util,
+                       Web.Spock.Internal.Core,
+                       Web.Spock.Internal.CoreAction,
+                       Web.Spock.Internal.Wrapper,
+                       Web.Spock.Internal.TextRouting,
+                       Web.Spock.Internal.SafeRouting,
+                       Web.Spock.Internal.Wire,
+                       Web.Spock.Internal.AbstractRouter,
+                       Web.Spock.Specs.SimpleSpec,
+                       Web.Spock.Specs.SafeSpec,
+                       Web.Spock.Specs.TextRoutingSpec,
+                       Web.Spock.Specs.FrameworkSpecHelper
   build-depends:       aeson >= 0.6.2.1 && <0.9,
                        base >= 4 && < 5,
                        base64-bytestring ==1.*,
@@ -35,6 +44,9 @@ library
                        digestive-functors ==0.7.*,
                        directory ==1.2.*,
                        hashable ==1.2.*,
+                       hspec2 >=0.4 && <0.5,
+                       hspec-wai >=0.5 && <0.6,
+                       HList >=0.3,
                        http-types ==0.8.*,
                        monad-control ==0.3.*,
                        mtl >=2.1 && <2.3,
@@ -44,6 +56,7 @@ library
                        regex-compat ==0.95.*,
                        resource-pool ==0.2.*,
                        resourcet >= 0.4 && <1.2,
+                       safe >=0.3,
                        stm ==2.4.*,
                        text >= 0.11.3.1 && <1.3,
                        time >=1.4 && <1.6,
@@ -62,13 +75,9 @@ test-suite spocktests
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Spec.hs
-  other-modules:       Web.Spock.WireSpec, Web.Spock.RoutingSpec
-  build-depends:       QuickCheck,
-                       Spock,
+  build-depends:       hspec2 >=0.4 && <0.5,
                        base >= 4 && < 5,
-                       hspec2 >=0.4 && <0.5,
-                       vector ==0.10.*,
-                       unordered-containers ==0.2.*
+                       Spock
   ghc-options: -Wall -fno-warn-orphans
 
 source-repository head
