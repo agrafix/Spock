@@ -40,7 +40,7 @@ type TextPath = TPath '()
 type TextAction m r = TAction m r '()
 
 newtype TPath (a :: ())
-    = TPath T.Text
+    = TPath { unTPath :: T.Text }
     deriving (Show, Eq, IsString, Read, Ord)
 
 newtype TAction m r (p :: ())

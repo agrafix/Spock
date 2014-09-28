@@ -10,6 +10,7 @@ module Web.Spock.Simple
     ( -- * Spock's core
       spock, SpockM, SpockAction
     , spockT, SpockT, ActionT
+    , spockApp, SpockRoute
      -- * Defining routes
     , get, post, head, put, delete, patch, hookRoute
     , subcomponent, Http.StdMethod (..)
@@ -49,11 +50,13 @@ import Web.Spock.Internal.SessionManager
 import Web.Spock.Internal.TextRouting
 import Web.Spock.Internal.Types
 import Web.Spock.Internal.Wrapper
+import qualified Web.Spock.Internal.Wire as W
 import qualified Web.Spock.Internal.Core as C
 
 import Control.Applicative
 import Control.Monad.Trans
 import Data.Monoid
+import Data.String
 import Network.HTTP.Types.Method
 import Prelude hiding (head)
 import qualified Data.Text as T
@@ -70,16 +73,20 @@ newtype SpockT m a
 instance MonadTrans SpockT where
     lift = SpockT . lift
 
+newtype SpockRoute
+    = SpockRoute { _unSpockRoute :: T.Text }
+    deriving (Eq, Ord, Show, Read, IsString)
+
 -- | Run a spock application using the warp server, a given db storageLayer and an initial state.
 -- Spock works with database libraries that already implement connection pooling and
 -- with those that don't come with it out of the box. For more see the 'PoolOrConn' type.
 spock :: Int -> SessionCfg sess -> PoolOrConn conn -> st -> SpockM conn sess st () -> IO ()
-spock port sessCfg poolOrConn initSt spockApp =
-    spockAll textRegistry port sessCfg poolOrConn initSt (runSpockT spockApp')
+spock port sessCfg poolOrConn initSt spockAppl =
+    spockAll textRegistry port sessCfg poolOrConn initSt (runSpockT spockAppl')
     where
-      spockApp' =
+      spockAppl' =
           do hookSafeActions
-             spockApp
+             spockAppl
 
 -- | Run a raw spock application with custom underlying monad
 spockT :: (MonadIO m)
@@ -90,36 +97,41 @@ spockT :: (MonadIO m)
 spockT port liftFun (SpockT app) =
     C.spockAllT textRegistry port liftFun app
 
+-- | Convert a Spock-App to a wai-application
+spockApp :: (MonadIO m) => (forall a. m a -> IO a) -> SpockT m () -> IO Wai.Application
+spockApp liftFun (SpockT app) =
+    W.buildApp textRegistry liftFun app
+
 -- | Combine two route components safely
-(<#>) :: TextPath -> TextPath -> TextPath
-t <#> t' = combineRoute t t'
+(<#>) :: SpockRoute -> SpockRoute -> SpockRoute
+(SpockRoute t) <#> (SpockRoute t') = SpockRoute $ unTPath $ combineRoute (TPath t) (TPath t')
 
 -- | Specify an action that will be run when the HTTP verb 'GET' and the given route match
-get :: MonadIO m => TextPath -> ActionT m () -> SpockT m ()
+get :: MonadIO m => SpockRoute -> ActionT m () -> SpockT m ()
 get = hookRoute GET
 
 -- | Specify an action that will be run when the HTTP verb 'POST' and the given route match
-post :: MonadIO m => TextPath -> ActionT m () -> SpockT m ()
+post :: MonadIO m => SpockRoute -> ActionT m () -> SpockT m ()
 post = hookRoute POST
 
 -- | Specify an action that will be run when the HTTP verb 'HEAD' and the given route match
-head :: MonadIO m => TextPath -> ActionT m () -> SpockT m ()
+head :: MonadIO m => SpockRoute -> ActionT m () -> SpockT m ()
 head = hookRoute HEAD
 
 -- | Specify an action that will be run when the HTTP verb 'PUT' and the given route match
-put :: MonadIO m => TextPath -> ActionT m () -> SpockT m ()
+put :: MonadIO m => SpockRoute -> ActionT m () -> SpockT m ()
 put = hookRoute PUT
 
 -- | Specify an action that will be run when the HTTP verb 'DELETE' and the given route match
-delete :: MonadIO m => TextPath -> ActionT m () -> SpockT m ()
+delete :: MonadIO m => SpockRoute -> ActionT m () -> SpockT m ()
 delete = hookRoute DELETE
 
 -- | Specify an action that will be run when the HTTP verb 'PATCH' and the given route match
-patch :: MonadIO m => TextPath -> ActionT m () -> SpockT m ()
+patch :: MonadIO m => SpockRoute -> ActionT m () -> SpockT m ()
 patch = hookRoute PATCH
 
-hookRoute :: Monad m => StdMethod -> TextPath -> ActionT m () -> SpockT m ()
-hookRoute m path action = SpockT $ C.hookRoute m path (TAction action)
+hookRoute :: Monad m => StdMethod -> SpockRoute -> ActionT m () -> SpockT m ()
+hookRoute m (SpockRoute path) action = SpockT $ C.hookRoute m (TPath path) (TAction action)
 
 subcomponent :: Monad m => TextPath -> SpockT m () -> SpockT m ()
 subcomponent p (SpockT subapp) = SpockT $ C.subcomponent p subapp

@@ -17,9 +17,9 @@ library
   exposed-modules:     Web.Spock.Simple,
                        Web.Spock.Internal.TextRouting,
                        Web.Spock.Internal.SafeRouting,
-                       Web.Spock.Internal.Wire
-  other-modules:       Web.Spock.Internal.AbstractRouter,
-                       Web.Spock.Internal.SessionManager,
+                       Web.Spock.Internal.Wire,
+                       Web.Spock.Internal.AbstractRouter
+  other-modules:       Web.Spock.Internal.SessionManager,
                        Web.Spock.Internal.Monad,
                        Web.Spock.Internal.Types,
                        Web.Spock.Internal.Digestive,
@@ -67,13 +67,18 @@ test-suite spocktests
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Spec.hs
-  other-modules:       Web.Spock.Internal.TextRoutingSpec
+  other-modules:       Web.Spock.Internal.TextRoutingSpec,
+                       Web.Spock.Internal.FrameworkSpecHelper,
+                       Web.Spock.SimpleSpec
   build-depends:       QuickCheck,
                        Spock,
                        base >= 4 && < 5,
+                       bytestring >=0.10 && <0.11,
                        hspec2 >=0.4 && <0.5,
+                       hspec-wai >=0.5 && <0.6,
                        vector ==0.10.*,
-                       unordered-containers ==0.2.*
+                       unordered-containers ==0.2.*,
+                       wai >=3.0 && <4.0
   ghc-options: -Wall -fno-warn-orphans
 
 source-repository head
