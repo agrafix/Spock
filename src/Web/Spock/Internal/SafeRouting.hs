@@ -84,7 +84,7 @@ insertPolyMap path (action :: a -> HList ts -> x) polyMap =
 lookupPolyMap :: T.Text -> [T.Text] -> PolyMap x -> [x]
 lookupPolyMap _ _ PMNil = []
 lookupPolyMap pp pps (PMCons pathMap polyMap') =
-  maybeToList (fromPathPiece pp) >>= \val -> fmap ($ val) (match pathMap pps)
+  (maybeToList (fromPathPiece pp) >>= \val -> fmap ($ val) (match pathMap pps))
   ++ lookupPolyMap pp pps polyMap'
 
 
