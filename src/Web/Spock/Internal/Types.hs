@@ -4,7 +4,6 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE PolyKinds #-}
 module Web.Spock.Internal.Types where
 
 import Web.Spock.Internal.Core
@@ -25,8 +24,8 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 
 -- | Inside the SpockAllM monad, you may define routes and middleware.
-type SpockAllM (path :: k -> *) (action :: k -> *) reg conn sess st a =
-    SpockAllT path action reg (WebStateM conn sess st) a
+type SpockAllM r conn sess st a =
+    SpockAllT r (WebStateM conn sess st) a
 
 -- | The SpockAction is the monad of all route-actions. You have access
 -- to the database, session and state of your application.
