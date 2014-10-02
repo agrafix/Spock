@@ -2,7 +2,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE DoAndIfThenElse #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE TypeFamilies #-}
 module Web.Spock.Internal.Core
     ( SpockAllT
     , spockAllT
@@ -12,19 +12,20 @@ module Web.Spock.Internal.Core
     )
 where
 
+import Web.Spock.Internal.Wire
+
 import Control.Monad.Error
 import Prelude hiding (head)
-import Web.Spock.Internal.AbstractRouter
-import Web.Spock.Internal.Wire
+import Web.Routing.AbstractRouter
 import qualified Network.Wai.Handler.Warp as Warp
 
 -- | Run a raw spock server on a defined port. If you don't need
 -- a custom base monad you can just supply 'id' as lift function.
-spockAllT :: forall (path :: k -> *) (action :: k -> *)  reg m. (IsPath path, MonadIO m)
-       => SpockRegistryIf path action m reg
+spockAllT :: (MonadIO m, AbstractRouter r, RouteAppliedAction r ~ ActionT m ())
+       => r
        -> Warp.Port
        -> (forall a. m a -> IO a)
-       -> SpockAllT path action reg m ()
+       -> SpockAllT r m ()
        -> IO ()
 spockAllT registryIf port liftSpock routeDefs =
     do spockApp <- buildApp registryIf liftSpock routeDefs

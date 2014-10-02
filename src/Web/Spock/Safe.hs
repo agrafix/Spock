@@ -52,7 +52,6 @@ import Web.Spock.Internal.CoreAction
 import Web.Spock.Internal.Digestive
 import Web.Spock.Internal.Monad
 import Web.Spock.Internal.SessionManager
-import Web.Spock.Internal.SafeRouting
 import Web.Spock.Internal.Types
 import Web.Spock.Internal.Wrapper
 import qualified Web.Spock.Internal.Wire as W
@@ -63,6 +62,7 @@ import Control.Monad.Trans
 import Data.Monoid
 import Network.HTTP.Types.Method
 import Prelude hiding (head)
+import Web.Routing.SafeRouting
 import qualified Data.Text as T
 import qualified Network.HTTP.Types as Http
 import qualified Network.Wai as Wai
@@ -71,7 +71,7 @@ import qualified Network.Wai.Handler.Warp as Warp
 type SpockM conn sess st a = SpockT (WebStateM conn sess st) a
 
 newtype SpockT m a
-    = SpockT { runSpockT :: C.SpockAllT Path (HListElim' (ActionT m ())) (PathMap (ActionT m ())) m a
+    = SpockT { runSpockT :: C.SpockAllT (SafeRouter (ActionT m) ()) m a
              } deriving (Monad, Functor, Applicative, MonadIO)
 
 instance MonadTrans SpockT where
@@ -82,7 +82,7 @@ instance MonadTrans SpockT where
 -- with those that don't come with it out of the box. For more see the 'PoolOrConn' type.
 spock :: Int -> SessionCfg sess -> PoolOrConn conn -> st -> SpockM conn sess st () -> IO ()
 spock port sessCfg poolOrConn initSt spockAppl =
-    spockAll typesafeRegistry port sessCfg poolOrConn initSt (runSpockT spockAppl')
+    spockAll SafeRouter port sessCfg poolOrConn initSt (runSpockT spockAppl')
     where
       spockAppl' =
           do hookSafeActions
@@ -95,12 +95,12 @@ spockT :: (MonadIO m)
        -> SpockT m ()
        -> IO ()
 spockT port liftFun (SpockT app) =
-    C.spockAllT typesafeRegistry port liftFun app
+    C.spockAllT SafeRouter port liftFun app
 
 -- | Convert a Spock-App to a wai-application
 spockApp :: (MonadIO m) => (forall a. m a -> IO a) -> SpockT m () -> IO Wai.Application
 spockApp liftFun (SpockT app) =
-    W.buildApp typesafeRegistry liftFun app
+    W.buildApp SafeRouter liftFun app
 
 -- | Specify an action that will be run when the HTTP verb 'GET' and the given route match
 get :: MonadIO m => Path xs -> HListElim xs (ActionT m ()) -> SpockT m ()
@@ -128,7 +128,7 @@ patch = hookRoute PATCH
 
 -- | Specify an action that will be run when a HTTP verb and the given route match
 hookRoute :: Monad m => StdMethod -> Path xs -> HListElim xs (ActionT m ()) -> SpockT m ()
-hookRoute m path action = SpockT $ C.hookRoute m path (HListElim' action)
+hookRoute m path action = SpockT $ C.hookRoute m (SafeRouterPath path) (HListElim' action)
 
 -- | Define a subcomponent. Usage example:
 --
@@ -141,7 +141,7 @@ hookRoute m path action = SpockT $ C.hookRoute m path (HListElim' action)
 -- The request "/site/home" will be routed to homeHandler and the
 -- request "/admin/home" will be routed to adminHomeHandler
 subcomponent :: Monad m => Path '[] -> SpockT m () -> SpockT m ()
-subcomponent p (SpockT subapp) = SpockT $ C.subcomponent p subapp
+subcomponent p (SpockT subapp) = SpockT $ C.subcomponent (SafeRouterPath p) subapp
 
 -- | Hook wai middleware into Spock
 middleware :: Monad m => Wai.Middleware -> SpockT m ()

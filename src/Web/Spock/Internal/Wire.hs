@@ -5,10 +5,8 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE TypeFamilies #-}
 module Web.Spock.Internal.Wire where
-
-import Web.Spock.Internal.AbstractRouter
 
 import Control.Applicative
 import Control.Exception
@@ -26,6 +24,7 @@ import Prelude
 import Prelude hiding (catch)
 #endif
 import System.Directory
+import Web.Routing.AbstractRouter
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.CaseInsensitive as CI
@@ -123,16 +122,13 @@ serverError :: ResponseState
 serverError =
     errorResponse status500 "500 - Internal Server Error!"
 
-type SpockAllT (path :: k -> *) (action :: k -> *) reg m a =
-    RegistryT path action (ActionT m) () reg Wai.Middleware StdMethod m a
+type SpockAllT r m a =
+    RegistryT r Wai.Middleware StdMethod m a
 
-type SpockRegistryIf path action m reg =
-    AnyRouteRegistryIf path action (ActionT m) () reg
-
-buildApp :: forall m path action reg. (MonadIO m, IsPath path)
-         => SpockRegistryIf path action m reg
+buildApp :: forall m r. (MonadIO m, AbstractRouter r, RouteAppliedAction r ~ ActionT m ())
+         => r
          -> (forall a. m a -> IO a)
-         -> SpockAllT path action reg m ()
+         -> SpockAllT r m ()
          -> IO Wai.Application
 buildApp registryIf registryLift spockActions =
     do (_, getMatchingRoutes, middlewares) <-

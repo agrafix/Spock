@@ -49,7 +49,6 @@ import Web.Spock.Internal.CoreAction
 import Web.Spock.Internal.Digestive
 import Web.Spock.Internal.Monad
 import Web.Spock.Internal.SessionManager
-import Web.Spock.Internal.TextRouting
 import Web.Spock.Internal.Types
 import Web.Spock.Internal.Wrapper
 import qualified Web.Spock.Internal.Wire as W
@@ -61,6 +60,7 @@ import Data.Monoid
 import Data.String
 import Network.HTTP.Types.Method
 import Prelude hiding (head)
+import Web.Routing.TextRouting
 import qualified Data.Text as T
 import qualified Network.HTTP.Types as Http
 import qualified Network.Wai as Wai
@@ -69,7 +69,7 @@ import qualified Network.Wai.Handler.Warp as Warp
 type SpockM conn sess st a = SpockT (WebStateM conn sess st) a
 
 newtype SpockT m a
-    = SpockT { runSpockT :: C.SpockAllT TPath (TAction (ActionT m) ()) (RoutingTree (ActionT m ())) m a
+    = SpockT { runSpockT :: C.SpockAllT (TextRouter (ActionT m) ()) m a
              } deriving (Monad, Functor, Applicative, MonadIO)
 
 instance MonadTrans SpockT where
@@ -84,7 +84,7 @@ newtype SpockRoute
 -- with those that don't come with it out of the box. For more see the 'PoolOrConn' type.
 spock :: Int -> SessionCfg sess -> PoolOrConn conn -> st -> SpockM conn sess st () -> IO ()
 spock port sessCfg poolOrConn initSt spockAppl =
-    spockAll textRegistry port sessCfg poolOrConn initSt (runSpockT spockAppl')
+    spockAll TextRouter port sessCfg poolOrConn initSt (runSpockT spockAppl')
     where
       spockAppl' =
           do hookSafeActions
@@ -97,19 +97,19 @@ spockT :: (MonadIO m)
        -> SpockT m ()
        -> IO ()
 spockT port liftFun (SpockT app) =
-    C.spockAllT textRegistry port liftFun app
+    C.spockAllT TextRouter port liftFun app
 
 -- | Convert a Spock-App to a wai-application
 spockApp :: (MonadIO m) => (forall a. m a -> IO a) -> SpockT m () -> IO Wai.Application
 spockApp liftFun (SpockT app) =
-    W.buildApp textRegistry liftFun app
+    W.buildApp TextRouter liftFun app
 
 -- | Combine two route components safely
 -- "/foo" <#> "/bar" ===> "/foo/bar"
 -- "foo" <#> "bar" ===> "/foo/bar"
 -- "foo <#> "/bar" ===> "/foo/bar"
 (<#>) :: SpockRoute -> SpockRoute -> SpockRoute
-(SpockRoute t) <#> (SpockRoute t') = SpockRoute $ unTPath $ combineRoute (TPath t) (TPath t')
+(SpockRoute t) <#> (SpockRoute t') = SpockRoute $ combineRoute t t'
 
 -- | Specify an action that will be run when the HTTP verb 'GET' and the given route match
 get :: MonadIO m => SpockRoute -> ActionT m () -> SpockT m ()
@@ -137,7 +137,7 @@ patch = hookRoute PATCH
 
 -- | Specify an action that will be run when a HTTP verb and the given route match
 hookRoute :: Monad m => StdMethod -> SpockRoute -> ActionT m () -> SpockT m ()
-hookRoute m (SpockRoute path) action = SpockT $ C.hookRoute m (TPath path) (TAction action)
+hookRoute m (SpockRoute path) action = SpockT $ C.hookRoute m (TextRouterPath path) (TAction action)
 
 -- | Define a subcomponent. Usage example:
 --
@@ -149,8 +149,8 @@ hookRoute m (SpockRoute path) action = SpockT $ C.hookRoute m (TPath path) (TAct
 --
 -- The request /site/home will be routed to homeHandler and the
 -- request /admin/home will be routed to adminHomeHandler
-subcomponent :: Monad m => TextPath -> SpockT m () -> SpockT m ()
-subcomponent p (SpockT subapp) = SpockT $ C.subcomponent p subapp
+subcomponent :: Monad m => SpockRoute -> SpockT m () -> SpockT m ()
+subcomponent (SpockRoute p) (SpockT subapp) = SpockT $ C.subcomponent (TextRouterPath p) subapp
 
 -- | Hook wai middleware into Spock
 middleware :: Monad m => Wai.Middleware -> SpockT m ()
