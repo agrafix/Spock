@@ -3,6 +3,8 @@ Spock
 
 [![Build Status](https://travis-ci.org/agrafix/Spock.svg)](https://travis-ci.org/agrafix/Spock)
 
+[![Hackage Deps](https://img.shields.io/hackage-deps/v/Spock.svg)](http://packdeps.haskellers.com/reverse/Spock)
+
 # Intro
 
 Hackage: http://hackage.haskell.org/package/Spock
@@ -82,8 +84,7 @@ The following Spock extensions exist:
 
 # Notes
 
-Since version 0.7.0.0 Spock supports typesafe routing. If you wish to continue using the untyped
-version of Spock you can Use `Web.Spock.Simple`.
+Since version 0.7.0.0 Spock supports typesafe routing. If you wish to continue using the untyped version of Spock you can Use `Web.Spock.Simple`. The implementation of the routing is implemented in a separate haskell package called `reroute`.
 
 Since version 0.5.0.0 Spock is no longer built on top of scotty. The
 design and interface is still influenced by scotty, but the internal
