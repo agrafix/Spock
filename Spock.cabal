@@ -36,7 +36,6 @@ library
                        digestive-functors ==0.7.*,
                        directory ==1.2.*,
                        hashable ==1.2.*,
-                       HList >=0.3,
                        http-types ==0.8.*,
                        monad-control ==0.3.*,
                        mtl >=2.1 && <2.3,
