@@ -27,6 +27,9 @@ routingSpec =
             get "/param-test/42" `shouldRespondWith` "int42" { matchStatus = 200 }
          it "can handle multiple matching routes" $
             get "/param-test/static" `shouldRespondWith` "static" { matchStatus = 200 }
+         it "works with subcomponents" $
+            do get "/subcomponent/foo" `shouldRespondWith` "foo" { matchStatus = 200 }
+               get "/subcomponent/subcomponent2/bar" `shouldRespondWith` "bar" { matchStatus = 200 }
     where
       verbTest verb verbVerbose =
           (verb "/verb-test")

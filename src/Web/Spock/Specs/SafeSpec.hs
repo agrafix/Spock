@@ -21,6 +21,10 @@ app =
            text $ "int" <> (T.pack $ show i)
        get ("param-test" </> "static") $
            text "static"
+       subcomponent "/subcomponent" $
+         do get "foo" $ text "foo"
+            subcomponent "/subcomponent2" $
+              do get "bar" $ text "bar"
 
 spec :: Spec
 spec = describe "SafeRouting" $ frameworkSpec (spockApp id app)
