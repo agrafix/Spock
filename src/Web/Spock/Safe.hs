@@ -60,6 +60,7 @@ import qualified Web.Spock.Internal.Core as C
 import Control.Applicative
 import Control.Monad.Trans
 import Data.Monoid
+import Data.HVect
 import Network.HTTP.Types.Method
 import Prelude hiding (head)
 import Web.Routing.SafeRouting
@@ -103,32 +104,32 @@ spockApp liftFun (SpockT app) =
     W.buildApp SafeRouter liftFun app
 
 -- | Specify an action that will be run when the HTTP verb 'GET' and the given route match
-get :: MonadIO m => Path xs -> HListElim xs (ActionT m ()) -> SpockT m ()
+get :: MonadIO m => Path xs -> HVectElim xs (ActionT m ()) -> SpockT m ()
 get = hookRoute GET
 
 -- | Specify an action that will be run when the HTTP verb 'POST' and the given route match
-post :: MonadIO m => Path xs -> HListElim xs (ActionT m ()) -> SpockT m ()
+post :: MonadIO m => Path xs -> HVectElim xs (ActionT m ()) -> SpockT m ()
 post = hookRoute POST
 
 -- | Specify an action that will be run when the HTTP verb 'HEAD' and the given route match
-head :: MonadIO m => Path xs -> HListElim xs (ActionT m ()) -> SpockT m ()
+head :: MonadIO m => Path xs -> HVectElim xs (ActionT m ()) -> SpockT m ()
 head = hookRoute HEAD
 
 -- | Specify an action that will be run when the HTTP verb 'PUT' and the given route match
-put :: MonadIO m => Path xs -> HListElim xs (ActionT m ()) -> SpockT m ()
+put :: MonadIO m => Path xs -> HVectElim xs (ActionT m ()) -> SpockT m ()
 put = hookRoute PUT
 
 -- | Specify an action that will be run when the HTTP verb 'DELETE' and the given route match
-delete :: MonadIO m => Path xs -> HListElim xs (ActionT m ()) -> SpockT m ()
+delete :: MonadIO m => Path xs -> HVectElim xs (ActionT m ()) -> SpockT m ()
 delete = hookRoute DELETE
 
 -- | Specify an action that will be run when the HTTP verb 'PATCH' and the given route match
-patch :: MonadIO m => Path xs -> HListElim xs (ActionT m ()) -> SpockT m ()
+patch :: MonadIO m => Path xs -> HVectElim xs (ActionT m ()) -> SpockT m ()
 patch = hookRoute PATCH
 
 -- | Specify an action that will be run when a HTTP verb and the given route match
-hookRoute :: Monad m => StdMethod -> Path xs -> HListElim xs (ActionT m ()) -> SpockT m ()
-hookRoute m path action = SpockT $ C.hookRoute m (SafeRouterPath path) (HListElim' action)
+hookRoute :: Monad m => StdMethod -> Path xs -> HVectElim xs (ActionT m ()) -> SpockT m ()
+hookRoute m path action = SpockT $ C.hookRoute m (SafeRouterPath path) (HVectElim' action)
 
 -- | Define a subcomponent. Usage example:
 --
