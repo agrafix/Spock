@@ -1,9 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-module Web.Spock.Specs.SimpleSpec where
+module Web.Spock.SimpleSpec (spec) where
 
 import Web.Spock.Simple
-import Web.Spock.Specs.FrameworkSpecHelper
+import Web.Spock.FrameworkSpecHelper
 
 import Data.Monoid
 import Test.Hspec

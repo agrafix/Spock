@@ -1,5 +1,1 @@
-import Test.Hspec
-import Web.Spock.Specs.All
-
-main :: IO ()
-main = hspec allSpecs
+{-# OPTIONS_GHC -F -pgmF hspec-discover #-}

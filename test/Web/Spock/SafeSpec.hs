@@ -1,9 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-module Web.Spock.Specs.SafeSpec where
+module Web.Spock.SafeSpec (spec) where
 
 import Web.Spock.Safe
-import Web.Spock.Specs.FrameworkSpecHelper
+import Web.Spock.FrameworkSpecHelper
 
 import Data.Monoid
 import Test.Hspec
