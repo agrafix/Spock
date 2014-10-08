@@ -12,7 +12,7 @@ Hackage: http://hackage.haskell.org/package/Spock
 Another Haskell web framework for rapid development: This toolbox provides
 everything you need to get a quick start into web hacking with haskell:
 
-* routing (both typesafe and untyped)
+* fast routing (both typesafe and untyped)
 * middleware
 * json
 * blaze
@@ -20,7 +20,6 @@ everything you need to get a quick start into web hacking with haskell:
 * cookies
 * database helper
 * csrf-protection
-* global state
 
 Benchmarks:
 
@@ -92,5 +91,5 @@ implementation differs from scotty's.
 
 # Thanks to
 
-* Tim Baumbann [Github](https://github.com/timjb) (lot's of help with typesafe routing)
+* Tim Baumann [Github](https://github.com/timjb) (lot's of help with typesafe routing)
 * Tom Nielsen [Github](https://github.com/glutamate)  (much feedback and small improvements)
