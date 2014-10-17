@@ -184,7 +184,7 @@ text val =
     do setHeader "Content-Type" "text/plain"
        bytes $ T.encodeUtf8 val
 
--- | Send a text as response body. Content-Type will be "text/plain"
+-- | Send a text as response body. Content-Type will be "text/html"
 html :: MonadIO m => T.Text -> ActionT m a
 html val =
     do setHeader "Content-Type" "text/html"
