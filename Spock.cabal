@@ -52,7 +52,6 @@ library
                        transformers-base ==0.4.*,
                        unordered-containers ==0.2.*,
                        vault ==0.3.*,
-                       vector ==0.10.*,
                        wai >=3.0 && <4.0,
                        wai-extra >=3.0 && <4.0,
                        warp >=3.0 && <4.0
