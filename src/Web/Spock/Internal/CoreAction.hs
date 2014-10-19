@@ -6,7 +6,7 @@ module Web.Spock.Internal.CoreAction
     , UploadedFile (..)
     , request, header, cookie, body, jsonBody, jsonBody'
     , files, params, param, param', setStatus, setHeader, redirect
-    , jumpNext
+    , jumpNext, middlewarePass, modifyVault, queryVault
     , setCookie, setCookie'
     , bytes, lazyBytes, text, html, file, json, blaze
     , requireBasicAuth
@@ -37,6 +37,7 @@ import qualified Data.CaseInsensitive as CI
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
+import qualified Data.Vault.Lazy as V
 import qualified Network.Wai as Wai
 
 -- | Get the original Wai Request object
@@ -144,6 +145,31 @@ jumpNext = throwError ActionTryNext
 -- | Redirect to a given url
 redirect :: MonadIO m => T.Text -> ActionT m a
 redirect = throwError . ActionRedirect
+
+-- | If the Spock application is used as a middleware, you can use
+-- this to pass request handeling to the underlying application.
+-- If Spock is not uses as a middleware, or there is no underlying application
+-- this will result in 404 error.
+middlewarePass :: MonadIO m => ActionT m a
+middlewarePass = throwError ActionMiddlewarePass
+
+-- | A location for arbitrary data to be shared by applications and middleware.
+getVault :: MonadIO m => ActionT m V.Vault
+getVault =
+    do req <- request
+       return (Wai.vault req)
+
+-- | Modify the vault (useful for sharing data between middleware and app)
+modifyVault :: MonadIO m => (V.Vault -> V.Vault) -> ActionT m ()
+modifyVault f =
+    do vaultIf <- asks ri_vaultIf
+       liftIO $ (vi_modifyVault vaultIf) f
+
+-- | Query the vault
+queryVault :: MonadIO m => V.Key a -> ActionT m (Maybe a)
+queryVault k =
+    do vaultIf <- asks ri_vaultIf
+       liftIO $ (vi_lookupKey vaultIf) k
 
 -- | Set a cookie living for a given number of seconds
 setCookie :: MonadIO m => T.Text -> T.Text -> NominalDiffTime -> ActionT m ()

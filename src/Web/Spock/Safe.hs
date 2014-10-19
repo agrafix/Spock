@@ -26,8 +26,10 @@ module Web.Spock.Safe
      -- * Sending responses
     , setStatus, setHeader, redirect, jumpNext, setCookie, setCookie', bytes, lazyBytes
     , text, html, file, json, blaze
-     -- * Adding middleware
-    , middleware
+     -- * Adding and communicating with middleware
+    , middleware, queryVault
+      -- * Using Spock as middleware
+    , spockMiddleware, middlewarePass, modifyVault
       -- * Database
     , PoolOrConn (..), ConnBuilder (..), PoolCfg (..)
       -- * Accessing Database and State
@@ -102,6 +104,11 @@ spockT port liftFun (SpockT app) =
 spockApp :: (MonadIO m) => (forall a. m a -> IO a) -> SpockT m () -> IO Wai.Application
 spockApp liftFun (SpockT app) =
     W.buildApp SafeRouter liftFun app
+
+-- | Convert a Spock-App to a wai-middleware
+spockMiddleware :: (MonadIO m) => (forall a. m a -> IO a) -> SpockT m () -> IO Wai.Middleware
+spockMiddleware liftFun (SpockT app) =
+    W.buildMiddleware SafeRouter liftFun app
 
 -- | Specify an action that will be run when the HTTP verb 'GET' and the given route match
 get :: MonadIO m => Path xs -> HVectElim xs (ActionT m ()) -> SpockT m ()

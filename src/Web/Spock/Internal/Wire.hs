@@ -9,6 +9,7 @@
 module Web.Spock.Internal.Wire where
 
 import Control.Applicative
+import Control.Concurrent.STM
 import Control.Exception
 import Control.Monad.RWS.Strict
 import Control.Monad.Error
@@ -31,6 +32,7 @@ import qualified Data.CaseInsensitive as CI
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
+import qualified Data.Vault.Lazy as V
 import qualified Network.Wai as Wai
 import qualified Network.Wai.Parse as P
 
@@ -44,12 +46,19 @@ data UploadedFile
    , uf_tempLocation :: FilePath
    }
 
+data VaultIf
+   = VaultIf
+   { vi_modifyVault :: (V.Vault -> V.Vault) -> IO ()
+   , vi_lookupKey :: forall a. V.Key a -> IO (Maybe a)
+   }
+
 data RequestInfo
    = RequestInfo
    { ri_request :: Wai.Request
    , ri_params :: HM.HashMap CaptureVar T.Text
    , ri_queryParams :: [(T.Text, T.Text)]
    , ri_files :: HM.HashMap T.Text UploadedFile
+   , ri_vaultIf :: VaultIf
    }
 
 data ResponseBody
@@ -70,6 +79,7 @@ data ActionInterupt
     | ActionTryNext
     | ActionError String
     | ActionDone
+    | ActionMiddlewarePass
     deriving (Show)
 
 instance Error ActionInterupt where
@@ -131,11 +141,24 @@ buildApp :: forall m r. (MonadIO m, AbstractRouter r, RouteAppliedAction r ~ Act
          -> SpockAllT r m ()
          -> IO Wai.Application
 buildApp registryIf registryLift spockActions =
+    do mw <- buildMiddleware registryIf registryLift spockActions
+       return (mw fallbackApp)
+    where
+      fallbackApp :: Wai.Application
+      fallbackApp _ respond =
+          respond $ notFound
+
+buildMiddleware :: forall m r. (MonadIO m, AbstractRouter r, RouteAppliedAction r ~ ActionT m ())
+         => r
+         -> (forall a. m a -> IO a)
+         -> SpockAllT r m ()
+         -> IO (Wai.Application -> Wai.Application)
+buildMiddleware registryIf registryLift spockActions =
     do (_, getMatchingRoutes, middlewares) <-
            registryLift $ runRegistry registryIf spockActions
        let spockMiddleware = foldl (.) id middlewares
-           app :: Wai.Application
-           app req respond =
+           app :: Wai.Application -> Wai.Application
+           app coreApp req respond =
             case parseMethod $ Wai.requestMethod req of
               Left _ ->
                   respond invalidReq
@@ -143,7 +166,13 @@ buildApp registryIf registryLift spockActions =
                   runResourceT $
                   withInternalState $ \st ->
                       do (bodyParams, bodyFiles) <- P.parseRequestBody (P.tempFileBackEnd st) req
-                         let uploadedFiles =
+                         vaultVar <- liftIO $ newTVarIO (Wai.vault req)
+                         let vaultIf =
+                                 VaultIf
+                                 { vi_modifyVault = \modF -> atomically $ modifyTVar' vaultVar modF
+                                 , vi_lookupKey = \k -> V.lookup k <$> (atomically $ readTVar vaultVar)
+                                 }
+                             uploadedFiles =
                                  HM.fromList $
                                    map (\(k, fileInfo) ->
                                             ( T.decodeUtf8 k
@@ -157,34 +186,43 @@ buildApp registryIf registryLift spockActions =
                              queryParams = postParams ++ getParams
                              resp = errorResponse status200 ""
                              allActions = getMatchingRoutes stdMethod (Wai.pathInfo req)
-                             applyAction :: [(ParamMap, ActionT m ())] -> m ResponseState
+                             applyAction :: [(ParamMap, ActionT m ())] -> m (Maybe ResponseState)
                              applyAction [] =
-                                 return $ errorResponse status404 "404 - File not found"
+                                 return $ Just $ errorResponse status404 "404 - File not found"
                              applyAction ((captures, selectedAction) : xs) =
-                                       do let env = RequestInfo req captures queryParams uploadedFiles
+                                       do let env = RequestInfo req captures queryParams uploadedFiles vaultIf
                                           (r, respState, _) <-
                                               runRWST (runErrorT $ runActionT $ selectedAction) env resp
                                           case r of
                                             Left (ActionRedirect loc) ->
-                                                return $ ResponseState (rs_responseHeaders respState)
+                                                return $ Just $ ResponseState (rs_responseHeaders respState)
                                                        status302 (ResponseRedirect loc)
                                             Left ActionTryNext ->
                                                 applyAction xs
                                             Left (ActionError errorMsg) ->
                                                 do liftIO $ putStrLn $ "Spock Error while handeling "
                                                               ++ show (Wai.pathInfo req) ++ ": " ++ errorMsg
-                                                   return serverError
+                                                   return $ Just serverError
                                             Left ActionDone ->
-                                                return respState
+                                                return $ Just respState
+                                            Left ActionMiddlewarePass ->
+                                                return Nothing
                                             Right () ->
-                                                return respState
-                         respState <-
+                                                return $ Just respState
+                         mRespState <-
                              liftIO $ (registryLift $ applyAction allActions)
                                         `catch` \(e :: SomeException) ->
                                             do putStrLn $ "Spock Error while handeling " ++ show (Wai.pathInfo req) ++ ": " ++ show e
-                                               return serverError
-                         forM_ (HM.elems uploadedFiles) $ \uploadedFile ->
-                             do stillThere <- doesFileExist (uf_tempLocation uploadedFile)
-                                when stillThere $ liftIO $ removeFile (uf_tempLocation uploadedFile)
-                         liftIO $ respond $ respStateToResponse respState
-       return $ spockMiddleware $ app
+                                               return $ Just serverError
+                         case mRespState of
+                           Just respState ->
+                               do forM_ (HM.elems uploadedFiles) $ \uploadedFile ->
+                                      do stillThere <- doesFileExist (uf_tempLocation uploadedFile)
+                                         when stillThere $ liftIO $ removeFile (uf_tempLocation uploadedFile)
+                                  liftIO $ respond $ respStateToResponse respState
+                           Nothing ->
+                               liftIO $
+                               do newVault <- atomically $ readTVar vaultVar
+                                  let req' = req { Wai.vault = V.union newVault (Wai.vault req) }
+                                  coreApp req' respond
+       return $ spockMiddleware . app
