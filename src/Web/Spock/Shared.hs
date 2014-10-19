@@ -23,8 +23,8 @@ module Web.Spock.Shared
       -- * Basic HTTP-Auth
     , requireBasicAuth
      -- * Sessions
-    , SessionCfg (..)
-    , readSession, writeSession, modifySession, clearAllSessions
+    , SessionCfg (..), SessionId
+    , getSessionId, readSession, writeSession, modifySession, clearAllSessions
      -- * Digestive Functors
     , runForm
      -- * Internals for extending Spock
@@ -37,6 +37,12 @@ import Web.Spock.Internal.Digestive
 import Web.Spock.Internal.SessionManager
 import Web.Spock.Internal.Types
 import Web.Spock.Internal.CoreAction
+
+-- | Get the current users sessionId. Note that this ID should only be
+-- shown to it's owner as otherwise sessions can be hijacked.
+getSessionId :: SpockAction conn sess st SessionId
+getSessionId =
+    getSessMgr >>= sm_getSessionId
 
 -- | Write to the current session. Note that all data is stored on the server.
 -- The user only reciedes a sessionId to be identified.

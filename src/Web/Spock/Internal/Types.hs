@@ -133,7 +133,8 @@ type UserSessions conn sess st =
 
 data SessionManager conn sess st
    = SessionManager
-   { sm_readSession :: SpockAction conn sess st sess
+   { sm_getSessionId :: SpockAction conn sess st SessionId
+   , sm_readSession :: SpockAction conn sess st sess
    , sm_writeSession :: sess -> SpockAction conn sess st ()
    , sm_modifySession :: (sess -> sess) -> SpockAction conn sess st ()
    , sm_clearAllSessions :: SpockAction conn sess st ()

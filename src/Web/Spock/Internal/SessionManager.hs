@@ -34,7 +34,8 @@ createSessionManager cfg =
        vaultKey <- V.newKey
        _ <- forkIO (forever (housekeepSessions cacheHM))
        return $ SessionManager
-                  { sm_readSession = readSessionImpl vaultKey cacheHM
+                  { sm_getSessionId = getSessionIdImpl vaultKey cacheHM
+                  , sm_readSession = readSessionImpl vaultKey cacheHM
                   , sm_writeSession = writeSessionImpl vaultKey cacheHM
                   , sm_modifySession = modifySessionImpl vaultKey cacheHM
                   , sm_clearAllSessions = clearAllSessionsImpl cacheHM
@@ -43,6 +44,13 @@ createSessionManager cfg =
                   , sm_lookupSafeAction = lookupSafeActionImpl vaultKey cacheHM
                   , sm_removeSafeAction = removeSafeActionImpl vaultKey cacheHM
                   }
+
+getSessionIdImpl :: V.Key SessionId
+                 -> UserSessions conn sess st
+                 -> SpockAction conn sess st SessionId
+getSessionIdImpl vK sessionRef =
+    do sess <- readSessionBase vK sessionRef
+       return $ sess_id sess
 
 modifySessionBase :: V.Key SessionId
                   -> UserSessions conn sess st
