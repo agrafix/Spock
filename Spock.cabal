@@ -11,6 +11,7 @@ copyright:           (c) 2013 - 2014 Alexander Thiemann
 category:            Web
 build-type:          Simple
 cabal-version:       >=1.8
+tested-with:         GHC==7.6.3, GHC==7.8.3
 
 library
   hs-source-dirs:      src
@@ -56,7 +57,6 @@ library
                        wai-extra >=3.0 && <4.0,
                        warp >=3.0 && <4.0
   ghc-options: -Wall -fno-warn-orphans
-  tested-with:         GHC==7.6.3, GHC==7.8.3
 
 test-suite spocktests
   type:                exitcode-stdio-1.0
