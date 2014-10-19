@@ -15,7 +15,8 @@ cabal-version:       >=1.8
 library
   hs-source-dirs:      src
   exposed-modules:     Web.Spock.Simple,
-                       Web.Spock.Safe
+                       Web.Spock.Safe,
+                       Web.Spock.Shared
   other-modules:       Web.Spock.Internal.SessionManager,
                        Web.Spock.Internal.Monad,
                        Web.Spock.Internal.Types,

@@ -20,40 +20,20 @@ module Web.Spock.Safe
     , subcomponent
     , get, post, head, put, delete, patch, hookRoute, hookAny
     , Http.StdMethod (..)
-     -- * Handeling requests
-    , request, header, cookie, body, jsonBody, jsonBody', files, UploadedFile (..)
-    , params, param, param'
-     -- * Sending responses
-    , setStatus, setHeader, redirect, jumpNext, setCookie, setCookie', bytes, lazyBytes
-    , text, html, file, json, blaze
-     -- * Adding and communicating with middleware
-    , middleware, queryVault
+      -- * Adding Wai.Middleware
+    , middleware
       -- * Using Spock as middleware
-    , spockMiddleware, middlewarePass, modifyVault
-      -- * Database
-    , PoolOrConn (..), ConnBuilder (..), PoolCfg (..)
-      -- * Accessing Database and State
-    , HasSpock (runQuery, getState), SpockConn, SpockState, SpockSession
-      -- * Sessions
-    , SessionCfg (..)
-    , readSession, writeSession, modifySession, clearAllSessions
-      -- * Basic HTTP-Auth
-    , requireBasicAuth
+    , spockMiddleware
       -- * Safe actions
     , SafeAction (..)
     , safeActionPath
-      -- * Digestive Functors
-    , runForm
-      -- * Internals for extending Spock
-    , getSpockHeart, runSpockIO, WebStateM, WebState
+    , module Web.Spock.Shared
     )
 where
 
 
+import Web.Spock.Shared
 import Web.Spock.Internal.CoreAction
-import Web.Spock.Internal.Digestive
-import Web.Spock.Internal.Monad
-import Web.Spock.Internal.SessionManager
 import Web.Spock.Internal.Types
 import Web.Spock.Internal.Wrapper
 import qualified Web.Spock.Internal.Wire as W
@@ -159,33 +139,6 @@ subcomponent p (SpockT subapp) = SpockT $ C.subcomponent (SafeRouterPath p) suba
 -- | Hook wai middleware into Spock
 middleware :: Monad m => Wai.Middleware -> SpockT m ()
 middleware = SpockT . C.middleware
-
-
--- | Write to the current session. Note that all data is stored on the server.
--- The user only reciedes a sessionId to be identified.
-writeSession :: sess -> SpockAction conn sess st ()
-writeSession d =
-    do mgr <- getSessMgr
-       (sm_writeSession mgr) d
-
--- | Modify the stored session
-modifySession :: (sess -> sess) -> SpockAction conn sess st ()
-modifySession f =
-    do mgr <- getSessMgr
-       (sm_modifySession mgr) f
-
--- | Read the stored session
-readSession :: SpockAction conn sess st sess
-readSession =
-    do mgr <- getSessMgr
-       sm_readSession mgr
-
--- | Globally delete all existing sessions. This is useful for example if you want
--- to require all users to relogin
-clearAllSessions :: SpockAction conn sess st ()
-clearAllSessions =
-    do mgr <- getSessMgr
-       sm_clearAllSessions mgr
 
 -- | Wire up a safe action: Safe actions are actions that are protected from
 -- csrf attacks. Here's a usage example:
