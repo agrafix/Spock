@@ -6,16 +6,9 @@ module Web.Spock.Internal.Monad where
 
 import Web.Spock.Internal.Types
 
-import Control.Monad
 import Control.Monad.Reader
 import Control.Monad.Trans.Resource
 import Data.Pool
-import Data.Time.Clock ( UTCTime(..) )
-import Web.PathPieces
-import qualified Data.ByteString.Lazy as BSL
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
-import qualified Text.XML.XSD.DateTime as XSD
 
 webM :: MonadTrans t => WebStateM conn sess st a -> t (WebStateM conn sess st) a
 webM = lift
@@ -57,13 +50,3 @@ runSpockIO st (WebStateM action) =
 
 getSessMgrImpl :: (WebStateM conn sess st) (SessionManager conn sess st)
 getSessMgrImpl = asks web_sessionMgr
-
-instance PathPiece BSL.ByteString where
-    fromPathPiece =
-        Just . BSL.fromStrict . T.encodeUtf8
-    toPathPiece =
-        T.decodeUtf8 . BSL.toStrict
-
-instance PathPiece UTCTime where
-    fromPathPiece p = join $ fmap XSD.toUTCTime $ XSD.dateTime p
-    toPathPiece = T.pack . show . XSD.fromUTCTime
