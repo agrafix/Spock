@@ -153,12 +153,6 @@ redirect = throwError . ActionRedirect
 middlewarePass :: MonadIO m => ActionT m a
 middlewarePass = throwError ActionMiddlewarePass
 
--- | A location for arbitrary data to be shared by applications and middleware.
-getVault :: MonadIO m => ActionT m V.Vault
-getVault =
-    do req <- request
-       return (Wai.vault req)
-
 -- | Modify the vault (useful for sharing data between middleware and app)
 modifyVault :: MonadIO m => (V.Vault -> V.Vault) -> ActionT m ()
 modifyVault f =

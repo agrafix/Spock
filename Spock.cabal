@@ -43,7 +43,7 @@ library
                        path-pieces >=0.1.4,
                        random ==1.*,
                        regex-compat ==0.95.*,
-                       reroute >=0.2 && <0.3,
+                       reroute >=0.2.1 && <0.3,
                        resource-pool ==0.2.*,
                        resourcet >= 0.4 && <1.2,
                        safe >=0.3,

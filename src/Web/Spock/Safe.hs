@@ -18,7 +18,7 @@ module Web.Spock.Safe
     , renderRoute
      -- * Hooking routes
     , subcomponent
-    , get, post, head, put, delete, patch, hookRoute
+    , get, post, head, put, delete, patch, hookRoute, hookAny
     , Http.StdMethod (..)
      -- * Handeling requests
     , request, header, cookie, body, jsonBody, jsonBody', files, UploadedFile (..)
@@ -137,6 +137,11 @@ patch = hookRoute PATCH
 -- | Specify an action that will be run when a HTTP verb and the given route match
 hookRoute :: Monad m => StdMethod -> Path xs -> HVectElim xs (ActionT m ()) -> SpockT m ()
 hookRoute m path action = SpockT $ C.hookRoute m (SafeRouterPath path) (HVectElim' action)
+
+-- | Specify an action that will be run when a HTTP verb matches but no defined route matches.
+-- The full path is passed as an argument
+hookAny :: Monad m => StdMethod -> ([T.Text] -> ActionT m ()) -> SpockT m ()
+hookAny m action = SpockT $ C.hookAny m action
 
 -- | Define a subcomponent. Usage example:
 --

@@ -8,6 +8,7 @@ module Web.Spock.Internal.Core
     , spockAllT
     , middleware
     , hookRoute
+    , hookAny
     , subcomponent
     )
 where

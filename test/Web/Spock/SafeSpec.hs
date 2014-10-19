@@ -25,6 +25,7 @@ app =
          do get "foo" $ text "foo"
             subcomponent "/subcomponent2" $
               do get "bar" $ text "bar"
+       hookAny GET $ text . T.intercalate "/"
 
 spec :: Spec
 spec = describe "SafeRouting" $ frameworkSpec (spockApp id app)

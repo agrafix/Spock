@@ -30,6 +30,8 @@ routingSpec =
          it "works with subcomponents" $
             do get "/subcomponent/foo" `shouldRespondWith` "foo" { matchStatus = 200 }
                get "/subcomponent/subcomponent2/bar" `shouldRespondWith` "bar" { matchStatus = 200 }
+         it "allows the definition of a fallback handler" $
+            do get "/askldjas/aklsdj" `shouldRespondWith` "askldjas/aklsdj" { matchStatus = 200 }
     where
       verbTest verb verbVerbose =
           (verb "/verb-test")
