@@ -1,12 +1,12 @@
 name:                Spock
-version:             0.7.1.0
+version:             0.7.2.0
 synopsis:            Another Haskell web framework for rapid development
-description:         This toolbox provides everything you need to get a quick start into web hacking with haskell: routing, middleware, json, blaze, sessions, cookies, database helper, csrf-protection, global state
+description:         This toolbox provides everything you need to get a quick start into web hacking with haskell: fast routing, middleware, json, blaze, sessions, cookies, database helper, csrf-protection
 Homepage:            https://github.com/agrafix/Spock
 Bug-reports:         https://github.com/agrafix/Spock/issues
 license:             BSD3
-author:              Alexander Thiemann <mail@agrafix.net>
-maintainer:          mail@agrafix.net
+author:              Alexander Thiemann <mail@athiemann.net>
+maintainer:          Alexander Thiemann <mail@athiemann.net>
 copyright:           (c) 2013 - 2014 Alexander Thiemann
 category:            Web
 build-type:          Simple
@@ -56,6 +56,7 @@ library
                        wai-extra >=3.0 && <4.0,
                        warp >=3.0 && <4.0
   ghc-options: -Wall -fno-warn-orphans
+  tested-with:         GHC==7.6.3, GHC==7.8.3
 
 test-suite spocktests
   type:                exitcode-stdio-1.0
