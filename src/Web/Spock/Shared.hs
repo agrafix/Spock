@@ -8,8 +8,10 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds #-}
 module Web.Spock.Shared
-    (-- * Handeling requests
-      request, header, cookie, body, jsonBody, jsonBody', files, UploadedFile (..)
+    (-- * Helpers for running Spock
+      runSpock, spockAsApp
+     -- * Handeling requests
+    , request, header, cookie, body, jsonBody, jsonBody', files, UploadedFile (..)
     , params, param, param'
      -- * Sending responses
     , setStatus, setHeader, redirect, jumpNext, setCookie, setCookie', bytes, lazyBytes
@@ -37,6 +39,20 @@ import Web.Spock.Internal.Digestive
 import Web.Spock.Internal.SessionManager
 import Web.Spock.Internal.Types
 import Web.Spock.Internal.CoreAction
+import qualified Web.Spock.Internal.Wire as W
+import qualified Network.Wai as Wai
+import qualified Network.Wai.Handler.Warp as Warp
+
+-- | Run a Spock application. Basically just a wrapper aroung @Warp.run@.
+runSpock :: Warp.Port -> Wai.Middleware -> IO ()
+runSpock port mw =
+    do putStrLn ("Spock is running on port " ++ show port)
+       Warp.run port (spockAsApp mw)
+
+-- | Convert a middleware to an application. All failing requests will
+-- result in a 404 page
+spockAsApp :: Wai.Middleware -> Wai.Application
+spockAsApp = W.middlewareToApp
 
 -- | Get the current users sessionId. Note that this ID should only be
 -- shown to it's owner as otherwise sessions can be hijacked.

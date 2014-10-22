@@ -135,14 +135,10 @@ serverError =
 type SpockAllT r m a =
     RegistryT r Wai.Middleware StdMethod m a
 
-buildApp :: forall m r. (MonadIO m, AbstractRouter r, RouteAppliedAction r ~ ActionT m ())
-         => r
-         -> (forall a. m a -> IO a)
-         -> SpockAllT r m ()
-         -> IO Wai.Application
-buildApp registryIf registryLift spockActions =
-    do mw <- buildMiddleware registryIf registryLift spockActions
-       return (mw fallbackApp)
+middlewareToApp :: Wai.Middleware
+                -> Wai.Application
+middlewareToApp mw =
+    mw fallbackApp
     where
       fallbackApp :: Wai.Application
       fallbackApp _ respond =
@@ -152,7 +148,7 @@ buildMiddleware :: forall m r. (MonadIO m, AbstractRouter r, RouteAppliedAction 
          => r
          -> (forall a. m a -> IO a)
          -> SpockAllT r m ()
-         -> IO (Wai.Application -> Wai.Application)
+         -> IO Wai.Middleware
 buildMiddleware registryIf registryLift spockActions =
     do (_, getMatchingRoutes, middlewares) <-
            registryLift $ runRegistry registryIf spockActions

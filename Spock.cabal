@@ -25,7 +25,6 @@ library
                        Web.Spock.Internal.Util,
                        Web.Spock.Internal.Core,
                        Web.Spock.Internal.CoreAction,
-                       Web.Spock.Internal.Wrapper,
                        Web.Spock.Internal.Wire
   build-depends:       aeson >= 0.6.2.1 && <0.9,
                        base >= 4 && < 5,

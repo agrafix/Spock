@@ -10,7 +10,6 @@ module Web.Spock.Simple
     ( -- * Spock's core
       spock, SpockM, SpockAction
     , spockT, SpockT, ActionT
-    , spockApp
      -- * Defining routes
     , SpockRoute, (<#>)
      -- * Hooking routes
@@ -19,8 +18,6 @@ module Web.Spock.Simple
     , Http.StdMethod (..)
      -- * Adding Wai.Middleware
     , middleware
-      -- * Using Spock as middleware
-    , spockMiddleware
       -- * Safe actions
     , SafeAction (..)
     , safeActionPath
@@ -31,8 +28,6 @@ where
 import Web.Spock.Shared
 import Web.Spock.Internal.CoreAction
 import Web.Spock.Internal.Types
-import Web.Spock.Internal.Wrapper
-import qualified Web.Spock.Internal.Wire as W
 import qualified Web.Spock.Internal.Core as C
 
 import Control.Applicative
@@ -45,7 +40,6 @@ import Web.Routing.TextRouting
 import qualified Data.Text as T
 import qualified Network.HTTP.Types as Http
 import qualified Network.Wai as Wai
-import qualified Network.Wai.Handler.Warp as Warp
 
 type SpockM conn sess st a = SpockT (WebStateM conn sess st) a
 
@@ -60,35 +54,26 @@ newtype SpockRoute
     = SpockRoute { _unSpockRoute :: T.Text }
     deriving (Eq, Ord, Show, Read, IsString)
 
--- | Run a spock application using the warp server, a given db storageLayer and an initial state.
+-- | Create a spock application using a given db storageLayer and an initial state.
 -- Spock works with database libraries that already implement connection pooling and
 -- with those that don't come with it out of the box. For more see the 'PoolOrConn' type.
-spock :: Int -> SessionCfg sess -> PoolOrConn conn -> st -> SpockM conn sess st () -> IO ()
-spock port sessCfg poolOrConn initSt spockAppl =
-    spockAll TextRouter port sessCfg poolOrConn initSt (runSpockT spockAppl')
+-- Use @runSpock@ to run the app or @spockAsApp@ to create a @Wai.Application@
+spock :: SessionCfg sess -> PoolOrConn conn -> st -> SpockM conn sess st () -> IO Wai.Middleware
+spock sessCfg poolOrConn initSt spockAppl =
+    C.spockAll TextRouter sessCfg poolOrConn initSt (runSpockT spockAppl')
     where
       spockAppl' =
           do hookSafeActions
              spockAppl
 
--- | Run a raw spock application with custom underlying monad
+-- | Create a raw spock application with custom underlying monad
+-- Use @runSpock@ to run the app or @spockAsApp@ to create a @Wai.Application@
 spockT :: (MonadIO m)
-       => Warp.Port
-       -> (forall a. m a -> IO a)
+       => (forall a. m a -> IO a)
        -> SpockT m ()
-       -> IO ()
-spockT port liftFun (SpockT app) =
-    C.spockAllT TextRouter port liftFun app
-
--- | Convert a Spock-App to a wai-application
-spockApp :: (MonadIO m) => (forall a. m a -> IO a) -> SpockT m () -> IO Wai.Application
-spockApp liftFun (SpockT app) =
-    W.buildApp TextRouter liftFun app
-
--- | Convert a Spock-App to a wai-middleware
-spockMiddleware :: (MonadIO m) => (forall a. m a -> IO a) -> SpockT m () -> IO Wai.Middleware
-spockMiddleware liftFun (SpockT app) =
-    W.buildMiddleware TextRouter liftFun app
+       -> IO Wai.Middleware
+spockT liftFun (SpockT app) =
+    C.spockAllT TextRouter liftFun app
 
 -- | Combine two route components safely
 -- "/foo" <#> "/bar" ===> "/foo/bar"

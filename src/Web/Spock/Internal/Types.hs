@@ -6,8 +6,8 @@
 {-# LANGUAGE ExistentialQuantification #-}
 module Web.Spock.Internal.Types where
 
-import Web.Spock.Internal.Core
 import Web.Spock.Internal.CoreAction
+import Web.Spock.Internal.Wire
 
 import Control.Applicative
 import Control.Concurrent.STM
