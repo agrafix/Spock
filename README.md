@@ -35,7 +35,7 @@ import Web.Spock.Simple
 import qualified Data.Text as T
 
 main =
-	spockT 3000 id $
+	runSpock 3000 $ spockT id $
     do get "/echo/:something" $
         do Just something <- param "something"
            text $ T.concat ["Echo: ", something]
@@ -53,7 +53,7 @@ import Web.Spock.Safe
 import qualified Data.Text as T
 
 main =
-    spockT 3000 id $
+    runSpock 3000 $ spockT id $
     do get ("echo" </> var) $ \something ->
         text $ T.concat ["Echo: ", something]
 ```

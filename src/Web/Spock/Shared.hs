@@ -39,20 +39,22 @@ import Web.Spock.Internal.Digestive
 import Web.Spock.Internal.SessionManager
 import Web.Spock.Internal.Types
 import Web.Spock.Internal.CoreAction
+import Control.Monad
 import qualified Web.Spock.Internal.Wire as W
 import qualified Network.Wai as Wai
 import qualified Network.Wai.Handler.Warp as Warp
 
 -- | Run a Spock application. Basically just a wrapper aroung @Warp.run@.
-runSpock :: Warp.Port -> Wai.Middleware -> IO ()
+runSpock :: Warp.Port -> IO Wai.Middleware -> IO ()
 runSpock port mw =
     do putStrLn ("Spock is running on port " ++ show port)
-       Warp.run port (spockAsApp mw)
+       app <- spockAsApp mw
+       Warp.run port app
 
 -- | Convert a middleware to an application. All failing requests will
 -- result in a 404 page
-spockAsApp :: Wai.Middleware -> Wai.Application
-spockAsApp = W.middlewareToApp
+spockAsApp :: IO Wai.Middleware -> IO Wai.Application
+spockAsApp = liftM W.middlewareToApp
 
 -- | Get the current users sessionId. Note that this ID should only be
 -- shown to it's owner as otherwise sessions can be hijacked.

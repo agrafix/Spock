@@ -28,4 +28,4 @@ app =
        hookAny GET $ text . T.intercalate "/"
 
 spec :: Spec
-spec = describe "SafeRouting" $ frameworkSpec (spockApp id app)
+spec = describe "SafeRouting" $ frameworkSpec (spockAsApp $ spockT id app)
