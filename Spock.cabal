@@ -64,7 +64,7 @@ test-suite spocktests
   other-modules:       Web.Spock.SimpleSpec,
                        Web.Spock.SafeSpec,
                        Web.Spock.FrameworkSpecHelper
-  build-depends:       hspec2 >=0.4 && <0.5,
+  build-depends:       hspec == 2.*,
                        hspec-wai >=0.5 && <0.6,
                        wai >=3.0 && <4.0,
                        base >= 4 && < 5,
