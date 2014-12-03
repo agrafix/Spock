@@ -32,6 +32,8 @@ routingSpec =
                get "/subcomponent/subcomponent2/bar" `shouldRespondWith` "bar" { matchStatus = 200 }
          it "allows the definition of a fallback handler" $
             do get "/askldjas/aklsdj" `shouldRespondWith` "askldjas/aklsdj" { matchStatus = 200 }
+         it "detected the preferred format" $
+            do request "GET" "/preferred-format" [("Accept", "text/html,application/xml;q=0.9,image/webp,*/*;q=0.8")] "" `shouldRespondWith` "html" { matchStatus = 200 }
     where
       verbTest verb verbVerbose =
           (verb "/verb-test")

@@ -26,6 +26,11 @@ app =
          do get "foo" $ text "foo"
             subcomponent "/subcomponent2" $
               do get "bar" $ text "bar"
+       get "/preferred-format" $
+         do fmt <- preferredFormat
+            case fmt of
+              PrefHTML -> text "html"
+              x -> text (T.pack (show x))
        hookAny GET $ text . T.intercalate "/"
 
 spec :: Spec

@@ -10,10 +10,12 @@ module Web.Spock.Internal.CoreAction
     , setCookie, setCookie'
     , bytes, lazyBytes, text, html, file, json, blaze
     , requireBasicAuth
+    , preferredFormat, ClientPreferredFormat(..)
     )
 where
 
 import Web.Spock.Internal.Wire
+import Web.Spock.Internal.Util
 
 import Control.Arrow (first)
 import Control.Monad
@@ -59,6 +61,15 @@ cookie name =
       parseCookies :: T.Text -> [(T.Text, T.Text)]
       parseCookies = map parseCookie . T.splitOn ";" . T.concat . T.words
       parseCookie = first T.init . T.breakOnEnd "="
+
+-- | Tries to dected the preferred format of the response using the Accept header
+preferredFormat :: MonadIO m => ActionT m ClientPreferredFormat
+preferredFormat =
+  do mAccept <- header "accept"
+     case mAccept of
+       Nothing -> return PrefUnknown
+       Just t ->
+         return $ detectPreferredFormat t
 
 -- | Get the raw request body
 body :: MonadIO m => ActionT m BS.ByteString

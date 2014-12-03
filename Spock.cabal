@@ -17,12 +17,12 @@ library
   hs-source-dirs:      src
   exposed-modules:     Web.Spock.Simple,
                        Web.Spock.Safe,
-                       Web.Spock.Shared
+                       Web.Spock.Shared,
+                       Web.Spock.Internal.Util
   other-modules:       Web.Spock.Internal.SessionManager,
                        Web.Spock.Internal.Monad,
                        Web.Spock.Internal.Types,
                        Web.Spock.Internal.Digestive,
-                       Web.Spock.Internal.Util,
                        Web.Spock.Internal.Core,
                        Web.Spock.Internal.CoreAction,
                        Web.Spock.Internal.Wire
@@ -63,12 +63,14 @@ test-suite spocktests
   main-is:             Spec.hs
   other-modules:       Web.Spock.SimpleSpec,
                        Web.Spock.SafeSpec,
+                       Web.Spock.Internal.UtilSpec,
                        Web.Spock.FrameworkSpecHelper
   build-depends:       hspec == 2.*,
                        hspec-wai >=0.5 && <0.6,
                        wai >=3.0 && <4.0,
                        base >= 4 && < 5,
                        text >= 0.11.3.1 && <1.3,
+                       http-types,
                        Spock
   ghc-options: -Wall -fno-warn-orphans
 

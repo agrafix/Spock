@@ -1,7 +1,44 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Web.Spock.Internal.Util where
 
 import Network.HTTP.Types
 import Network.Wai.Internal
+import qualified Data.Text as T
+import qualified Data.HashMap.Strict as HM
+
+data ClientPreferredFormat
+   = PrefJSON
+   | PrefXML
+   | PrefHTML
+   | PrefText
+   | PrefUnknown
+   deriving (Show, Eq)
+
+mimeMapping :: HM.HashMap T.Text ClientPreferredFormat
+mimeMapping =
+    HM.fromList $
+    [ ("application/json", PrefJSON)
+    , ("text/javascript", PrefJSON)
+    , ("text/json", PrefJSON)
+    , ("application/javascript", PrefJSON)
+    , ("application/xml", PrefXML)
+    , ("text/xml", PrefXML)
+    , ("text/plain", PrefText)
+    , ("text/html", PrefHTML)
+    , ("application/xhtml+xml", PrefHTML)
+    ]
+
+detectPreferredFormat :: T.Text -> ClientPreferredFormat
+detectPreferredFormat t =
+    let (mimeTypeStr, _) = T.breakOn ";" t
+        mimeTypes = map (T.toLower . T.strip) $ T.splitOn "," mimeTypeStr
+        firstMatch [] = PrefUnknown
+        firstMatch (x:xs) =
+          case HM.lookup x mimeMapping of
+            Just pref -> pref
+            Nothing -> firstMatch xs
+    in firstMatch mimeTypes
+
 
 mapReqHeaders :: (ResponseHeaders -> ResponseHeaders) -> Response -> Response
 mapReqHeaders f resp =

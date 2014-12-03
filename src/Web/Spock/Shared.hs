@@ -11,7 +11,10 @@ module Web.Spock.Shared
     (-- * Helpers for running Spock
       runSpock, spockAsApp
      -- * Handeling requests
-    , request, header, cookie, body, jsonBody, jsonBody', files, UploadedFile (..)
+    , request, header, cookie
+    , preferredFormat, ClientPreferredFormat(..)
+    , body, jsonBody, jsonBody'
+    , files, UploadedFile (..)
     , params, param, param'
      -- * Sending responses
     , setStatus, setHeader, redirect, jumpNext, setCookie, setCookie', bytes, lazyBytes
