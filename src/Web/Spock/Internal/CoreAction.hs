@@ -231,13 +231,13 @@ file contentType filePath =
 -- | Send json as response. Content-Type will be "application/json"
 json :: (A.ToJSON a, MonadIO m) => a -> ActionT m b
 json val =
-    do setHeader "Content-Type" "application/json"
+    do setHeader "Content-Type" "application/json; charset=utf-8"
        lazyBytes $ A.encode val
 
 -- | Send blaze html as response. Content-Type will be "text/html"
 blaze :: MonadIO m => Html -> ActionT m a
 blaze val =
-    do setHeader "Content-Type" "text/html"
+    do setHeader "Content-Type" "text/html; charset=utf-8"
        lazyBytes $ renderHtml val
 
 -- | Basic authentification
