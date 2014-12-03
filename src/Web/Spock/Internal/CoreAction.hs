@@ -212,13 +212,13 @@ lazyBytes val =
 -- | Send text as a response body. Content-Type will be "text/plain"
 text :: MonadIO m => T.Text -> ActionT m a
 text val =
-    do setHeader "Content-Type" "text/plain"
+    do setHeader "Content-Type" "text/plain; charset=utf-8"
        bytes $ T.encodeUtf8 val
 
 -- | Send a text as response body. Content-Type will be "text/html"
 html :: MonadIO m => T.Text -> ActionT m a
 html val =
-    do setHeader "Content-Type" "text/html"
+    do setHeader "Content-Type" "text/html; charset=utf-8"
        bytes $ T.encodeUtf8 val
 
 -- | Send a file as response
