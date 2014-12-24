@@ -4,6 +4,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE CPP #-}
 module Web.Spock.Internal.Types where
 
 import Web.Spock.Internal.CoreAction
@@ -112,8 +113,16 @@ newtype WebStateM conn sess st a = WebStateM { runWebStateM :: ReaderT (WebState
 instance MonadBase IO (WebStateM conn sess st) where
     liftBase = WebStateM . liftBase
 
+#if MIN_VERSION_monad_control(1,0,0)
+newtype WStM conn sess st a = WStM { unWStM :: StM (ReaderT (WebState conn sess st) (ResourceT IO)) a }
+#endif
+
 instance MonadBaseControl IO (WebStateM conn sess st) where
+#if MIN_VERSION_monad_control(1,0,0)
+    type StM (WebStateM conn sess st) a = WStM conn sess st a
+#else
     newtype StM (WebStateM conn sess st) a = WStM { unWStM :: StM (ReaderT (WebState conn sess st) (ResourceT IO)) a }
+#endif
     liftBaseWith f = WebStateM . liftBaseWith $ \runInBase -> f $ liftM WStM . runInBase . runWebStateM
     restoreM = WebStateM . restoreM . unWStM
 
