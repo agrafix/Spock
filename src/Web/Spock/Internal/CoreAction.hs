@@ -14,8 +14,8 @@ module Web.Spock.Internal.CoreAction
     )
 where
 
-import Web.Spock.Internal.Wire
 import Web.Spock.Internal.Util
+import Web.Spock.Internal.Wire
 
 import Control.Arrow (first)
 import Control.Monad
@@ -147,7 +147,11 @@ setStatus s =
 -- | Set a response header. Overwrites already defined headers
 setHeader :: MonadIO m => T.Text -> T.Text -> ActionT m ()
 setHeader k v =
-    modify $ \rs -> rs { rs_responseHeaders = ((k, v) : filter ((/= k) . fst) (rs_responseHeaders rs)) }
+    modify $ \rs ->
+        rs
+        { rs_responseHeaders =
+              HM.insert (CI.mk $ T.encodeUtf8 k) (T.encodeUtf8 v) (rs_responseHeaders rs)
+        }
 
 -- | Abort the current action and jump the next one matching the route
 jumpNext :: MonadIO m => ActionT m a

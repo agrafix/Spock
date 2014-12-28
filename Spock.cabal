@@ -58,7 +58,7 @@ library
                        wai >=3.0,
                        wai-extra >=3.0,
                        warp >=3.0
-  ghc-options: -Wall -fno-warn-orphans
+  ghc-options: -auto-all -Wall -fno-warn-orphans
 
 test-suite spocktests
   type:                exitcode-stdio-1.0
@@ -79,6 +79,15 @@ test-suite spocktests
                        wai
 
   ghc-options: -Wall -fno-warn-orphans
+
+benchmark spock-simple-example
+  type:                exitcode-stdio-1.0
+  ghc-options:         -auto-all -Wall -O2
+  hs-source-dirs:      examples/simple
+  main-is:             Main.hs
+  build-depends:
+    base,
+    Spock
 
 source-repository head
   type:     git
