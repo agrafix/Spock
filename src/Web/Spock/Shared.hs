@@ -28,7 +28,7 @@ module Web.Spock.Shared
       -- * Basic HTTP-Auth
     , requireBasicAuth
      -- * Sessions
-    , SessionCfg (..), SessionId
+    , SessionCfg (..), SessionPersistCfg(..), SessionId
     , getSessionId, readSession, writeSession, modifySession, clearAllSessions
      -- * Digestive Functors
     , runForm
