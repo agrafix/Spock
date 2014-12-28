@@ -214,6 +214,26 @@ applyAction req mkEnv ((captures, selectedAction) : xs) =
          Right () ->
              return $ Just respState
 
+handleRequest :: MonadIO m => (forall a. m a -> IO a)
+              -> [(ParamMap, ActionT m ())]
+              -> InternalState
+              -> Wai.Application -> Wai.Application
+handleRequest registryLift allActions st coreApp req respond =
+    do (mkEnv, vaultVar, cleanUp) <- makeActionEnvironment st req
+       mRespState <-
+           (registryLift $ applyAction req mkEnv allActions)
+           `catch` \(e :: SomeException) ->
+              do putStrLn $ "Spock Error while handeling " ++ show (Wai.pathInfo req) ++ ": " ++ show e
+                 return $ Just serverError
+       cleanUp
+       case mRespState of
+         Just respState ->
+             respond $ respStateToResponse respState
+         Nothing ->
+             do newVault <- atomically $ readTVar vaultVar
+                let req' = req { Wai.vault = V.union newVault (Wai.vault req) }
+                coreApp req' respond
+
 buildMiddleware :: forall m r. (MonadIO m, AbstractRouter r, RouteAppliedAction r ~ ActionT m ())
          => r
          -> (forall a. m a -> IO a)
@@ -229,21 +249,7 @@ buildMiddleware registryIf registryLift spockActions =
               Left _ ->
                   respond invalidReq
               Right stdMethod ->
-                  runResourceT $
-                  withInternalState $ \st ->
-                      do (mkEnv, vaultVar, cleanUp) <- makeActionEnvironment st req
-                         let allActions = getMatchingRoutes stdMethod (Wai.pathInfo req)
-                         mRespState <-
-                             (registryLift $ applyAction req mkEnv allActions)
-                               `catch` \(e :: SomeException) ->
-                                   do putStrLn $ "Spock Error while handeling " ++ show (Wai.pathInfo req) ++ ": " ++ show e
-                                      return $ Just serverError
-                         cleanUp
-                         case mRespState of
-                           Just respState ->
-                               respond $ respStateToResponse respState
-                           Nothing ->
-                               do newVault <- atomically $ readTVar vaultVar
-                                  let req' = req { Wai.vault = V.union newVault (Wai.vault req) }
-                                  coreApp req' respond
+                  do let allActions = getMatchingRoutes stdMethod (Wai.pathInfo req)
+                     runResourceT $ withInternalState $ \st ->
+                         handleRequest registryLift allActions st coreApp req respond
        return $ spockMiddleware . app

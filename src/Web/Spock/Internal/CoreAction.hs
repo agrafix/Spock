@@ -82,12 +82,14 @@ body =
                   then return chunks
                   else parseAll (chunks `BS.append` bs)
        parseAll BS.empty
+{-# INLINE body #-}
 
 -- | Parse the request body as json
 jsonBody :: (MonadIO m, A.FromJSON a) => ActionT m (Maybe a)
 jsonBody =
     do b <- body
        return $ A.decodeStrict b
+{-# INLINE jsonBody #-}
 
 -- | Parse the request body as json and fails with 500 status code on error
 jsonBody' :: (MonadIO m, A.FromJSON a) => ActionT m a
@@ -99,11 +101,13 @@ jsonBody' =
                 text (T.pack $ "Failed to parse json: " ++ err)
          Right val ->
              return val
+{-# INLINE jsonBody' #-}
 
 -- | Get uploaded files
 files :: MonadIO m => ActionT m (HM.HashMap T.Text UploadedFile)
 files =
     asks ri_files
+{-# INLINE files #-}
 
 -- | Get all request params
 params :: MonadIO m => ActionT m [(T.Text, T.Text)]
@@ -143,6 +147,7 @@ param' k =
 setStatus :: MonadIO m => Status -> ActionT m ()
 setStatus s =
     modify $ \rs -> rs { rs_status = s }
+{-# INLINE setStatus #-}
 
 -- | Set a response header. Overwrites already defined headers
 setHeader :: MonadIO m => T.Text -> T.Text -> ActionT m ()
@@ -152,14 +157,17 @@ setHeader k v =
         { rs_responseHeaders =
               HM.insert (CI.mk $ T.encodeUtf8 k) (T.encodeUtf8 v) (rs_responseHeaders rs)
         }
+{-# INLINE setHeader #-}
 
 -- | Abort the current action and jump the next one matching the route
 jumpNext :: MonadIO m => ActionT m a
 jumpNext = throwError ActionTryNext
+{-# INLINE jumpNext #-}
 
 -- | Redirect to a given url
 redirect :: MonadIO m => T.Text -> ActionT m a
 redirect = throwError . ActionRedirect
+{-# INLINE redirect #-}
 
 -- | If the Spock application is used as a middleware, you can use
 -- this to pass request handeling to the underlying application.
@@ -167,6 +175,7 @@ redirect = throwError . ActionRedirect
 -- this will result in 404 error.
 middlewarePass :: MonadIO m => ActionT m a
 middlewarePass = throwError ActionMiddlewarePass
+{-# INLINE middlewarePass #-}
 
 -- | Modify the vault (useful for sharing data between middleware and app)
 modifyVault :: MonadIO m => (V.Vault -> V.Vault) -> ActionT m ()
@@ -206,24 +215,28 @@ setCookie' name value validUntil =
 bytes :: MonadIO m => BS.ByteString -> ActionT m a
 bytes val =
     lazyBytes $ BSL.fromStrict val
+{-# INLINE bytes #-}
 
 -- | Send a lazy 'ByteString' as response body. Provide your own "Content-Type"
 lazyBytes :: MonadIO m => BSL.ByteString -> ActionT m a
 lazyBytes val =
     do modify $ \rs -> rs { rs_responseBody = ResponseLBS val }
        throwError ActionDone
+{-# INLINE lazyBytes #-}
 
 -- | Send text as a response body. Content-Type will be "text/plain"
 text :: MonadIO m => T.Text -> ActionT m a
 text val =
     do setHeader "Content-Type" "text/plain; charset=utf-8"
        bytes $ T.encodeUtf8 val
+{-# INLINE text #-}
 
 -- | Send a text as response body. Content-Type will be "text/html"
 html :: MonadIO m => T.Text -> ActionT m a
 html val =
     do setHeader "Content-Type" "text/html; charset=utf-8"
        bytes $ T.encodeUtf8 val
+{-# INLINE html #-}
 
 -- | Send a file as response
 file :: MonadIO m => T.Text -> FilePath -> ActionT m a
@@ -231,18 +244,21 @@ file contentType filePath =
      do setHeader "Content-Type" contentType
         modify $ \rs -> rs { rs_responseBody = ResponseFile filePath }
         throwError ActionDone
+{-# INLINE file #-}
 
 -- | Send json as response. Content-Type will be "application/json"
 json :: (A.ToJSON a, MonadIO m) => a -> ActionT m b
 json val =
     do setHeader "Content-Type" "application/json; charset=utf-8"
        lazyBytes $ A.encode val
+{-# INLINE json #-}
 
 -- | Send blaze html as response. Content-Type will be "text/html"
 blaze :: MonadIO m => Html -> ActionT m a
 blaze val =
     do setHeader "Content-Type" "text/html; charset=utf-8"
        lazyBytes $ renderHtml val
+{-# INLINE blaze #-}
 
 -- | Basic authentification
 -- provide a title for the prompt and a function to validate
