@@ -14,6 +14,7 @@ import Control.Concurrent
 import Control.Concurrent.STM
 import Control.Monad
 import Control.Monad.Trans
+import Data.List (foldl')
 import Data.Time
 import System.Locale
 import System.Random
@@ -30,9 +31,10 @@ import qualified Network.Wai as Wai
 
 createSessionManager :: SessionCfg sess -> IO (SessionManager conn sess st)
 createSessionManager cfg =
-    do cacheHM <- atomically $ newTVar HM.empty
+    do oldSess <- loadSessions
+       cacheHM <- atomically $ newTVar oldSess
        vaultKey <- V.newKey
-       _ <- forkIO (forever (housekeepSessions cacheHM))
+       _ <- forkIO (forever (housekeepSessions cacheHM storeSessions))
        return $ SessionManager
                   { sm_getSessionId = getSessionIdImpl vaultKey cacheHM
                   , sm_readSession = readSessionImpl vaultKey cacheHM
@@ -44,6 +46,30 @@ createSessionManager cfg =
                   , sm_lookupSafeAction = lookupSafeActionImpl vaultKey cacheHM
                   , sm_removeSafeAction = removeSafeActionImpl vaultKey cacheHM
                   }
+    where
+      (loadSessions, storeSessions) =
+          case sc_persistCfg cfg of
+            Nothing ->
+                ( return HM.empty
+                , const $ return ()
+                )
+            Just spc ->
+                ( do sessions <- spc_load spc
+                     return $ foldl' genSession HM.empty sessions
+                , \hm ->
+                    spc_store spc $ map mkSerializable $ HM.elems hm
+                )
+      mkSerializable sess =
+          (sess_id sess, sess_validUntil sess, sess_data sess)
+      genSession hm (sid, validUntil, theData) =
+          let s =
+                  Session
+                  { sess_id = sid
+                  , sess_validUntil = validUntil
+                  , sess_data = theData
+                  , sess_safeActions = SafeActionStore HM.empty HM.empty
+                  }
+          in HM.insert sid s hm
 
 getSessionIdImpl :: V.Key SessionId
                  -> UserSessions conn sess st
@@ -232,10 +258,16 @@ clearAllSessionsImpl :: UserSessions conn sess st
 clearAllSessionsImpl sessionRef =
     liftIO $ atomically $ modifyTVar' sessionRef (const HM.empty)
 
-housekeepSessions :: UserSessions conn sess st -> IO ()
-housekeepSessions sessionRef =
+housekeepSessions :: UserSessions conn sess st
+                  -> (HM.HashMap SessionId (Session conn sess st) -> IO ())
+                  -> IO ()
+housekeepSessions sessionRef storeSessions =
     do now <- getCurrentTime
-       atomically $ modifyTVar' sessionRef (killOld now)
+       newStatus <-
+           atomically $
+           do modifyTVar' sessionRef (killOld now)
+              readTVar sessionRef
+       storeSessions newStatus
        threadDelay (1000 * 1000 * 60) -- 60 seconds
     where
       filterOld now (_, sess) =

@@ -62,6 +62,13 @@ data SessionCfg a
    , sc_sessionTTL :: NominalDiffTime
    , sc_sessionIdEntropy :: Int
    , sc_emptySession :: a
+   , sc_persistCfg :: Maybe (SessionPersistCfg a)
+   }
+
+data SessionPersistCfg a
+   = SessionPersistCfg
+   { spc_load :: IO [(SessionId, UTCTime, a)]
+   , spc_store :: [(SessionId, UTCTime, a)] -> IO ()
    }
 
 data WebState conn sess st
