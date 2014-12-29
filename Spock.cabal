@@ -5,6 +5,7 @@ description:         This toolbox provides everything you need to get a quick st
 Homepage:            https://github.com/agrafix/Spock
 Bug-reports:         https://github.com/agrafix/Spock/issues
 license:             BSD3
+license-file:        LICENSE
 author:              Alexander Thiemann <mail@athiemann.net>
 maintainer:          Alexander Thiemann <mail@athiemann.net>
 copyright:           (c) 2013 - 2014 Alexander Thiemann
