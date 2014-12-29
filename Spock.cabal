@@ -1,7 +1,7 @@
 name:                Spock
 version:             0.7.5.2
 synopsis:            Another Haskell web framework for rapid development
-description:         This toolbox provides everything you need to get a quick start into web hacking with haskell: fast routing, middleware, json, blaze, sessions, cookies, database helper, csrf-protection
+description:         This toolbox provides everything you need to get a quick start into web hacking with haskell: fast routing, middleware, json, sessions, cookies, database helper, csrf-protection
 Homepage:            https://github.com/agrafix/Spock
 Bug-reports:         https://github.com/agrafix/Spock/issues
 license:             BSD3
@@ -32,7 +32,6 @@ library
                        aeson >= 0.6.2.1,
                        base >= 4 && < 5,
                        base64-bytestring >=1.0,
-                       blaze-html >=0.7,
                        bytestring >=0.10,
                        case-insensitive >=1.1,
                        containers >=0.5,

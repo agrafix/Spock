@@ -8,7 +8,7 @@ module Web.Spock.Internal.CoreAction
     , files, params, param, param', setStatus, setHeader, redirect
     , jumpNext, middlewarePass, modifyVault, queryVault
     , setCookie, setCookie'
-    , bytes, lazyBytes, text, html, file, json, blaze
+    , bytes, lazyBytes, text, html, file, json
     , requireBasicAuth
     , preferredFormat, ClientPreferredFormat(..)
     )
@@ -27,8 +27,6 @@ import Data.Time
 import Network.HTTP.Types.Status
 import Prelude hiding (head)
 import System.Locale
-import Text.Blaze.Html (Html)
-import Text.Blaze.Html.Renderer.Utf8 (renderHtml)
 import Web.PathPieces
 import Web.Routing.AbstractRouter
 import qualified Data.Aeson as A
@@ -252,13 +250,6 @@ json val =
     do setHeader "Content-Type" "application/json; charset=utf-8"
        lazyBytes $ A.encode val
 {-# INLINE json #-}
-
--- | Send blaze html as response. Content-Type will be "text/html"
-blaze :: MonadIO m => Html -> ActionT m a
-blaze val =
-    do setHeader "Content-Type" "text/html; charset=utf-8"
-       lazyBytes $ renderHtml val
-{-# INLINE blaze #-}
 
 -- | Basic authentification
 -- provide a title for the prompt and a function to validate
