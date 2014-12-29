@@ -69,6 +69,7 @@ The following Spock extensions exist:
 
 * Authentification helpers for Spock: http://hackage.haskell.org/package/Spock-auth
 * Background workers for Spock: http://hackage.haskell.org/package/Spock-worker
+* Digestive functors for Spock: http://hackage.haskell.org/package/Spock-digestive
 
 # Example Projects
 

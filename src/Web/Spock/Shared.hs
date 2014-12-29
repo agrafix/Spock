@@ -33,15 +33,12 @@ module Web.Spock.Shared
     , SessionCfg (..), SessionPersistCfg(..), SessionId
     , readShowSessionPersist
     , getSessionId, readSession, writeSession, modifySession, clearAllSessions
-     -- * Digestive Functors
-    , runForm
      -- * Internals for extending Spock
     , getSpockHeart, runSpockIO, WebStateM, WebState
     )
 where
 
 import Web.Spock.Internal.Monad
-import Web.Spock.Internal.Digestive
 import Web.Spock.Internal.SessionManager
 import Web.Spock.Internal.Types
 import Web.Spock.Internal.CoreAction
