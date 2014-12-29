@@ -80,6 +80,7 @@ The following Spock extensions exist:
 
 * http://cp-med.com/
 * http://openbrain.co.uk/
+* http://thitp.de
 
 # Notes
 
