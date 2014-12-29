@@ -29,6 +29,7 @@ module Web.Spock.Shared
     , requireBasicAuth
      -- * Sessions
     , SessionCfg (..), SessionPersistCfg(..), SessionId
+    , readShowSessionPersist
     , getSessionId, readSession, writeSession, modifySession, clearAllSessions
      -- * Digestive Functors
     , runForm
@@ -43,6 +44,7 @@ import Web.Spock.Internal.SessionManager
 import Web.Spock.Internal.Types
 import Web.Spock.Internal.CoreAction
 import Control.Monad
+import System.Directory
 import qualified Web.Spock.Internal.Wire as W
 import qualified Network.Wai as Wai
 import qualified Network.Wai.Handler.Warp as Warp
@@ -90,3 +92,18 @@ clearAllSessions :: SpockAction conn sess st ()
 clearAllSessions =
     do mgr <- getSessMgr
        sm_clearAllSessions mgr
+
+-- | Simple session persisting configuration. DO NOT USE IN PRODUCTION
+readShowSessionPersist :: (Read a, Show a) => FilePath -> SessionPersistCfg a
+readShowSessionPersist fp =
+    SessionPersistCfg
+    { spc_load =
+         do isThere <- doesFileExist fp
+            if isThere
+            then do str <- readFile fp
+                    return (read str)
+            else return []
+    , spc_store =
+         \theData ->
+             writeFile fp (show theData)
+    }
