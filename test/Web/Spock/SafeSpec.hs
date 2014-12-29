@@ -17,9 +17,9 @@ app =
        put "verb-test" $ text "PUT"
        delete "verb-test" $ text "DELETE"
        patch "verb-test" $ text "PATCH"
-       get ("param-test" </> var) $ \(i :: Int) ->
+       get ("param-test" <//> var) $ \(i :: Int) ->
            text $ "int" <> (T.pack $ show i)
-       get ("param-test" </> "static") $
+       get ("param-test" <//> "static") $
            text "static"
        subcomponent "/subcomponent" $
          do get "foo" $ text "foo"

@@ -10,6 +10,8 @@
 module Web.Spock.Shared
     (-- * Helpers for running Spock
       runSpock, spockAsApp
+     -- * Action types
+    , SpockAction, ActionT
      -- * Handeling requests
     , request, header, cookie
     , preferredFormat, ClientPreferredFormat(..)

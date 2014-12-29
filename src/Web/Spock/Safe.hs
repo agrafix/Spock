@@ -8,11 +8,11 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds #-}
 module Web.Spock.Safe
-    ( -- * Spock's core
-      spock, SpockM, SpockAction
-    , spockT, SpockT, ActionT
+    ( -- * Spock's route definition monad
+      spock, SpockM
+    , spockT, SpockT
      -- * Defining routes
-    , Path, root, var, static, (</>)
+    , Path, root, var, static, (<//>)
      -- * Rendering routes
     , renderRoute
      -- * Hooking routes
@@ -30,7 +30,6 @@ where
 
 
 import Web.Spock.Shared
-import Web.Spock.Internal.CoreAction
 import Web.Spock.Internal.Types
 import qualified Web.Spock.Internal.Core as C
 
@@ -175,3 +174,7 @@ hookSafeActions =
                Just p@(PackedSafeAction action) ->
                    do runSafeAction action
                       (sm_removeSafeAction mgr) p
+
+-- | Combine two path components
+(<//>) :: Path as -> Path bs -> Path (Append as bs)
+(<//>) = (</>)

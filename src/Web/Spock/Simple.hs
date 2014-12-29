@@ -7,11 +7,11 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 module Web.Spock.Simple
-    ( -- * Spock's core
-      spock, SpockM, SpockAction
-    , spockT, SpockT, ActionT
+    ( -- * Spock's route definition monad
+      spock, SpockM
+    , spockT, SpockT
      -- * Defining routes
-    , SpockRoute, (<#>)
+    , SpockRoute, (<//>)
      -- * Hooking routes
     , subcomponent
     , get, post, head, put, delete, patch, hookRoute, hookAny
@@ -76,11 +76,11 @@ spockT liftFun (SpockT app) =
     C.spockAllT TextRouter liftFun app
 
 -- | Combine two route components safely
--- "/foo" <#> "/bar" ===> "/foo/bar"
--- "foo" <#> "bar" ===> "/foo/bar"
--- "foo <#> "/bar" ===> "/foo/bar"
-(<#>) :: SpockRoute -> SpockRoute -> SpockRoute
-(SpockRoute t) <#> (SpockRoute t') = SpockRoute $ combineRoute t t'
+-- "/foo" <//> "/bar" ===> "/foo/bar"
+-- "foo" <//> "bar" ===> "/foo/bar"
+-- "foo <//> "/bar" ===> "/foo/bar"
+(<//>) :: SpockRoute -> SpockRoute -> SpockRoute
+(SpockRoute t) <//> (SpockRoute t') = SpockRoute $ combineRoute t t'
 
 -- | Specify an action that will be run when the HTTP verb 'GET' and the given route match
 get :: MonadIO m => SpockRoute -> ActionT m () -> SpockT m ()
