@@ -26,7 +26,6 @@ module Web.Spock.Simple
 where
 
 import Web.Spock.Shared
-import Web.Spock.Internal.CoreAction
 import Web.Spock.Internal.Types
 import qualified Web.Spock.Internal.Core as C
 
