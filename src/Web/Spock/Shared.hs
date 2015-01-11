@@ -20,7 +20,7 @@ module Web.Spock.Shared
     , params, param, param'
      -- * Sending responses
     , setStatus, setHeader, redirect, jumpNext, setCookie, setCookie', bytes, lazyBytes
-    , text, html, file, json
+    , text, html, file, json, stream, response
       -- * Middleware helpers
     , middlewarePass, modifyVault, queryVault
       -- * Database

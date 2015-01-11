@@ -18,6 +18,7 @@ import Control.Monad.Reader.Class ()
 import Control.Monad.Trans.Resource
 import Data.Hashable
 import Data.Maybe
+import Network.HTTP.Types.Header (ResponseHeaders)
 import Network.HTTP.Types.Method
 import Network.HTTP.Types.Status
 #if MIN_VERSION_base(4,6,0)
@@ -62,18 +63,14 @@ data RequestInfo
    , ri_vaultIf :: VaultIf
    }
 
-data ResponseBody
-   = ResponseFile FilePath
-   | ResponseLBS BSL.ByteString
-   | ResponseRedirect !T.Text
-   deriving (Show, Eq)
+newtype ResponseBody = ResponseBody (Status -> ResponseHeaders -> Wai.Response)
 
 data ResponseState
    = ResponseState
    { rs_responseHeaders :: !(HM.HashMap (CI.CI BS.ByteString) BS.ByteString)
    , rs_status :: !Status
    , rs_responseBody :: !ResponseBody
-   } deriving (Show, Eq)
+   }
 
 data ActionInterupt
     = ActionRedirect !T.Text
@@ -95,17 +92,8 @@ instance MonadTrans ActionT where
     lift = ActionT . lift . lift
 
 respStateToResponse :: ResponseState -> Wai.Response
-respStateToResponse (ResponseState headers status body) =
-    case body of
-      ResponseFile fp ->
-          Wai.responseFile status waiHeaders fp Nothing
-      ResponseLBS bsl ->
-          Wai.responseLBS status waiHeaders bsl
-      ResponseRedirect target ->
-          Wai.responseLBS status302 (("Location", T.encodeUtf8 target) : waiHeaders) BSL.empty
-    where
-      waiHeaders =
-          HM.toList headers
+respStateToResponse (ResponseState headers status (ResponseBody body)) =
+    body status $ HM.toList headers
 
 errorResponse :: Status -> BSL.ByteString -> ResponseState
 errorResponse s e =
@@ -113,8 +101,8 @@ errorResponse s e =
     { rs_responseHeaders =
           HM.singleton "Content-Type" "text/html"
     , rs_status = s
-    , rs_responseBody =
-        ResponseLBS $
+    , rs_responseBody = ResponseBody $ \status headers ->
+        Wai.responseLBS status headers $
         BSL.concat [ "<html><head><title>"
                    , e
                    , "</title></head><body><h1>"
@@ -200,7 +188,8 @@ applyAction req mkEnv ((captures, selectedAction) : xs) =
            runRWST (runErrorT $ runActionT $ selectedAction) env defResp
        case r of
          Left (ActionRedirect loc) ->
-             return $ Just $ ResponseState (rs_responseHeaders respState) status302 (ResponseRedirect loc)
+             return $ Just $ ResponseState (rs_responseHeaders respState) status302 $ ResponseBody $
+                 \status headers -> Wai.responseLBS status (("Location", T.encodeUtf8 loc) : headers) BSL.empty
          Left ActionTryNext ->
              applyAction req mkEnv xs
          Left (ActionError errorMsg) ->

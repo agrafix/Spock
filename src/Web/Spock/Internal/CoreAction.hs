@@ -8,7 +8,7 @@ module Web.Spock.Internal.CoreAction
     , files, params, param, param', setStatus, setHeader, redirect
     , jumpNext, middlewarePass, modifyVault, queryVault
     , setCookie, setCookie'
-    , bytes, lazyBytes, text, html, file, json
+    , bytes, lazyBytes, text, html, file, json, stream, response
     , requireBasicAuth
     , preferredFormat, ClientPreferredFormat(..)
     )
@@ -24,6 +24,7 @@ import Control.Monad.Reader
 import Control.Monad.State hiding (get, put)
 import Data.Monoid
 import Data.Time
+import Network.HTTP.Types.Header (ResponseHeaders)
 import Network.HTTP.Types.Status
 import Prelude hiding (head)
 import System.Locale
@@ -209,6 +210,13 @@ setCookie' name value validUntil =
                       , ";"
                       ]
 
+-- | Use a custom 'Wai.Response' generator as response body.
+response :: MonadIO m => (Status -> ResponseHeaders -> Wai.Response) -> ActionT m a
+response val =
+    do modify $ \rs -> rs { rs_responseBody = ResponseBody val }
+       throwError ActionDone
+{-# INLINE response #-}
+
 -- | Send a 'ByteString' as response body. Provide your own "Content-Type"
 bytes :: MonadIO m => BS.ByteString -> ActionT m a
 bytes val =
@@ -218,8 +226,7 @@ bytes val =
 -- | Send a lazy 'ByteString' as response body. Provide your own "Content-Type"
 lazyBytes :: MonadIO m => BSL.ByteString -> ActionT m a
 lazyBytes val =
-    do modify $ \rs -> rs { rs_responseBody = ResponseLBS val }
-       throwError ActionDone
+    response $ \status headers -> Wai.responseLBS status headers val
 {-# INLINE lazyBytes #-}
 
 -- | Send text as a response body. Content-Type will be "text/plain"
@@ -240,8 +247,7 @@ html val =
 file :: MonadIO m => T.Text -> FilePath -> ActionT m a
 file contentType filePath =
      do setHeader "Content-Type" contentType
-        modify $ \rs -> rs { rs_responseBody = ResponseFile filePath }
-        throwError ActionDone
+        response $ \status headers -> Wai.responseFile status headers filePath Nothing
 {-# INLINE file #-}
 
 -- | Send json as response. Content-Type will be "application/json"
@@ -250,6 +256,12 @@ json val =
     do setHeader "Content-Type" "application/json; charset=utf-8"
        lazyBytes $ A.encode val
 {-# INLINE json #-}
+
+-- | Use a 'Wai.StreamingBody' to generate a response.
+stream :: MonadIO m => Wai.StreamingBody -> ActionT m a
+stream val =
+    response $ \status headers -> Wai.responseStream status headers val
+{-# INLINE stream #-}
 
 -- | Basic authentification
 -- provide a title for the prompt and a function to validate
