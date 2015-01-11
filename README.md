@@ -7,12 +7,12 @@ Spock
 
 # Intro
 
-Hackage: http://hackage.haskell.org/package/Spock
+Hackage: [Spock](http://hackage.haskell.org/package/Spock)
 
 Another Haskell web framework for rapid development: This toolbox provides
 everything you need to get a quick start into web hacking with haskell:
 
-* fast routing (both typesafe and untyped)
+* fast routing (both typesafe and "untyped")
 * middleware
 * json
 * blaze
@@ -35,7 +35,7 @@ import Web.Spock.Simple
 import qualified Data.Text as T
 
 main =
-	runSpock 3000 $ spockT id $
+    runSpock 3000 $ spockT id $
     do get ("echo" <//> ":something") $
         do Just something <- param "something"
            text $ T.concat ["Echo: ", something]
@@ -67,9 +67,8 @@ main =
 
 The following Spock extensions exist:
 
-* Authentification helpers for Spock: http://hackage.haskell.org/package/Spock-auth
-* Background workers for Spock: http://hackage.haskell.org/package/Spock-worker
-* Digestive functors for Spock: http://hackage.haskell.org/package/Spock-digestive
+* Background workers for Spock: [Spock-worker](http://hackage.haskell.org/package/Spock-worker)
+* Digestive functors for Spock: [Spock-digestive](http://hackage.haskell.org/package/Spock-digestive)
 
 # Example Projects
 
