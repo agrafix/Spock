@@ -15,7 +15,6 @@ everything you need to get a quick start into web hacking with haskell:
 * fast routing (both typesafe and "untyped")
 * middleware
 * json
-* blaze
 * sessions
 * cookies
 * database helper
