@@ -111,12 +111,12 @@ hookAny m action = SpockT $ C.hookAny m action
 --
 -- > subcomponent "site" $
 -- >   do get "home" homeHandler
--- >      get ("misc" <> var) $ -- ...
+-- >      get ("misc" <//> var) $ -- ...
 -- > subcomponent "admin" $
 -- >   do get "home" adminHomeHandler
 --
--- The request "/site/home" will be routed to homeHandler and the
--- request "/admin/home" will be routed to adminHomeHandler
+-- The request \/site\/home will be routed to homeHandler and the
+-- request \/admin\/home will be routed to adminHomeHandler
 subcomponent :: Monad m => Path '[] -> SpockT m () -> SpockT m ()
 subcomponent p (SpockT subapp) = SpockT $ C.subcomponent (SafeRouterPath p) subapp
 
@@ -134,9 +134,8 @@ middleware = SpockT . C.middleware
 -- >       do runQuery $ deleteUserFromDb i
 -- >          redirect "/user-list"
 -- >
--- > get "/user-details/:userId" $
--- >   do userId <- param' "userId"
--- >      deleteUrl <- safeActionPath (DeleteUser userId)
+-- > get ("user-details" <//> var) $ \userId ->
+-- >   do deleteUrl <- safeActionPath (DeleteUser userId)
 -- >      html $ "Click <a href='" <> deleteUrl <> "'>here</a> to delete user!"
 --
 -- Note that safeActions currently only support GET and POST requests.

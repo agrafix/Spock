@@ -51,7 +51,10 @@ instance MonadTrans SpockT where
 
 newtype SpockRoute
     = SpockRoute { _unSpockRoute :: T.Text }
-    deriving (Eq, Ord, Show, Read, IsString)
+    deriving (Eq, Ord, Show, Read)
+
+instance IsString SpockRoute where
+    fromString str = SpockRoute $ combineRoute (T.pack str) ""
 
 -- | Create a spock application using a given db storageLayer and an initial state.
 -- Spock works with database libraries that already implement connection pooling and
@@ -75,9 +78,15 @@ spockT liftFun (SpockT app) =
     C.spockAllT TextRouter liftFun app
 
 -- | Combine two route components safely
--- "/foo" <//> "/bar" ===> "/foo/bar"
--- "foo" <//> "bar" ===> "/foo/bar"
--- "foo <//> "/bar" ===> "/foo/bar"
+--
+-- >>> "/foo" <//> "/bar"
+-- "/foo/bar"
+--
+-- >>> "foo" <//> "bar"
+-- "/foo/bar"
+--
+-- >>> "foo <//> "/bar"
+-- "/foo/bar"
 (<//>) :: SpockRoute -> SpockRoute -> SpockRoute
 (SpockRoute t) <//> (SpockRoute t') = SpockRoute $ combineRoute t t'
 
@@ -116,14 +125,14 @@ hookAny m action = SpockT $ C.hookAny m action
 
 -- | Define a subcomponent. Usage example:
 --
--- > subcomponent "/site" $
--- >   do get "/home" homeHandler
--- >      get "/misc/:param" $ -- ...
+-- > subcomponent "site" $
+-- >   do get "home" homeHandler
+-- >      get ("misc" <//> ":param") $ -- ...
 -- > subcomponent "/admin" $
--- >   do get "/home" adminHomeHandler
+-- >   get "home" adminHomeHandler
 --
--- The request /site/home will be routed to homeHandler and the
--- request /admin/home will be routed to adminHomeHandler
+-- The request \/site\/home will be routed to homeHandler and the
+-- request \/admin\/home will be routed to adminHomeHandler
 subcomponent :: Monad m => SpockRoute -> SpockT m () -> SpockT m ()
 subcomponent (SpockRoute p) (SpockT subapp) = SpockT $ C.subcomponent (TextRouterPath p) subapp
 
@@ -141,7 +150,7 @@ middleware = SpockT . C.middleware
 -- >       do runQuery $ deleteUserFromDb i
 -- >          redirect "/user-list"
 -- >
--- > get "/user-details/:userId" $
+-- > get ("user-details" <//> ":userId") $
 -- >   do userId <- param' "userId"
 -- >      deleteUrl <- safeActionPath (DeleteUser userId)
 -- >      html $ "Click <a href='" <> deleteUrl <> "'>here</a> to delete user!"
@@ -168,8 +177,8 @@ hookSafeActions :: forall conn sess st.
                    , SpockState (SpockAction conn sess st) ~ st)
                 => SpockM conn sess st ()
 hookSafeActions =
-    do get "/h/:spock-csurf-protection" run
-       post "/h/:spock-csurf-protection" run
+    do get ("h" <//> ":spock-csurf-protection") run
+       post ("h" <//> ":spock-csurf-protection") run
     where
       run =
           do Just h <- param "spock-csurf-protection"

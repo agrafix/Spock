@@ -17,6 +17,8 @@ app =
        put "/verb-test" $ text "PUT"
        delete "/verb-test" $ text "DELETE"
        patch "/verb-test" $ text "PATCH"
+       get "test-slash" $ text "ok"
+       get "/test-noslash" $ text "ok"
        get "/param-test/:int" $
            do Just (i :: Int) <- param "int"
               text $ "int" <> (T.pack $ show i)

@@ -36,6 +36,11 @@ routingSpec =
             do get "/askldjas/aklsdj" `shouldRespondWith` "askldjas/aklsdj" { matchStatus = 200 }
          it "detected the preferred format" $
             do request "GET" "/preferred-format" [("Accept", "text/html,application/xml;q=0.9,image/webp,*/*;q=0.8")] "" `shouldRespondWith` "html" { matchStatus = 200 }
+         it "/test-slash and test-noslash are the same thing" $
+            do get "/test-slash" `shouldRespondWith` "ok" { matchStatus = 200 }
+               get "test-slash" `shouldRespondWith` "ok" { matchStatus = 200 }
+               get "/test-noslash" `shouldRespondWith` "ok" { matchStatus = 200 }
+               get "test-noslash" `shouldRespondWith` "ok" { matchStatus = 200 }
     where
       verbTest verb verbVerbose =
           (verb "/verb-test")
