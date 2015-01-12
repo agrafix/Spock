@@ -39,7 +39,7 @@ library
                        hashable >=1.2,
                        http-types >=0.8,
                        monad-control >=0.3,
-                       mtl >=2.1,
+                       mtl >=2.2.1,
                        old-locale >=1.0,
                        path-pieces >=0.1.4,
                        random >=1.0,

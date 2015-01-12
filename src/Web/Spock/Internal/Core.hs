@@ -18,7 +18,7 @@ import Web.Spock.Internal.SessionManager
 import Web.Spock.Internal.Types
 import Web.Spock.Internal.Wire
 
-import Control.Monad.Error
+import Control.Monad.Except
 import Control.Monad.Trans.Reader
 import Control.Monad.Trans.Resource
 import Data.Pool

@@ -13,7 +13,7 @@ import Control.Applicative
 import Control.Concurrent.STM
 import Control.Exception
 import Control.Monad.RWS.Strict
-import Control.Monad.Error
+import Control.Monad.Except
 import Control.Monad.Reader.Class ()
 import Control.Monad.Trans.Resource
 import Data.Hashable
@@ -80,12 +80,9 @@ data ActionInterupt
     | ActionMiddlewarePass
     deriving (Show)
 
-instance Error ActionInterupt where
-    noMsg = ActionError "Unkown Internal Action Error"
-    strMsg = ActionError
 
 newtype ActionT m a
-    = ActionT { runActionT :: ErrorT ActionInterupt (RWST RequestInfo () ResponseState m) a }
+    = ActionT { runActionT :: ExceptT ActionInterupt (RWST RequestInfo () ResponseState m) a }
       deriving (Monad, Functor, Applicative, MonadIO, MonadReader RequestInfo, MonadState ResponseState, MonadError ActionInterupt)
 
 instance MonadTrans ActionT where
@@ -185,7 +182,7 @@ applyAction req mkEnv ((captures, selectedAction) : xs) =
     do let env = mkEnv captures
            defResp = errorResponse status200 ""
        (r, respState, _) <-
-           runRWST (runErrorT $ runActionT $ selectedAction) env defResp
+           runRWST (runExceptT $ runActionT $ selectedAction) env defResp
        case r of
          Left (ActionRedirect loc) ->
              return $ Just $ ResponseState (rs_responseHeaders respState) status302 $ ResponseBody $
