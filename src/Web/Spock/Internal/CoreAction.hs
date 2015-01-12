@@ -19,7 +19,7 @@ import Web.Spock.Internal.Wire
 
 import Control.Arrow (first)
 import Control.Monad
-import Control.Monad.Error
+import Control.Monad.Except
 import Control.Monad.Reader
 import Control.Monad.State hiding (get, put)
 import Data.Monoid
