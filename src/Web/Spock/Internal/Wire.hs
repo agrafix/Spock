@@ -86,6 +86,7 @@ data ActionInterupt
 
 #if MIN_VERSION_mtl(2,2,0)
 type ErrorT = ExceptT
+runErrorT :: ExceptT e m a -> m (Either e a)
 runErrorT = runExceptT
 #else
 instance Error ActionInterupt where
