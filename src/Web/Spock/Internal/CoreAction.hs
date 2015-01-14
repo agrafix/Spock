@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE DoAndIfThenElse #-}
@@ -19,7 +20,11 @@ import Web.Spock.Internal.Wire
 
 import Control.Arrow (first)
 import Control.Monad
+#if MIN_VERSION_mtl(2,2,0)
+import Control.Monad.Except
+#else
 import Control.Monad.Error
+#endif
 import Control.Monad.Reader
 import Control.Monad.State hiding (get, put)
 import Data.Monoid

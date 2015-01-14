@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE DoAndIfThenElse #-}
@@ -18,7 +19,11 @@ import Web.Spock.Internal.SessionManager
 import Web.Spock.Internal.Types
 import Web.Spock.Internal.Wire
 
+#if MIN_VERSION_mtl(2,2,0)
+import Control.Monad.Except
+#else
 import Control.Monad.Error
+#endif
 import Control.Monad.Trans.Reader
 import Control.Monad.Trans.Resource
 import Data.Pool

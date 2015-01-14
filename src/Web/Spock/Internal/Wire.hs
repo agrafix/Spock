@@ -13,7 +13,11 @@ import Control.Applicative
 import Control.Concurrent.STM
 import Control.Exception
 import Control.Monad.RWS.Strict
+#if MIN_VERSION_mtl(2,2,0)
+import Control.Monad.Except
+#else
 import Control.Monad.Error
+#endif
 import Control.Monad.Reader.Class ()
 import Control.Monad.Trans.Resource
 import Data.Hashable
@@ -80,9 +84,14 @@ data ActionInterupt
     | ActionMiddlewarePass
     deriving (Show)
 
+#if MIN_VERSION_mtl(2,2,0)
+type ErrorT = ExceptT
+runErrorT = runExceptT
+#else
 instance Error ActionInterupt where
     noMsg = ActionError "Unkown Internal Action Error"
     strMsg = ActionError
+#endif
 
 newtype ActionT m a
     = ActionT { runActionT :: ErrorT ActionInterupt (RWST RequestInfo () ResponseState m) a }
