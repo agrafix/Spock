@@ -203,7 +203,7 @@ applyAction req mkEnv ((captures, selectedAction) : xs) =
          Left ActionTryNext ->
              applyAction req mkEnv xs
          Left (ActionError errorMsg) ->
-             do liftIO $ putStrLn $ "Spock Error while handeling "
+             do liftIO $ putStrLn $ "Spock Error while handling "
                              ++ show (Wai.pathInfo req) ++ ": " ++ errorMsg
                 return $ Just serverError
          Left ActionDone ->
@@ -222,7 +222,7 @@ handleRequest registryLift allActions st coreApp req respond =
        mRespState <-
            (registryLift $ applyAction req mkEnv allActions)
            `catch` \(e :: SomeException) ->
-              do putStrLn $ "Spock Error while handeling " ++ show (Wai.pathInfo req) ++ ": " ++ show e
+              do putStrLn $ "Spock Error while handling " ++ show (Wai.pathInfo req) ++ ": " ++ show e
                  return $ Just serverError
        cleanUp
        case mRespState of
