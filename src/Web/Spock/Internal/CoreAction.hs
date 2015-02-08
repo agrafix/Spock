@@ -174,7 +174,7 @@ redirect = throwError . ActionRedirect
 {-# INLINE redirect #-}
 
 -- | If the Spock application is used as a middleware, you can use
--- this to pass request handeling to the underlying application.
+-- this to pass request handling to the underlying application.
 -- If Spock is not uses as a middleware, or there is no underlying application
 -- this will result in 404 error.
 middlewarePass :: MonadIO m => ActionT m a

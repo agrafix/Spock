@@ -12,7 +12,7 @@ module Web.Spock.Shared
       runSpock, spockAsApp
      -- * Action types
     , SpockAction, ActionT
-     -- * Handeling requests
+     -- * Handling requests
     , request, header, cookie
     , preferredFormat, ClientPreferredFormat(..)
     , body, jsonBody, jsonBody'
