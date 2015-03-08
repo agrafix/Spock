@@ -5,7 +5,7 @@ Spock
 
 [![Hackage Deps](https://img.shields.io/hackage-deps/v/Spock.svg)](http://packdeps.haskellers.com/reverse/Spock)
 
-# Intro
+## Intro
 
 Hackage: [Spock](http://hackage.haskell.org/package/Spock)
 
@@ -25,7 +25,7 @@ Benchmarks:
 * https://github.com/philopon/apiary-benchmark
 * https://github.com/agrafix/Spock-scotty-benchmark
 
-# Usage (Simple)
+## Usage (Simple)
 
 ```haskell
 {-# LANGUAGE OverloadedStrings #-}
@@ -43,7 +43,7 @@ main =
            text $ T.concat ["Just a number: ", number]
 ```
 
-# Usage (Typesafe)
+## Usage (Typesafe)
 
 ```haskell
 {-# LANGUAGE OverloadedStrings #-}
@@ -57,31 +57,41 @@ main =
         text $ T.concat ["Echo: ", something]
 ```
 
-# Install
+## Install
 
 * Using cabal: `cabal install Spock`
 * From Source: `git clone https://github.com/agrafix/Spock.git && cd Spock && cabal install`
 
-# Candy
+## Candy
+
+### Extensions
 
 The following Spock extensions exist:
 
 * Background workers for Spock: [Spock-worker](http://hackage.haskell.org/package/Spock-worker)
 * Digestive functors for Spock: [Spock-digestive](http://hackage.haskell.org/package/Spock-digestive)
 
-# Example Projects
+### Works well with Spock
 
-* http://findmelike.com/
+* User management [users](http://hackage.haskell.org/package/users)
+* Data validation [validate-input](http://hackage.haskell.org/package/validate-input)
+* Blaze bootstrap helpers [blaze-bootstrap](http://hackage.haskell.org/package/blaze-bootstrap)
+* digestive-forms bootstrap helpers [digestive-bootstrap](http://hackage.haskell.org/package/digestive-bootstrap)
+
+## Example Projects
+
 * https://github.com/agrafix/funblog
 * https://github.com/openbrainsrc/makeci
 
-# Companies using Spock
+## Companies / Projects using Spock
 
 * http://cp-med.com/
 * http://openbrain.co.uk/
+* http://findmelike.com/
+* https://www.tramcloud.net
 * http://thitp.de
 
-# Notes
+## Notes
 
 Since version 0.7.0.0 Spock supports typesafe routing. If you wish to continue using the untyped version of Spock you can Use `Web.Spock.Simple`. The implementation of the routing is implemented in a separate haskell package called `reroute`.
 
@@ -89,7 +99,7 @@ Since version 0.5.0.0 Spock is no longer built on top of scotty. The
 design and interface is still influenced by scotty, but the internal
 implementation differs from scotty's.
 
-# Thanks to
+## Thanks to
 
 * Tim Baumann [Github](https://github.com/timjb) (lot's of help with typesafe routing)
 * Tom Nielsen [Github](https://github.com/glutamate)  (much feedback and small improvements)
