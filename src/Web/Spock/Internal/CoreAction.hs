@@ -8,7 +8,7 @@ module Web.Spock.Internal.CoreAction
     , request, header, cookie, body, jsonBody, jsonBody'
     , files, params, param, param', setStatus, setHeader, redirect
     , jumpNext, middlewarePass, modifyVault, queryVault
-    , setCookie, setCookie'
+    , setCookie, setCookie', deleteCookie
     , bytes, lazyBytes, text, html, file, json, stream, response
     , requireBasicAuth
     , preferredFormat, ClientPreferredFormat(..)
@@ -202,6 +202,12 @@ setCookie :: MonadIO m => T.Text -> T.Text -> NominalDiffTime -> ActionT m ()
 setCookie name value validSeconds =
     do now <- liftIO getCurrentTime
        setCookie' name value (validSeconds `addUTCTime` now)
+
+deleteCookie :: MonadIO m => T.Text -> ActionT m ()
+deleteCookie name = setCookie' name T.empty epoch
+  where
+    epoch = UTCTime (fromGregorian 1970 1 1) (secondsToDiffTime 0)
+{-# INLINE deleteCookie #-}
 
 -- | Set a cookie living until a specific 'UTCTime'
 setCookie' :: MonadIO m => T.Text -> T.Text -> UTCTime -> ActionT m ()
