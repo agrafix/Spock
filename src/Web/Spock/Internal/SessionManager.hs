@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts, DeriveGeneric, OverloadedStrings, DoAndIfThenElse, RankNTypes #-}
 module Web.Spock.Internal.SessionManager
     ( createSessionManager
@@ -16,7 +17,11 @@ import Control.Monad
 import Control.Monad.Trans
 import Data.List (foldl')
 import Data.Time
-import System.Locale
+#if MIN_VERSION_time(1,5,0)
+import Data.Time.Format (defaultTimeLocale)
+#else
+import System.Locale (defaultTimeLocale)
+#endif
 import System.Random
 import qualified Data.ByteString.Base64.URL as B64
 import qualified Data.ByteString.Char8 as BSC
