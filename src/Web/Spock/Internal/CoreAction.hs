@@ -33,7 +33,6 @@ import Network.HTTP.Types.Header (ResponseHeaders)
 import Network.HTTP.Types.Status
 import Prelude hiding (head)
 #if MIN_VERSION_time(1,5,0)
-import Data.Time.Format (defaultTimeLocale)
 #else
 import System.Locale (defaultTimeLocale)
 #endif

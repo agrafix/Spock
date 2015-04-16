@@ -18,7 +18,6 @@ import Control.Monad.Trans
 import Data.List (foldl')
 import Data.Time
 #if MIN_VERSION_time(1,5,0)
-import Data.Time.Format (defaultTimeLocale)
 #else
 import System.Locale (defaultTimeLocale)
 #endif

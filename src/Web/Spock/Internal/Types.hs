@@ -10,7 +10,10 @@ module Web.Spock.Internal.Types where
 import Web.Spock.Internal.CoreAction
 import Web.Spock.Internal.Wire
 
+#if MIN_VERSION_base(4,8,0)
+#else
 import Control.Applicative
+#endif
 import Control.Concurrent.STM
 import Control.Monad.Base
 import Control.Monad.Reader
