@@ -1,5 +1,5 @@
 name:                Spock
-version:             0.7.7.0
+version:             0.7.8.0
 synopsis:            Another Haskell web framework for rapid development
 description:         This toolbox provides everything you need to get a quick start into web hacking with haskell: fast routing, middleware, json, sessions, cookies, database helper, csrf-protection
 Homepage:            https://github.com/agrafix/Spock
@@ -12,7 +12,7 @@ copyright:           (c) 2013 - 2015 Alexander Thiemann
 category:            Web
 build-type:          Simple
 cabal-version:       >=1.8
-tested-with:         GHC==7.6.3, GHC==7.8.3
+tested-with:         GHC==7.6.3, GHC==7.8.3, GHC==7.10.1
 
 library
   hs-source-dirs:      src
