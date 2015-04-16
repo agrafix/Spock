@@ -7,6 +7,7 @@ import Web.Spock.FrameworkSpecHelper
 
 import Data.Monoid
 import Test.Hspec
+import Web.Routing.SafeRouting hiding (renderRoute)
 import qualified Data.Text as T
 
 app :: SpockT IO ()
@@ -34,5 +35,24 @@ app =
               x -> text (T.pack (show x))
        hookAny GET $ text . T.intercalate "/"
 
+routeRenderingSpec :: Spec
+routeRenderingSpec =
+    describe "Route Rendering" $
+    do it "should work with argument-less routes" $
+          do renderRoute "foo" `shouldBe` "/foo"
+             renderRoute "/foo" `shouldBe` "/foo"
+             renderRoute "/foo/" `shouldBe` "/foo"
+             renderRoute ("foo" <//> "bar") `shouldBe` "/foo/bar"
+       it "should work with routes with args" $
+          do let r1 = var :: Var Int
+             renderRoute r1 1 `shouldBe` "/1"
+             let r2 = "blog" <//> (var :: Var Int)
+             renderRoute r2 2 `shouldBe` "/blog/2"
+             let r3 = "blog" <//> (var :: Var Int) <//> (var :: Var T.Text)
+             renderRoute r3 2 "BIIM" `shouldBe` "/blog/2/BIIM"
+
 spec :: Spec
-spec = describe "SafeRouting" $ frameworkSpec (spockAsApp $ spockT id app)
+spec =
+    describe "SafeRouting" $
+    do frameworkSpec (spockAsApp $ spockT id app)
+       routeRenderingSpec

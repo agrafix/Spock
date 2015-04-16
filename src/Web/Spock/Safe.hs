@@ -39,7 +39,8 @@ import Data.Monoid
 import Data.HVect
 import Network.HTTP.Types.Method
 import Prelude hiding (head)
-import Web.Routing.SafeRouting
+import Web.Routing.SafeRouting hiding (renderRoute)
+import qualified Web.Routing.SafeRouting as SR
 import qualified Data.Text as T
 import qualified Network.HTTP.Types as Http
 import qualified Network.Wai as Wai
@@ -177,3 +178,7 @@ hookSafeActions =
 -- | Combine two path components
 (<//>) :: Path as -> Path bs -> Path (Append as bs)
 (<//>) = (</>)
+
+-- | Render a route applying path pieces
+renderRoute :: HasRep as => Path as -> HVectElim as T.Text
+renderRoute route = hVectCurry (T.cons '/' . SR.renderRoute route)
