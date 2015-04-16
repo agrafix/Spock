@@ -52,12 +52,14 @@ import qualified Network.Wai as Wai
 -- | Get the original Wai Request object
 request :: MonadIO m => ActionT m Wai.Request
 request = asks ri_request
+{-# INLINE request #-}
 
 -- | Read a header
 header :: MonadIO m => T.Text -> ActionT m (Maybe T.Text)
 header t =
     do req <- request
        return $ fmap T.decodeUtf8 (lookup (CI.mk (T.encodeUtf8 t)) $ Wai.requestHeaders req)
+{-# INLINE header #-}
 
 -- | Read a cookie
 cookie :: MonadIO m => T.Text -> ActionT m (Maybe T.Text)
@@ -68,6 +70,7 @@ cookie name =
       parseCookies :: T.Text -> [(T.Text, T.Text)]
       parseCookies = map parseCookie . T.splitOn ";" . T.concat . T.words
       parseCookie = first T.init . T.breakOnEnd "="
+{-# INLINE cookie #-}
 
 -- | Tries to dected the preferred format of the response using the Accept header
 preferredFormat :: MonadIO m => ActionT m ClientPreferredFormat
@@ -77,6 +80,7 @@ preferredFormat =
        Nothing -> return PrefUnknown
        Just t ->
          return $ detectPreferredFormat t
+{-# INLINE preferredFormat #-}
 
 -- | Get the raw request body
 body :: MonadIO m => ActionT m BS.ByteString
@@ -122,6 +126,7 @@ params =
     do p <- asks ri_params
        qp <- asks ri_queryParams
        return (qp ++ (map (\(k, v) -> (unCaptureVar k, v)) $ HM.toList p))
+{-# INLINE params #-}
 
 -- | Read a request param. Spock looks in route captures first, then in POST variables and at last in GET variables
 param :: (PathPiece p, MonadIO m) => T.Text -> ActionT m (Maybe p)
@@ -138,6 +143,7 @@ param k =
                    return $ Just pathPieceVal
          Nothing ->
              return $ join $ fmap fromPathPiece (lookup k qp)
+{-# INLINE param #-}
 
 -- | Like 'param', but outputs an error when a param is missing
 param' :: (PathPiece p, MonadIO m) => T.Text -> ActionT m p
@@ -149,6 +155,7 @@ param' k =
                 text (T.concat [ "Missing parameter ", k ])
          Just val ->
              return val
+{-# INLINE param' #-}
 
 -- | Set a response status
 setStatus :: MonadIO m => Status -> ActionT m ()
@@ -189,18 +196,21 @@ modifyVault :: MonadIO m => (V.Vault -> V.Vault) -> ActionT m ()
 modifyVault f =
     do vaultIf <- asks ri_vaultIf
        liftIO $ (vi_modifyVault vaultIf) f
+{-# INLINE modifyVault #-}
 
 -- | Query the vault
 queryVault :: MonadIO m => V.Key a -> ActionT m (Maybe a)
 queryVault k =
     do vaultIf <- asks ri_vaultIf
        liftIO $ (vi_lookupKey vaultIf) k
+{-# INLINE queryVault #-}
 
 -- | Set a cookie living for a given number of seconds
 setCookie :: MonadIO m => T.Text -> T.Text -> NominalDiffTime -> ActionT m ()
 setCookie name value validSeconds =
     do now <- liftIO getCurrentTime
        setCookie' name value (validSeconds `addUTCTime` now)
+{-# INLINE setCookie #-}
 
 deleteCookie :: MonadIO m => T.Text -> ActionT m ()
 deleteCookie name = setCookie' name T.empty epoch
@@ -223,6 +233,7 @@ setCookie' name value validUntil =
                       , formattedTime
                       , ";"
                       ]
+{-# INLINE setCookie' #-}
 
 -- | Use a custom 'Wai.Response' generator as response body.
 response :: MonadIO m => (Status -> ResponseHeaders -> Wai.Response) -> ActionT m a
