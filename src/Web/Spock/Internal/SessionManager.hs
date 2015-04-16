@@ -183,7 +183,7 @@ sessionMiddleware :: SessionCfg sess
 sessionMiddleware cfg vK sessionRef app req respond =
     case getCookieFromReq (sc_cookieName cfg) of
       Just sid ->
-          do mSess <- loadSessionImpl sessionRef sid
+          do mSess <- loadSessionImpl cfg sessionRef sid
              case mSess of
                Nothing ->
                    mkNew
@@ -232,19 +232,30 @@ newSessionImpl :: SessionCfg sess
                -> IO (Session conn sess st)
 newSessionImpl sessCfg sessionRef content =
     do sess <- createSession sessCfg content
-       atomically $ modifyTVar' sessionRef (\hm -> HM.insert (sess_id sess) sess hm)
+       atomically $ modifyTVar' sessionRef (HM.insert (sess_id sess) sess)
        return $! sess
 
-loadSessionImpl :: UserSessions conn sess st
+loadSessionImpl :: SessionCfg sess
+                -> UserSessions conn sess st
                 -> SessionId
                 -> IO (Maybe (Session conn sess st))
-loadSessionImpl sessionRef sid =
+loadSessionImpl sessCfg sessionRef sid =
     do sessHM <- atomically $ readTVar sessionRef
        now <- getCurrentTime
        case HM.lookup sid sessHM of
          Just sess ->
-             do if (sess_validUntil sess) > now
-                then return $ Just sess
+             do sessWithPossibleExpansion <-
+                    if sc_sessionExpandTTL sessCfg
+                    then do let expandedSession =
+                                    sess
+                                    { sess_validUntil =
+                                          addUTCTime (sc_sessionTTL sessCfg) now
+                                    }
+                            atomically $ modifyTVar' sessionRef (HM.insert sid expandedSession)
+                            return expandedSession
+                    else return sess
+                if (sess_validUntil sessWithPossibleExpansion) > now
+                then return $ Just sessWithPossibleExpansion
                 else do deleteSessionImpl sessionRef sid
                         return Nothing
          Nothing ->
@@ -254,7 +265,7 @@ deleteSessionImpl :: UserSessions conn sess st
                   -> SessionId
                   -> IO ()
 deleteSessionImpl sessionRef sid =
-    do atomically $ modifyTVar' sessionRef (\hm -> HM.delete sid hm)
+    do atomically $ modifyTVar' sessionRef (HM.delete sid)
        return ()
 
 clearAllSessionsImpl :: UserSessions conn sess st

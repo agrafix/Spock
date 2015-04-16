@@ -62,10 +62,17 @@ data PoolOrConn a
 data SessionCfg a
    = SessionCfg
    { sc_cookieName :: T.Text
+     -- ^ name of the client side cookie
    , sc_sessionTTL :: NominalDiffTime
+     -- ^ how long shoud a client session live
    , sc_sessionIdEntropy :: Int
+     -- ^ entropy of the session id sent to the client
+   , sc_sessionExpandTTL :: Bool
+     -- ^ if this is true, every page reload will renew the session time to live counter
    , sc_emptySession :: a
+     -- ^ initial session for visitors
    , sc_persistCfg :: Maybe (SessionPersistCfg a)
+     -- ^ persistence interface for sessions
    }
 
 data SessionPersistCfg a
