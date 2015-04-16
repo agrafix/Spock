@@ -5,6 +5,8 @@ Spock
 
 [![Hackage Deps](https://img.shields.io/hackage-deps/v/Spock.svg)](http://packdeps.haskellers.com/reverse/Spock)
 
+For more information and tutorials, visit [spock.li](http://www.spock.li)
+
 ## Intro
 
 Hackage: [Spock](http://hackage.haskell.org/package/Spock)
