@@ -20,13 +20,13 @@ app =
        get "test-slash" $ text "ok"
        get "/test-noslash" $ text "ok"
        get ("param-test" <//> var) $ \(i :: Int) ->
-           text $ "int" <> (T.pack $ show i)
+           text $ "int" <> T.pack (show i)
        get ("param-test" <//> "static") $
            text "static"
        subcomponent "/subcomponent" $
          do get "foo" $ text "foo"
             subcomponent "/subcomponent2" $
-              do get "bar" $ text "bar"
+              get "bar" $ text "bar"
        get "preferred-format" $
          do fmt <- preferredFormat
             case fmt of

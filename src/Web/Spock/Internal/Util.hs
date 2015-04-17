@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Web.Spock.Internal.Util where
 
+import Data.Maybe
 import Network.HTTP.Types
 import Network.Wai.Internal
 import qualified Data.Text as T
@@ -16,7 +17,7 @@ data ClientPreferredFormat
 
 mimeMapping :: HM.HashMap T.Text ClientPreferredFormat
 mimeMapping =
-    HM.fromList $
+    HM.fromList
     [ ("application/json", PrefJSON)
     , ("text/javascript", PrefJSON)
     , ("text/json", PrefJSON)
@@ -33,10 +34,7 @@ detectPreferredFormat t =
     let (mimeTypeStr, _) = T.breakOn ";" t
         mimeTypes = map (T.toLower . T.strip) $ T.splitOn "," mimeTypeStr
         firstMatch [] = PrefUnknown
-        firstMatch (x:xs) =
-          case HM.lookup x mimeMapping of
-            Just pref -> pref
-            Nothing -> firstMatch xs
+        firstMatch (x:xs) = fromMaybe (firstMatch xs) (HM.lookup x mimeMapping)
     in firstMatch mimeTypes
 
 

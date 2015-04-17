@@ -1,7 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -9,6 +8,7 @@
 {-# LANGUAGE TypeOperators #-}
 module Web.Spock.Internal.Wire where
 
+import Control.Arrow ((***))
 import Control.Applicative
 import Control.Concurrent.STM
 import Control.Exception
@@ -142,8 +142,7 @@ middlewareToApp mw =
     mw fallbackApp
     where
       fallbackApp :: Wai.Application
-      fallbackApp _ respond =
-          respond $ notFound
+      fallbackApp _ respond = respond notFound
 
 makeActionEnvironment :: InternalState -> Wai.Request -> IO (ParamMap -> RequestInfo, TVar V.Vault, IO ())
 makeActionEnvironment st req =
@@ -151,8 +150,8 @@ makeActionEnvironment st req =
        vaultVar <- liftIO $ newTVarIO (Wai.vault req)
        let vaultIf =
                VaultIf
-               { vi_modifyVault = \modF -> atomically $ modifyTVar' vaultVar modF
-               , vi_lookupKey = \k -> V.lookup k <$> (atomically $ readTVar vaultVar)
+               { vi_modifyVault = atomically . modifyTVar' vaultVar
+               , vi_lookupKey = \k -> V.lookup k <$> atomically (readTVar vaultVar)
                }
            uploadedFiles =
                HM.fromList $
@@ -162,7 +161,7 @@ makeActionEnvironment st req =
                           )
                      ) bodyFiles
            postParams =
-               map (\(k, v) -> (T.decodeUtf8 k, T.decodeUtf8 v)) bodyParams
+               map (T.decodeUtf8 *** T.decodeUtf8) bodyParams
            getParams =
                map (\(k, mV) -> (T.decodeUtf8 k, T.decodeUtf8 $ fromMaybe BS.empty mV)) $ Wai.queryString req
            queryParams = postParams ++ getParams
@@ -195,7 +194,7 @@ applyAction req mkEnv ((captures, selectedAction) : xs) =
     do let env = mkEnv captures
            defResp = errorResponse status200 ""
        (r, respState, _) <-
-           runRWST (runErrorT $ runActionT $ selectedAction) env defResp
+           runRWST (runErrorT $ runActionT selectedAction) env defResp
        case r of
          Left (ActionRedirect loc) ->
              return $ Just $ ResponseState (rs_responseHeaders respState) status302 $ ResponseBody $
@@ -220,7 +219,7 @@ handleRequest :: MonadIO m => (forall a. m a -> IO a)
 handleRequest registryLift allActions st coreApp req respond =
     do (mkEnv, vaultVar, cleanUp) <- makeActionEnvironment st req
        mRespState <-
-           (registryLift $ applyAction req mkEnv allActions)
+           registryLift (applyAction req mkEnv allActions)
            `catch` \(e :: SomeException) ->
               do putStrLn $ "Spock Error while handling " ++ show (Wai.pathInfo req) ++ ": " ++ show e
                  return $ Just serverError

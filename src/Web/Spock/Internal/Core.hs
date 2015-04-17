@@ -72,5 +72,4 @@ spockAllT :: (MonadIO m, AbstractRouter r, RouteAppliedAction r ~ ActionT m ())
        -> (forall a. m a -> IO a)
        -> SpockAllT r m ()
        -> IO Wai.Middleware
-spockAllT registryIf liftSpock routeDefs =
-    buildMiddleware registryIf liftSpock routeDefs
+spockAllT = buildMiddleware

@@ -1,7 +1,6 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 module Web.Spock.Internal.Monad where
 
 import Web.Spock.Internal.Types
@@ -18,8 +17,8 @@ instance MonadTrans t => HasSpock (t (WebStateM conn sess st)) where
     type SpockState (t (WebStateM conn sess st)) = st
     type SpockSession (t (WebStateM conn sess st)) = sess
     runQuery a = webM $ runQueryImpl a
-    getState = webM $ getStateImpl
-    getSessMgr = webM $ getSessMgrImpl
+    getState = webM getStateImpl
+    getSessMgr = webM getSessMgrImpl
 
 instance HasSpock (WebStateM conn sess st) where
     type SpockConn (WebStateM conn sess st) = conn
@@ -32,7 +31,7 @@ instance HasSpock (WebStateM conn sess st) where
 runQueryImpl :: (conn -> IO a) -> WebStateM conn sess st a
 runQueryImpl query =
     do pool <- asks web_dbConn
-       liftIO (withResource pool $ query)
+       liftIO (withResource pool query)
 
 getStateImpl :: WebStateM conn sess st st
 getStateImpl = asks web_state

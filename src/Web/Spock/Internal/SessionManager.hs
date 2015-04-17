@@ -1,5 +1,5 @@
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE FlexibleContexts, DeriveGeneric, OverloadedStrings, DoAndIfThenElse, RankNTypes #-}
+{-# LANGUAGE FlexibleContexts, OverloadedStrings, DoAndIfThenElse, RankNTypes #-}
 module Web.Spock.Internal.SessionManager
     ( createSessionManager
     , SessionId, Session(..), SessionManager(..)
@@ -39,17 +39,18 @@ createSessionManager cfg =
        cacheHM <- atomically $ newTVar oldSess
        vaultKey <- V.newKey
        _ <- forkIO (forever (housekeepSessions cacheHM storeSessions))
-       return $ SessionManager
-                  { sm_getSessionId = getSessionIdImpl vaultKey cacheHM
-                  , sm_readSession = readSessionImpl vaultKey cacheHM
-                  , sm_writeSession = writeSessionImpl vaultKey cacheHM
-                  , sm_modifySession = modifySessionImpl vaultKey cacheHM
-                  , sm_clearAllSessions = clearAllSessionsImpl cacheHM
-                  , sm_middleware = sessionMiddleware cfg vaultKey cacheHM
-                  , sm_addSafeAction = addSafeActionImpl vaultKey cacheHM
-                  , sm_lookupSafeAction = lookupSafeActionImpl vaultKey cacheHM
-                  , sm_removeSafeAction = removeSafeActionImpl vaultKey cacheHM
-                  }
+       return
+          SessionManager
+          { sm_getSessionId = getSessionIdImpl vaultKey cacheHM
+          , sm_readSession = readSessionImpl vaultKey cacheHM
+          , sm_writeSession = writeSessionImpl vaultKey cacheHM
+          , sm_modifySession = modifySessionImpl vaultKey cacheHM
+          , sm_clearAllSessions = clearAllSessionsImpl cacheHM
+          , sm_middleware = sessionMiddleware cfg vaultKey cacheHM
+          , sm_addSafeAction = addSafeActionImpl vaultKey cacheHM
+          , sm_lookupSafeAction = lookupSafeActionImpl vaultKey cacheHM
+          , sm_removeSafeAction = removeSafeActionImpl vaultKey cacheHM
+          }
     where
       (loadSessions, storeSessions) =
           case sc_persistCfg cfg of
@@ -60,8 +61,7 @@ createSessionManager cfg =
             Just spc ->
                 ( do sessions <- spc_load spc
                      return $ foldl' genSession HM.empty sessions
-                , \hm ->
-                    spc_store spc $ map mkSerializable $ HM.elems hm
+                , spc_store spc . map mkSerializable . HM.elems
                 )
       mkSerializable sess =
           (sess_id sess, sess_validUntil sess, sess_data sess)
@@ -254,7 +254,7 @@ loadSessionImpl sessCfg sessionRef sid =
                             atomically $ modifyTVar' sessionRef (HM.insert sid expandedSession)
                             return expandedSession
                     else return sess
-                if (sess_validUntil sessWithPossibleExpansion) > now
+                if sess_validUntil sessWithPossibleExpansion > now
                 then return $ Just sessWithPossibleExpansion
                 else do deleteSessionImpl sessionRef sid
                         return Nothing
@@ -285,8 +285,7 @@ housekeepSessions sessionRef storeSessions =
        storeSessions newStatus
        threadDelay (1000 * 1000 * 60) -- 60 seconds
     where
-      filterOld now (_, sess) =
-          (sess_validUntil sess) > now
+      filterOld now (_, sess) = sess_validUntil sess > now
       killOld now hm =
           HM.fromList $ filter (filterOld now) $ HM.toList hm
 

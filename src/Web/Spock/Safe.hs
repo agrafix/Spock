@@ -1,11 +1,11 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DoAndIfThenElse #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Web.Spock.Safe
     ( -- * Spock's route definition monad
       spock, SpockM
@@ -150,7 +150,7 @@ safeActionPath :: forall conn sess st a.
                -> SpockAction conn sess st T.Text
 safeActionPath safeAction =
     do mgr <- getSessMgr
-       hash <- (sm_addSafeAction mgr) (PackedSafeAction safeAction)
+       hash <- sm_addSafeAction mgr (PackedSafeAction safeAction)
        return $ "/h/" <> hash
 
 hookSafeActions :: forall conn sess st.
@@ -165,14 +165,14 @@ hookSafeActions =
     where
       run h =
           do mgr <- getSessMgr
-             mAction <- (sm_lookupSafeAction mgr) h
+             mAction <- sm_lookupSafeAction mgr h
              case mAction of
                Nothing ->
                    do setStatus Http.status404
                       text "File not found"
                Just p@(PackedSafeAction action) ->
                    do runSafeAction action
-                      (sm_removeSafeAction mgr) p
+                      sm_removeSafeAction mgr p
 
 -- | Combine two path components
 (<//>) :: Path as -> Path bs -> Path (Append as bs)

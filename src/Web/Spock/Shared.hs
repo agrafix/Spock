@@ -1,12 +1,10 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DoAndIfThenElse #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Web.Spock.Shared
     (-- * Helpers for running Spock
       runSpock, spockAsApp
@@ -71,13 +69,13 @@ getSessionId =
 writeSession :: sess -> SpockAction conn sess st ()
 writeSession d =
     do mgr <- getSessMgr
-       (sm_writeSession mgr) d
+       sm_writeSession mgr d
 
 -- | Modify the stored session
 modifySession :: (sess -> sess) -> SpockAction conn sess st ()
 modifySession f =
     do mgr <- getSessMgr
-       (sm_modifySession mgr) f
+       sm_modifySession mgr f
 
 -- | Read the stored session
 readSession :: SpockAction conn sess st sess
@@ -102,7 +100,5 @@ readShowSessionPersist fp =
             then do str <- readFile fp
                     return (read str)
             else return []
-    , spc_store =
-         \theData ->
-             writeFile fp (show theData)
+    , spc_store = writeFile fp . show
     }

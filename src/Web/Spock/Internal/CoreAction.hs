@@ -125,7 +125,7 @@ params :: MonadIO m => ActionT m [(T.Text, T.Text)]
 params =
     do p <- asks ri_params
        qp <- asks ri_queryParams
-       return (qp ++ (map (\(k, v) -> (unCaptureVar k, v)) $ HM.toList p))
+       return (qp ++ map (first unCaptureVar) (HM.toList p))
 {-# INLINE params #-}
 
 -- | Read a request param. Spock looks in route captures first, then in POST variables and at last in GET variables
@@ -195,14 +195,14 @@ middlewarePass = throwError ActionMiddlewarePass
 modifyVault :: MonadIO m => (V.Vault -> V.Vault) -> ActionT m ()
 modifyVault f =
     do vaultIf <- asks ri_vaultIf
-       liftIO $ (vi_modifyVault vaultIf) f
+       liftIO $ vi_modifyVault vaultIf f
 {-# INLINE modifyVault #-}
 
 -- | Query the vault
 queryVault :: MonadIO m => V.Key a -> ActionT m (Maybe a)
 queryVault k =
     do vaultIf <- asks ri_vaultIf
-       liftIO $ (vi_lookupKey vaultIf) k
+       liftIO $ vi_lookupKey vaultIf k
 {-# INLINE queryVault #-}
 
 -- | Set a cookie living for a given number of seconds
