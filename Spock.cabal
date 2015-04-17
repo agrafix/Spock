@@ -1,5 +1,5 @@
 name:                Spock
-version:             0.7.8.0
+version:             0.7.9.0
 synopsis:            Another Haskell web framework for rapid development
 description:         This toolbox provides everything you need to get a quick start into web hacking with haskell: fast routing, middleware, json, sessions, cookies, database helper, csrf-protection
 Homepage:            http://www.spock.li
