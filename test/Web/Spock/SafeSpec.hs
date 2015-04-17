@@ -7,7 +7,6 @@ import Web.Spock.FrameworkSpecHelper
 
 import Data.Monoid
 import Test.Hspec
-import Web.Routing.SafeRouting hiding (renderRoute)
 import qualified Data.Text as T
 
 app :: SpockT IO ()

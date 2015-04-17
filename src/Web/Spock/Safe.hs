@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DoAndIfThenElse #-}
 {-# LANGUAGE RankNTypes #-}
@@ -12,7 +11,7 @@ module Web.Spock.Safe
       spock, SpockM
     , spockT, SpockT
      -- * Defining routes
-    , Path, root, var, static, (<//>)
+    , Path, root, Var, var, static, (<//>)
      -- * Rendering routes
     , renderRoute
      -- * Hooking routes
