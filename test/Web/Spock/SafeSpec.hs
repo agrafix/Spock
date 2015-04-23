@@ -14,6 +14,7 @@ app =
     do get root $ text "root"
        get "verb-test" $ text "GET"
        post "verb-test" $ text "POST"
+       getpost "verb-test-gp" $ text "GETPOST"
        put "verb-test" $ text "PUT"
        delete "verb-test" $ text "DELETE"
        patch "verb-test" $ text "PATCH"

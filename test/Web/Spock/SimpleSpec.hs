@@ -14,6 +14,7 @@ app =
     do get "/" $ text "root"
        get "/verb-test" $ text "GET"
        post "/verb-test" $ text "POST"
+       getpost "/verb-test-gp" $ text "GETPOST"
        put "/verb-test" $ text "PUT"
        delete "/verb-test" $ text "DELETE"
        patch "/verb-test" $ text "PATCH"
@@ -21,13 +22,13 @@ app =
        get "/test-noslash" $ text "ok"
        get "/param-test/:int" $
            do Just (i :: Int) <- param "int"
-              text $ "int" <> (T.pack $ show i)
+              text $ "int" <> T.pack (show i)
        get "/param-test/static" $
            text "static"
        subcomponent "/subcomponent" $
          do get "foo" $ text "foo"
             subcomponent "/subcomponent2" $
-              do get "bar" $ text "bar"
+              get "bar" $ text "bar"
        get "/preferred-format" $
          do fmt <- preferredFormat
             case fmt of

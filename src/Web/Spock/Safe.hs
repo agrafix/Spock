@@ -21,7 +21,7 @@ module Web.Spock.Safe
     , renderRoute
      -- * Hooking routes
     , subcomponent
-    , get, post, head, put, delete, patch, hookRoute, hookAny
+    , get, post, getpost, head, put, delete, patch, hookRoute, hookAny
     , Http.StdMethod (..)
       -- * Adding Wai.Middleware
     , middleware
@@ -86,6 +86,10 @@ get = hookRoute GET
 -- | Specify an action that will be run when the HTTP verb 'POST' and the given route match
 post :: MonadIO m => Path xs -> HVectElim xs (ActionT m ()) -> SpockT m ()
 post = hookRoute POST
+
+-- | Specify an action that will be run when the HTTP verb 'GET'/'POST' and the given route match
+getpost :: MonadIO m => Path xs -> HVectElim xs (ActionT m ()) -> SpockT m ()
+getpost r a = hookRoute POST r a >> hookRoute GET r a
 
 -- | Specify an action that will be run when the HTTP verb 'HEAD' and the given route match
 head :: MonadIO m => Path xs -> HVectElim xs (ActionT m ()) -> SpockT m ()
@@ -165,8 +169,7 @@ hookSafeActions :: forall conn sess st.
                    , SpockState (SpockAction conn sess st) ~ st)
                 => SpockM conn sess st ()
 hookSafeActions =
-    do get (static "h" </> var) run
-       post (static "h" </> var) run
+    getpost (static "h" </> var) run
     where
       run h =
           do mgr <- getSessMgr

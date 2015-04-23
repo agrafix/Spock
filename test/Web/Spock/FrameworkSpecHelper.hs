@@ -19,10 +19,12 @@ routingSpec =
             get "/" `shouldRespondWith` "root" { matchStatus = 200 }
          it "routes different HTTP-verbs to different actions" $
             do verbTest get "GET"
-               verbTest (\p -> post p "") "POST"
-               verbTest (\p -> put p "") "PUT"
+               verbTest (`post` "") "POST"
+               verbTest (`put` "") "PUT"
                verbTest delete "DELETE"
-               verbTest (\p -> patch p "") "PATCH"
+               verbTest (`patch` "") "PATCH"
+               verbTestGp get "GETPOST"
+               verbTestGp (`post` "") "GETPOST"
          it "can extract params from routes" $
             get "/param-test/42" `shouldRespondWith` "int42" { matchStatus = 200 }
          it "can handle multiple matching routes" $
@@ -33,18 +35,19 @@ routingSpec =
             do get "/subcomponent/foo" `shouldRespondWith` "foo" { matchStatus = 200 }
                get "/subcomponent/subcomponent2/bar" `shouldRespondWith` "bar" { matchStatus = 200 }
          it "allows the definition of a fallback handler" $
-            do get "/askldjas/aklsdj" `shouldRespondWith` "askldjas/aklsdj" { matchStatus = 200 }
+            get "/askldjas/aklsdj" `shouldRespondWith` "askldjas/aklsdj" { matchStatus = 200 }
          it "detected the preferred format" $
-            do request "GET" "/preferred-format" [("Accept", "text/html,application/xml;q=0.9,image/webp,*/*;q=0.8")] "" `shouldRespondWith` "html" { matchStatus = 200 }
+            request "GET" "/preferred-format" [("Accept", "text/html,application/xml;q=0.9,image/webp,*/*;q=0.8")] "" `shouldRespondWith` "html" { matchStatus = 200 }
          it "/test-slash and test-noslash are the same thing" $
             do get "/test-slash" `shouldRespondWith` "ok" { matchStatus = 200 }
                get "test-slash" `shouldRespondWith` "ok" { matchStatus = 200 }
                get "/test-noslash" `shouldRespondWith` "ok" { matchStatus = 200 }
                get "test-noslash" `shouldRespondWith` "ok" { matchStatus = 200 }
     where
+      verbTestGp verb verbVerbose =
+          verb "/verb-test-gp" `shouldRespondWith` (verbVerbose { matchStatus = 200 })
       verbTest verb verbVerbose =
-          (verb "/verb-test")
-          `shouldRespondWith` (verbVerbose { matchStatus = 200 })
+          verb "/verb-test" `shouldRespondWith` (verbVerbose { matchStatus = 200 })
 
 actionSpec :: SpecWith Wai.Application
 actionSpec =

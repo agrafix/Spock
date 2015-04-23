@@ -17,7 +17,7 @@ module Web.Spock.Simple
     , SpockRoute, (<//>)
      -- * Hooking routes
     , subcomponent
-    , get, post, head, put, delete, patch, hookRoute, hookAny
+    , get, post, getpost, head, put, delete, patch, hookRoute, hookAny
     , Http.StdMethod (..)
      -- * Adding Wai.Middleware
     , middleware
@@ -101,6 +101,10 @@ get = hookRoute GET
 post :: MonadIO m => SpockRoute -> ActionT m () -> SpockT m ()
 post = hookRoute POST
 
+-- | Specify an action that will be run when the HTTP verb 'GET'/'POST' and the given route match
+getpost :: MonadIO m => SpockRoute -> ActionT m () -> SpockT m ()
+getpost r a = hookRoute POST r a >> hookRoute GET r a
+
 -- | Specify an action that will be run when the HTTP verb 'HEAD' and the given route match
 head :: MonadIO m => SpockRoute -> ActionT m () -> SpockT m ()
 head = hookRoute HEAD
@@ -180,8 +184,7 @@ hookSafeActions :: forall conn sess st.
                    , SpockState (SpockAction conn sess st) ~ st)
                 => SpockM conn sess st ()
 hookSafeActions =
-    do get ("h" <//> ":spock-csurf-protection") run
-       post ("h" <//> ":spock-csurf-protection") run
+    getpost ("h" <//> ":spock-csurf-protection") run
     where
       run =
           do Just h <- param "spock-csurf-protection"
