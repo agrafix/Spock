@@ -72,6 +72,8 @@ data SessionCfg a
      -- ^ initial session for visitors
    , sc_persistCfg :: Maybe (SessionPersistCfg a)
      -- ^ persistence interface for sessions
+   , sc_housekeepingInterval :: NominalDiffTime
+     -- ^ how often should the session manager check for dangeling dead sessions
    }
 
 data SessionPersistCfg a

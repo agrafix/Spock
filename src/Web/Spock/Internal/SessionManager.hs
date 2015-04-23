@@ -47,7 +47,7 @@ createSessionManager cfg =
               forM_ oldSess $ \v -> SV.storeSession v mapV
               return mapV
        vaultKey <- V.newKey
-       housekeepThread <- forkIO (forever (housekeepSessions cacheHM storeSessions))
+       housekeepThread <- forkIO (forever (housekeepSessions cfg cacheHM storeSessions))
        return
           SessionManager
           { sm_getSessionId = getSessionIdImpl vaultKey cacheHM
@@ -289,17 +289,18 @@ clearAllSessionsImpl :: SV.SessionVault (Session conn sess st)
 clearAllSessionsImpl sessionRef =
     liftIO $ atomically $ SV.filterSessions (const False) sessionRef
 
-housekeepSessions :: SV.SessionVault (Session conn sess st)
+housekeepSessions :: SessionCfg sess
+                  -> SV.SessionVault (Session conn sess st)
                   -> (HM.HashMap SessionId (Session conn sess st) -> IO ())
                   -> IO ()
-housekeepSessions sessionRef storeSessions =
+housekeepSessions cfg sessionRef storeSessions =
     do now <- getCurrentTime
        newStatus <-
            atomically $
            do SV.filterSessions (\sess -> sess_validUntil sess > now) sessionRef
               SV.toList sessionRef
        storeSessions (HM.fromList $ map (\v -> (SV.getSessionKey v, v)) newStatus)
-       threadDelay (1000 * 1000 * 60) -- 60 seconds
+       threadDelay (1000 * 1000 * (round $ sc_housekeepingInterval cfg))
 
 createSession :: SessionCfg sess -> sess -> IO (Session conn sess st)
 createSession sessCfg content =
