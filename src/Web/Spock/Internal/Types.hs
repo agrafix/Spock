@@ -25,7 +25,6 @@ import Data.Typeable
 import Network.Wai
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
-import qualified STMContainers.Map as STMMap
 
 -- | Inside the SpockAllM monad, you may define routes and middleware.
 type SpockAllM r conn sess st a =
@@ -151,11 +150,9 @@ data Session conn sess st
     , sess_data :: !sess
     , sess_safeActions :: !(SafeActionStore conn sess st)
     }
+
 instance Show (Session conn sess st) where
     show = show . sess_id
-
-type UserSessions conn sess st =
-    STMMap.Map SessionId (Session conn sess st)
 
 data SessionManager conn sess st
    = SessionManager

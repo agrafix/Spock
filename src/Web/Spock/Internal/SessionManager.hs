@@ -9,6 +9,7 @@ where
 import Web.Spock.Internal.Types
 import Web.Spock.Internal.CoreAction
 import Web.Spock.Internal.Util
+import qualified Web.Spock.Internal.SessionVault as SV
 
 import Control.Arrow (first)
 import Control.Concurrent
@@ -16,7 +17,6 @@ import Control.Concurrent.STM
 import Control.Exception
 import Control.Monad
 import Control.Monad.Trans
-import Data.List (foldl')
 import Data.Time
 #if MIN_VERSION_time(1,5,0)
 #else
@@ -32,9 +32,7 @@ import qualified Data.Text.Encoding as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TL
 import qualified Data.Vault.Lazy as V
-import qualified ListT as L
 import qualified Network.Wai as Wai
-import qualified STMContainers.Map as STMMap
 
 withSessionManager :: SessionCfg sess -> (SessionManager conn sess st -> IO a) -> IO a
 withSessionManager sessCfg =
@@ -45,9 +43,8 @@ createSessionManager cfg =
     do oldSess <- loadSessions
        cacheHM <-
            atomically $
-           do mapV <- STMMap.new
-              forM_ (HM.toList oldSess) $ \(k, v) ->
-                  STMMap.insert v k mapV
+           do mapV <- SV.newSessionVault
+              forM_ oldSess $ \v -> SV.storeSession v mapV
               return mapV
        vaultKey <- V.newKey
        housekeepThread <- forkIO (forever (housekeepSessions cacheHM storeSessions))
@@ -68,35 +65,33 @@ createSessionManager cfg =
       (loadSessions, storeSessions) =
           case sc_persistCfg cfg of
             Nothing ->
-                ( return HM.empty
+                ( return []
                 , const $ return ()
                 )
             Just spc ->
                 ( do sessions <- spc_load spc
-                     return $ foldl' genSession HM.empty sessions
+                     return (map genSession sessions)
                 , spc_store spc . map mkSerializable . HM.elems
                 )
       mkSerializable sess =
           (sess_id sess, sess_validUntil sess, sess_data sess)
-      genSession hm (sid, validUntil, theData) =
-          let s =
-                  Session
-                  { sess_id = sid
-                  , sess_validUntil = validUntil
-                  , sess_data = theData
-                  , sess_safeActions = SafeActionStore HM.empty HM.empty
-                  }
-          in HM.insert sid s hm
+      genSession (sid, validUntil, theData) =
+          Session
+          { sess_id = sid
+          , sess_validUntil = validUntil
+          , sess_data = theData
+          , sess_safeActions = SafeActionStore HM.empty HM.empty
+          }
 
 getSessionIdImpl :: V.Key SessionId
-                 -> UserSessions conn sess st
+                 -> SV.SessionVault (Session conn sess st)
                  -> SpockAction conn sess st SessionId
 getSessionIdImpl vK sessionRef =
     do sess <- readSessionBase vK sessionRef
        return $ sess_id sess
 
 modifySessionBase :: V.Key SessionId
-                  -> UserSessions conn sess st
+                  -> SV.SessionVault (Session conn sess st)
                   -> (Session conn sess st -> (Session conn sess st, a))
                   -> SpockAction conn sess st a
 modifySessionBase vK sessionRef modFun =
@@ -106,17 +101,17 @@ modifySessionBase vK sessionRef modFun =
              error "(3) Internal Spock Session Error. Please report this bug!"
          Just sid ->
              liftIO $ atomically $
-             do mSession <- STMMap.lookup sid sessionRef
+             do mSession <- SV.loadSession sid sessionRef
                 case mSession of
                   Nothing ->
                       fail "Internal Spock Session Error: Unknown SessionId"
                   Just session ->
                       do let (sessionNew, result) = modFun session
-                         STMMap.insert sessionNew sid sessionRef
+                         SV.storeSession sessionNew sessionRef
                          return result
 
 readSessionBase :: V.Key SessionId
-                -> UserSessions conn sess st
+                -> SV.SessionVault (Session conn sess st)
                 -> SpockAction conn sess st (Session conn sess st)
 readSessionBase vK sessionRef =
     do req <- request
@@ -124,7 +119,7 @@ readSessionBase vK sessionRef =
          Nothing ->
              error "(1) Internal Spock Session Error. Please report this bug!"
          Just sid ->
-             do mSession <- liftIO $ atomically $ STMMap.lookup sid sessionRef
+             do mSession <- liftIO $ atomically $ SV.loadSession sid sessionRef
                 case mSession of
                   Nothing ->
                       error "(2) Internal Spock Session Error. Please report this bug!"
@@ -132,7 +127,7 @@ readSessionBase vK sessionRef =
                       return session
 
 addSafeActionImpl :: V.Key SessionId
-                  -> UserSessions conn sess st
+                  -> SV.SessionVault (Session conn sess st)
                   -> PackedSafeAction conn sess st
                   -> SpockAction conn sess st SafeActionHash
 addSafeActionImpl vaultKey sessionMapVar safeAction =
@@ -151,7 +146,7 @@ addSafeActionImpl vaultKey sessionMapVar safeAction =
                 return safeActionHash
 
 lookupSafeActionImpl :: V.Key SessionId
-                     -> UserSessions conn sess st
+                     -> SV.SessionVault (Session conn sess st)
                      -> SafeActionHash
                      -> SpockAction conn sess st (Maybe (PackedSafeAction conn sess st))
 lookupSafeActionImpl vaultKey sessionMapVar hash =
@@ -159,7 +154,7 @@ lookupSafeActionImpl vaultKey sessionMapVar hash =
        return $ HM.lookup hash (sas_forward (sess_safeActions base))
 
 removeSafeActionImpl :: V.Key SessionId
-                     -> UserSessions conn sess st
+                     -> SV.SessionVault (Session conn sess st)
                      -> PackedSafeAction conn sess st
                      -> SpockAction conn sess st ()
 removeSafeActionImpl vaultKey sessionMapVar action =
@@ -175,21 +170,21 @@ removeSafeActionImpl vaultKey sessionMapVar action =
           }
 
 readSessionImpl :: V.Key SessionId
-                -> UserSessions conn sess st
+                -> SV.SessionVault (Session conn sess st)
                 -> SpockAction conn sess st sess
 readSessionImpl vK sessionRef =
     do base <- readSessionBase vK sessionRef
        return (sess_data base)
 
 writeSessionImpl :: V.Key SessionId
-                 -> UserSessions conn sess st
+                 -> SV.SessionVault (Session conn sess st)
                  -> sess
                  -> SpockAction conn sess st ()
 writeSessionImpl vK sessionRef value =
     modifySessionImpl vK sessionRef (const (value, ()))
 
 modifySessionImpl :: V.Key SessionId
-                  -> UserSessions conn sess st
+                  -> SV.SessionVault (Session conn sess st)
                   -> (sess -> (sess, a))
                   -> SpockAction conn sess st a
 modifySessionImpl vK sessionRef f =
@@ -200,7 +195,7 @@ modifySessionImpl vK sessionRef f =
 
 sessionMiddleware :: SessionCfg sess
                   -> V.Key SessionId
-                  -> UserSessions conn sess st
+                  -> SV.SessionVault (Session conn sess st)
                   -> Wai.Middleware
 sessionMiddleware cfg vK sessionRef app req respond =
     case getCookieFromReq (sc_cookieName cfg) of
@@ -249,20 +244,20 @@ sessionMiddleware cfg vK sessionRef app req respond =
              withSess True newSess
 
 newSessionImpl :: SessionCfg sess
-               -> UserSessions conn sess st
+               -> SV.SessionVault (Session conn sess st)
                -> sess
                -> IO (Session conn sess st)
 newSessionImpl sessCfg sessionRef content =
     do sess <- createSession sessCfg content
-       atomically $ STMMap.insert sess (sess_id sess) sessionRef
+       atomically $ SV.storeSession sess sessionRef
        return $! sess
 
 loadSessionImpl :: SessionCfg sess
-                -> UserSessions conn sess st
+                -> SV.SessionVault (Session conn sess st)
                 -> SessionId
                 -> IO (Maybe (Session conn sess st))
 loadSessionImpl sessCfg sessionRef sid =
-    do mSess <- atomically $ STMMap.lookup sid sessionRef
+    do mSess <- atomically $ SV.loadSession sid sessionRef
        now <- getCurrentTime
        case mSess of
          Just sess ->
@@ -273,7 +268,7 @@ loadSessionImpl sessCfg sessionRef sid =
                                     { sess_validUntil =
                                           addUTCTime (sc_sessionTTL sessCfg) now
                                     }
-                            atomically $ STMMap.insert expandedSession sid sessionRef
+                            atomically $ SV.storeSession expandedSession sessionRef
                             return expandedSession
                     else return sess
                 if sess_validUntil sessWithPossibleExpansion > now
@@ -283,39 +278,28 @@ loadSessionImpl sessCfg sessionRef sid =
          Nothing ->
              return Nothing
 
-deleteSessionImpl :: UserSessions conn sess st
+deleteSessionImpl :: SV.SessionVault (Session conn sess st)
                   -> SessionId
                   -> IO ()
 deleteSessionImpl sessionRef sid =
-    atomically $ STMMap.delete sid sessionRef
+    atomically $ SV.deleteSession sid sessionRef
 
-clearAllSessionsImpl :: UserSessions conn sess st
+clearAllSessionsImpl :: SV.SessionVault (Session conn sess st)
                      -> SpockAction conn sess st ()
 clearAllSessionsImpl sessionRef =
-    liftIO $ atomically $
-    do keys <- liftM (map fst) (getAllSessions sessionRef)
-       forM_ keys $ \k -> STMMap.delete k sessionRef
+    liftIO $ atomically $ SV.filterSessions (const False) sessionRef
 
-getAllSessions :: UserSessions conn sess st -> STM [(SessionId, Session conn sess st)]
-getAllSessions = L.toList . STMMap.stream
-
-housekeepSessions :: UserSessions conn sess st
+housekeepSessions :: SV.SessionVault (Session conn sess st)
                   -> (HM.HashMap SessionId (Session conn sess st) -> IO ())
                   -> IO ()
 housekeepSessions sessionRef storeSessions =
     do now <- getCurrentTime
        newStatus <-
            atomically $
-           do allSessions <- getAllSessions sessionRef
-              let deletableSessions =
-                      map fst $
-                      filter (filterOld now) allSessions
-              forM_ deletableSessions $ \k -> STMMap.delete k sessionRef
-              return $ filter (not . filterOld now) allSessions
-       storeSessions (HM.fromList newStatus)
+           do SV.filterSessions (\sess -> sess_validUntil sess > now) sessionRef
+              SV.toList sessionRef
+       storeSessions (HM.fromList $ map (\v -> (SV.getSessionKey v, v)) newStatus)
        threadDelay (1000 * 1000 * 60) -- 60 seconds
-    where
-      filterOld now (_, sess) = sess_validUntil sess <= now
 
 createSession :: SessionCfg sess -> sess -> IO (Session conn sess st)
 createSession sessCfg content =

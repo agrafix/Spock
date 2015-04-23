@@ -18,6 +18,7 @@ library
   hs-source-dirs:      src
   exposed-modules:
                        Web.Spock.Internal.Util,
+                       Web.Spock.Internal.SessionVault,
                        Web.Spock.Safe,
                        Web.Spock.Shared,
                        Web.Spock.Simple
@@ -67,6 +68,7 @@ test-suite spocktests
   other-modules:
                        Web.Spock.FrameworkSpecHelper,
                        Web.Spock.Internal.UtilSpec,
+                       Web.Spock.Internal.SessionVaultSpec,
                        Web.Spock.SafeSpec,
                        Web.Spock.SimpleSpec
   build-depends:
@@ -75,6 +77,7 @@ test-suite spocktests
                        hspec-wai >= 0.6,
                        http-types,
                        Spock,
+                       stm,
                        reroute,
                        text,
                        wai
