@@ -1,7 +1,17 @@
 name:                Spock
 version:             0.7.9.0
 synopsis:            Another Haskell web framework for rapid development
-description:         This toolbox provides everything you need to get a quick start into web hacking with haskell: fast routing, middleware, json, sessions, cookies, database helper, csrf-protection
+description:         This toolbox provides everything you need to get a quick start into web hacking with haskell:
+                     .
+                     * fast routing
+                     * middleware
+                     * json
+                     * sessions
+                     * cookies
+                     * database helper
+                     * csrf-protection
+                     .
+                     A tutorial is available at <http://www.spock.li/tutorial/ spock.li>
 Homepage:            http://www.spock.li
 Bug-reports:         https://github.com/agrafix/Spock/issues
 license:             BSD3

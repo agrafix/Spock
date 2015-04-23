@@ -6,6 +6,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+
+{- |
+This module implements the type safe routing aproach. It should be used by all new Spock powered applications. To learn more about
+the routing, read the corresponding blog post available at <http://www.spock.li/2015/04/19/type-safe_routing.html>
+-}
 module Web.Spock.Safe
     ( -- * Spock's route definition monad
       spock, SpockM

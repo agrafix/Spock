@@ -5,6 +5,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{- |
+Since version 0.7 Spock features a new routing system that enables more type-safe code while still being relatively simple and lightweight.
+You should consider using that (see "Web.Spock.Safe") instead of this module. This module is not yet deprecated, but this may happen anytime soon.
+-}
 module Web.Spock.Simple
     ( -- * Spock's route definition monad
       spock, SpockM
