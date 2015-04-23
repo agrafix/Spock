@@ -62,7 +62,7 @@ defaultSessionCfg :: a -> SessionCfg a
 defaultSessionCfg emptySession =
     SessionCfg
     { sc_cookieName = "spockcookie"
-    , sc_sessionTTL = 60
+    , sc_sessionTTL = 3600
     , sc_sessionIdEntropy = 64
     , sc_sessionExpandTTL = True
     , sc_emptySession = emptySession
