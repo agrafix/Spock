@@ -168,4 +168,5 @@ data SessionManager conn sess st
    , sm_addSafeAction :: PackedSafeAction conn sess st -> SpockAction conn sess st SafeActionHash
    , sm_lookupSafeAction :: SafeActionHash -> SpockAction conn sess st (Maybe (PackedSafeAction conn sess st))
    , sm_removeSafeAction :: PackedSafeAction conn sess st -> SpockAction conn sess st ()
+   , sm_closeSessionManager :: IO ()
    }

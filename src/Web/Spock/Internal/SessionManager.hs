@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts, OverloadedStrings, DoAndIfThenElse, RankNTypes #-}
 module Web.Spock.Internal.SessionManager
-    ( createSessionManager
+    ( createSessionManager, withSessionManager
     , SessionId, Session(..), SessionManager(..)
     )
 where
@@ -13,6 +13,7 @@ import Web.Spock.Internal.Util
 import Control.Arrow (first)
 import Control.Concurrent
 import Control.Concurrent.STM
+import Control.Exception
 import Control.Monad
 import Control.Monad.Trans
 import Data.List (foldl')
@@ -35,6 +36,10 @@ import qualified ListT as L
 import qualified Network.Wai as Wai
 import qualified STMContainers.Map as STMMap
 
+withSessionManager :: SessionCfg sess -> (SessionManager conn sess st -> IO a) -> IO a
+withSessionManager sessCfg =
+    bracket (createSessionManager sessCfg) sm_closeSessionManager
+
 createSessionManager :: SessionCfg sess -> IO (SessionManager conn sess st)
 createSessionManager cfg =
     do oldSess <- loadSessions
@@ -45,7 +50,7 @@ createSessionManager cfg =
                   STMMap.insert v k mapV
               return mapV
        vaultKey <- V.newKey
-       _ <- forkIO (forever (housekeepSessions cacheHM storeSessions))
+       housekeepThread <- forkIO (forever (housekeepSessions cacheHM storeSessions))
        return
           SessionManager
           { sm_getSessionId = getSessionIdImpl vaultKey cacheHM
@@ -57,6 +62,7 @@ createSessionManager cfg =
           , sm_addSafeAction = addSafeActionImpl vaultKey cacheHM
           , sm_lookupSafeAction = lookupSafeActionImpl vaultKey cacheHM
           , sm_removeSafeAction = removeSafeActionImpl vaultKey cacheHM
+          , sm_closeSessionManager = killThread housekeepThread
           }
     where
       (loadSessions, storeSessions) =
