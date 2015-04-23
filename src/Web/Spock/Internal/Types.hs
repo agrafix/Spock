@@ -1,10 +1,10 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE CPP #-}
 module Web.Spock.Internal.Types where
 
 import Web.Spock.Internal.CoreAction
@@ -56,6 +56,19 @@ data ConnBuilder a
 data PoolOrConn a
    = PCPool (Pool a)
    | PCConn (ConnBuilder a)
+
+-- | Session configuration with reasonable defaults
+defaultSessionCfg :: a -> SessionCfg a
+defaultSessionCfg emptySession =
+    SessionCfg
+    { sc_cookieName = "spockcookie"
+    , sc_sessionTTL = 60
+    , sc_sessionIdEntropy = 64
+    , sc_sessionExpandTTL = True
+    , sc_emptySession = emptySession
+    , sc_persistCfg = Nothing
+    , sc_housekeepingInterval = 60 * 10
+    }
 
 -- | Configuration for the session manager
 data SessionCfg a

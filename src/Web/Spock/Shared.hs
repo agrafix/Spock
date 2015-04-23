@@ -28,8 +28,9 @@ module Web.Spock.Shared
       -- * Basic HTTP-Auth
     , requireBasicAuth
      -- * Sessions
-    , SessionCfg (..), SessionPersistCfg(..), SessionId
-    , readShowSessionPersist
+    , defaultSessionCfg, SessionCfg (..)
+    , SessionPersistCfg(..), readShowSessionPersist
+    , SessionId
     , getSessionId, readSession, writeSession
     , modifySession, modifySession', modifyReadSession, clearAllSessions
      -- * Internals for extending Spock
