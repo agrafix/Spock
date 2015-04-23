@@ -84,15 +84,23 @@ getSessionIdImpl vK sessionRef =
 
 modifySessionBase :: V.Key SessionId
                   -> UserSessions conn sess st
-                  -> (Session conn sess st -> Session conn sess st)
-                  -> SpockAction conn sess st ()
+                  -> (Session conn sess st -> (Session conn sess st, a))
+                  -> SpockAction conn sess st a
 modifySessionBase vK sessionRef modFun =
     do req <- request
        case V.lookup vK (Wai.vault req) of
          Nothing ->
              error "(3) Internal Spock Session Error. Please report this bug!"
          Just sid ->
-             liftIO $ atomically $ modifyTVar' sessionRef (HM.adjust modFun sid)
+             liftIO $ atomically $
+             do hm <- readTVar sessionRef
+                case HM.lookup sid hm of
+                  Nothing ->
+                      fail "Internal Spock Session Error: Unknown SessionId"
+                  Just session ->
+                      do let (sessionNew, result) = modFun session
+                         writeTVar sessionRef (HM.insert sid sessionNew hm)
+                         return result
 
 readSessionBase :: V.Key SessionId
                 -> UserSessions conn sess st
@@ -126,7 +134,7 @@ addSafeActionImpl vaultKey sessionMapVar safeAction =
                         { sas_forward = HM.insert safeActionHash safeAction (sas_forward sas)
                         , sas_reverse = HM.insert safeAction safeActionHash (sas_reverse sas)
                         }
-                modifySessionBase vaultKey sessionMapVar (\s -> s { sess_safeActions = f (sess_safeActions s) })
+                modifySessionBase vaultKey sessionMapVar (\s -> (s { sess_safeActions = f (sess_safeActions s) }, ()))
                 return safeActionHash
 
 lookupSafeActionImpl :: V.Key SessionId
@@ -142,7 +150,7 @@ removeSafeActionImpl :: V.Key SessionId
                      -> PackedSafeAction conn sess st
                      -> SpockAction conn sess st ()
 removeSafeActionImpl vaultKey sessionMapVar action =
-    modifySessionBase vaultKey sessionMapVar (\s -> s { sess_safeActions = f (sess_safeActions s ) })
+    modifySessionBase vaultKey sessionMapVar (\s -> (s { sess_safeActions = f (sess_safeActions s ) }, ()))
     where
       f sas =
           sas
@@ -165,15 +173,16 @@ writeSessionImpl :: V.Key SessionId
                  -> sess
                  -> SpockAction conn sess st ()
 writeSessionImpl vK sessionRef value =
-    modifySessionImpl vK sessionRef (const value)
+    modifySessionImpl vK sessionRef (const (value, ()))
 
 modifySessionImpl :: V.Key SessionId
                   -> UserSessions conn sess st
-                  -> (sess -> sess)
-                  -> SpockAction conn sess st ()
+                  -> (sess -> (sess, a))
+                  -> SpockAction conn sess st a
 modifySessionImpl vK sessionRef f =
     do let modFun session =
-                        session { sess_data = f (sess_data session) }
+               let (sessData', out) = f (sess_data session)
+               in (session { sess_data = sessData' }, out)
        modifySessionBase vK sessionRef modFun
 
 sessionMiddleware :: SessionCfg sess

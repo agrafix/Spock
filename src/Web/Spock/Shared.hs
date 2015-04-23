@@ -30,7 +30,8 @@ module Web.Spock.Shared
      -- * Sessions
     , SessionCfg (..), SessionPersistCfg(..), SessionId
     , readShowSessionPersist
-    , getSessionId, readSession, writeSession, modifySession, clearAllSessions
+    , getSessionId, readSession, writeSession
+    , modifySession, modifySession', modifyReadSession, clearAllSessions
      -- * Internals for extending Spock
     , getSpockHeart, runSpockIO, WebStateM, WebState
     )
@@ -74,8 +75,20 @@ writeSession d =
 -- | Modify the stored session
 modifySession :: (sess -> sess) -> SpockAction conn sess st ()
 modifySession f =
+    modifySession' $ \sess -> (f sess, ())
+
+-- | Modify the stored session and return a value
+modifySession' :: (sess -> (sess, a)) -> SpockAction conn sess st a
+modifySession' f =
     do mgr <- getSessMgr
        sm_modifySession mgr f
+
+-- | Modify the stored session and return the new value after modification
+modifyReadSession :: (sess -> sess) -> SpockAction conn sess st sess
+modifyReadSession f =
+    modifySession' $ \sess ->
+        let x = f sess
+        in (x, x)
 
 -- | Read the stored session
 readSession :: SpockAction conn sess st sess
