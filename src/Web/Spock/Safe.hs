@@ -187,5 +187,5 @@ hookSafeActions =
 (<//>) = (</>)
 
 -- | Render a route applying path pieces
-renderRoute :: HasRep as => Path as -> HVectElim as T.Text
-renderRoute route = hVectCurry (T.cons '/' . SR.renderRoute route)
+renderRoute :: Path as -> HVectElim as T.Text
+renderRoute route = hVectCurryExpl (pathToRep route) (T.cons '/' . SR.renderRoute route)
