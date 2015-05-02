@@ -10,6 +10,7 @@ For more information and tutorials, visit [spock.li](http://www.spock.li)
 ## Intro
 
 Hackage: [Spock](http://hackage.haskell.org/package/Spock)
+Tutorial: [Spock Tutorial](http://www.spock.li/tutorial/)
 
 Another Haskell web framework for rapid development: This toolbox provides
 everything you need to get a quick start into web hacking with haskell:
@@ -59,6 +60,8 @@ main =
         text $ T.concat ["Echo: ", something]
 ```
 
+(read more at [Type-safe routing in Spock](http://www.spock.li/2015/04/19/type-safe_routing.html))
+
 ## Install
 
 * Using cabal: `cabal install Spock`
@@ -82,8 +85,14 @@ The following Spock extensions exist:
 
 ## Example Projects
 
-* https://github.com/agrafix/funblog
-* https://github.com/openbrainsrc/makeci
+* [funblog](https://github.com/agrafix/funblog)
+* [makeci](https://github.com/openbrainsrc/makeci)
+* [curry-recipes](https://github.com/timjb/reroute-talk/tree/06574561918b50c1809f1e24ec7faeff731fddcf/curry-recipes)
+
+## Talks
+
+* German: [Moderne typsichere Web-Entwicklung mit Haskell](https://dl.dropboxusercontent.com/u/15078797/talks/typesafe-webdev-2015.pdf) (by Alexander Thiemann)
+* German: [reroute-talk](https://github.com/timjb/reroute-talk) (by Tim Baumann)
 
 ## Companies / Projects using Spock
 
