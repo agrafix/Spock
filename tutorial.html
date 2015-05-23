@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="">
+<meta name="author" content="">
+
+<title>Spock Web Framework</title>
+
+<!-- Bootstrap Core CSS -->
+<link href="css/bootstrap.min.css" rel="stylesheet">
+<link href="css/main.css" rel="stylesheet">
+
+<!-- Custom Fonts -->
+<link href="http://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+<link href="http://fonts.googleapis.com/css?family=Open+Sans:400,700,600" rel='stylesheet' type='text/css'>
+<link href="http://fonts.googleapis.com/css?family=Lobster+Two" rel='stylesheet' type='text/css'>
+<link href="http://fonts.googleapis.com/css?family=Droid+Serif:400,400italic" rel='stylesheet' type='text/css'>
+
+<!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+<!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+<!--[if lt IE 9]>
+    <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+    <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+  <![endif]-->
+
+</head>
+
+<body>
+
+  <!-- Navigation -->
+  <header>
+    <div class="top">
+      <div class="container">
+        <div class="row">
+          <div class="col-md-6">
+            <div class="logo">
+              <h1><a href="/">Spock Web Framework</a></h1>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <ul class="navigation pull-right">
+              <a class="btn btn-default" href="/">Home</a>
+              <a class="btn btn-default" href="/tutorial/">Tutorial</a>
+              <a class="btn btn-default" href="/blog/">Blog</a>
+              <a class="btn btn-default" href="https://hackage.haskell.org/package/Spock" target="_blank">Docs</a>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <div class="container content">
+    <h1>Tutorial</h1>
+    <h2>Setup</h2>
+    <p>
+    Before using Spock, you’ll need to install the Haskell tool chain on
+    your machine. For more information on installing it, check the <a href="http://www.stackage.org/install">guide on
+      Stackage.org</a>. Next, you can prepare a directory for your first Spock
+    powered application:
+    </p>
+    <ol>
+      <li>Create a new directory for your project and switch into it</li>
+      <li>Create a new directory <code>src/</code></li>
+      <li>Run <code>cabal sandbox init && cabal update && cabal init</code> to create a new cabal project</li>
+      <li>
+      Answer the questions prompted
+      <ul>
+        <li>when asked What does the package build select Executable (2)</li>
+        <li>when asked about the source directory, choose src (2)</li>
+      </ul>
+      </li>
+    </ol>
+
+
+    <h2 id="hello-world">Hello world</h2>
+
+    <p>Now it is time to write some Haskell code. We start by creating a new file <code>src/Main.hs</code> and adding
+    the following contents:</p>
+
+    <div class="highlight">
+      <pre>
+      <code class="language-haskell" data-lang="haskell">
+      <span class="cm">{-# LANGUAGE OverloadedStrings #-}</span>
+      <span class="kr">module</span> <span class="nn">Main</span> <span class="kr">where</span>
+
+      <span class="kr">import</span> <span class="nn">Data.Monoid</span>
+      <span class="kr">import</span> <span class="nn">Web.Spock.Safe</span>
+
+      <span class="nf">main</span> <span class="ow">::</span> <span class="kt">IO</span> <span class="nb">()</span>
+      <span class="nf">main</span> <span class="ow">=</span>
+      <span class="n">runSpock</span> <span class="mi">8080</span> <span class="o">$</span> <span class="n">spockT</span> <span class="n">id</span> <span class="o">$</span>
+      <span class="kr">do</span> <span class="n">get</span> <span class="n">root</span> <span class="o">$</span>
+      <span class="n">text</span> <span class="s">&quot;Hello World!&quot;</span>
+      <span class="n">get</span> <span class="p">(</span><span class="s">&quot;hello&quot;</span> <span class="o">&lt;//&gt;</span> <span class="n">var</span><span class="p">)</span> <span class="o">$</span> <span class="nf">\</span><span class="n">name</span> <span class="ow">-&gt;</span>
+      <span class="n">text</span> <span class="p">(</span><span class="s">&quot;Hello &quot;</span> <span class="o">&lt;&gt;</span> <span class="n">name</span> <span class="o">&lt;&gt;</span> <span class="s">&quot;!&quot;</span><span class="p">)</span>
+      </code>
+      </pre>
+    </div>
+
+    <p>To run the example, we will have to add some dependencies to our <a href="https://www.haskell.org/cabal/users-guide/developing-packages.html">Cabal file</a>. It is located in our project
+    root, called <code>YOUR_PROJECT.cabal</code>. Open the file and add the following dependencies to <code>build-depends</code>:</p>
+
+    <div class="highlight"><pre><code class="language-text" data-lang="text">Spock &gt;=0.7.9</code></pre></div>
+
+    <p>Next, run <code>cabal install --only-dependencies &amp;&amp; cabal configure</code> to install the dependencies and
+    <code>cabal build</code> to build the project. <code>cabal run</code> should start the executable. You may now point your browser to <code>http://localhost:8080</code> and <code>http://localhost:8080/hello/[YOUR_NAME]</code>.</p>
+
+    <h2 id="code-explained">Code explained</h2>
+
+    <p>Let us take a quick look at the interesting parts of the example. First, we import the core Spock module</p>
+
+    <div class="highlight"><pre><code class="language-haskell" data-lang="haskell"><span class="kr">import</span> <span class="nn">Web.Spock.Safe</span></code></pre></div>
+
+    <p>You might wounder about the <code>.Safe</code> - there’s also a counterpart called <code>.Simple</code>. The key difference is
+    in the way actions are mapped to URLs. The <code>.Safe</code>-Module allows us to define this mapping in a type safe way,
+    while the <code>.Simple</code> defers these checks to runtime. We recommend using the <code>.Safe</code> module, because it eliminates
+    many bugs at compile time and makes code much easier to follow.</p>
+
+    <p>In the <code>main</code> function, we define a new Spock application using the <code>spockT</code> function. The second argument
+    is for initializing the underlying monad of the <code>SpockT</code> and <code>ActionT</code> transformer. As we’ll just use <code>IO</code> for
+    now, and the <code>main</code> function already runs in <code>IO</code>, the <code>id</code> function will do the job (<code>a -&gt; a</code>).</p>
+
+    <p>Inside the <code>spockT</code> function, we’ll wire URLs to actions. This is done using a monadic approach - you can think
+    of the <code>SpockT</code> monad as a <a href="https://hackage.haskell.org/package/mtl-2.2.1/docs/Control-Monad-Writer-Lazy.html"><code>Writer</code> monad</a>. To connect an URL to an action, we use <em>routes</em>. A route is either</p>
+
+    <ul>
+      <li>a static route piece, such as <code>"hello"</code> or <code>"blog"</code> or <code>root</code> (the <code>/</code> route)</li>
+      <li>a route parameter: <code>var</code></li>
+      <li>or a combination of the above, using the <code>&lt;//&gt;</code> operator, such as <code>"hello" &lt;//&gt; var</code>.</li>
+    </ul>
+
+    <p>A static route piece will match the exact text counterpart, eg. a route <code>"hello" &lt;//&gt; "world"</code> would match the URL
+    <code>/hello/world</code> and <code>/hello/world/</code>. A route parameter matches anything that does not contain a <code>/</code> and parses as the
+    inferred type of the parameter. The type of the parameter is inferred by the action bound to the route. In the example above, our action is:</p>
+
+    <div class="highlight"><pre><code class="language-haskell" data-lang="haskell"><span class="nf">\</span><span class="n">name</span> <span class="ow">-&gt;</span> <span class="n">text</span> <span class="p">(</span><span class="s">&quot;Hello &quot;</span> <span class="o">&lt;&gt;</span> <span class="n">name</span> <span class="o">&lt;&gt;</span> <span class="s">&quot;!&quot;</span><span class="p">)</span></code></pre></div>
+
+    <p>This lambda function takes a <code>Text</code>, integrates it between <code>"Hello "</code> and <code>"!"</code>, and returns it to the framework. Thus,
+    the <code>var</code> in the route <code>"hello" &lt;//&gt; var</code> will require the parameter to be a text. If our function would take more than one argument, or our route would not contain a parameter this would result in a type error.</p>
+
+    <p>Putting it all together, we first need an HTTP-Verb to match against. In the example, we match <code>GET</code> requests, so we’ll use the <code>get</code> function to
+    wire our action. Next we specify the route (e.g. <code>root</code>), and then the handler (e.g. <code>text "Hello world!"</code>). Handlers run in the <code>ActionT</code> transformer monad. You can use various functions to read headers and the HTTP body, and return content to the browser. Note that after a function returning content to the browser is called (such as <code>text</code>), the action is terminated.</p>
+
+    <p>After having defined the application, you can run it using <code>runSpock 8080</code> (choosing any port you like). This essentially is just a shortcut for converting the Spock application (which is represented as a <a href="https://hackage.haskell.org/package/wai">wai</a> middleware) to a <a href="https://hackage.haskell.org/package/wai">wai</a> application and then running it using the <a href="https://hackage.haskell.org/package/warp">warp</a> web server.</p>
+
+    <h2 id="next-steps">Next Steps</h2>
+
+    <ul>
+      <li>Read the documentation on <a href="https://hackage.haskell.org/package/Spock">Hackage</a></li>
+      <li>Check out and/or contribute to the <a href="https://github.com/agrafix/funblog">example project</a></li>
+      <li>Contribute on <a href="https://github.com/agrafix/Spock">Github</a> by reporting or pull-requesting missing features and bugs</li>
+      <li>Check out the <em>Addons</em> and <em>Works great with</em> section in the pages footer</li>
+      <li>Watch our <a href="/blog/">blog</a></li>
+      <li>And of course: build your Spock powered application</li>
+    </ul>
+
+
+  </div>
+
+  <footer>
+    <div class="container">
+      <div class="row">
+        <div class="col-md-3  col-xs-6">
+          <div>
+            <h5>Spock</h5>
+            <a href="https://github.com/agrafix/Spock">Github</a><br>
+            <a href="https://hackage.haskell.org/package/Spock">Hackage</a><br>
+            <a href="https://www.stackage.org/package/Spock">Stackage</a>
+          </div>
+        </div>
+        <div class="col-md-3  col-xs-6">
+          <div>
+            <h5>Addons</h5>
+            <a href="https://hackage.haskell.org/package/Spock-worker">Spock-worker</a><br>
+            <a href="https://hackage.haskell.org/package/Spock-digestive">Spock-digestive</a><br>
+          </div>
+        </div>
+        <div class="col-md-3  col-xs-6">
+          <div>
+            <h5>Works great with</h5>
+            <a href="https://hackage.haskell.org/package/validate-input">validate-input</a><br>
+            <a href="https://hackage.haskell.org/package/users">users</a><br>
+            <a href="https://hackage.haskell.org/package/lucid">lucid</a><br>
+            <a href="https://hackage.haskell.org/package/persistent">persistent</a><br>
+            <a href="https://hackage.haskell.org/package/wai-middleware-static">wai-middleware-static</a><br>
+            <a href="https://hackage.haskell.org/package/hasql">hasql</a>
+          </div>
+        </div>
+        <div class="col-md-3  col-xs-6">
+          <div>
+            <h5>Products built with Spock</h5>
+            <a href="https://www.tramcloud.net">TramCloud</a><br>
+            <a href="http://cpmed.de">Checkpad</a><br>
+            <a href="http://findmelike.com">FindMeLike</a><br>
+            <a href="http://www.optinomic.com/">Optinomic</a>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="social text-center">
+          <!-- Social Media Icons -->
+          <a href="https://github.com/agrafix" class="facebook"><i class="fa fa-github"></i></a>
+          <a href="https://twitter.com/agrafix" class="twitter"><i class="fa fa-twitter"></i></a>
+          <a href="https://plus.google.com/+AlexanderThiemann" class="google-plus"><i class="fa fa-google-plus"></i></a>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-md-12">
+          <hr>
+          <div class="copy text-center">
+            &copy; 2015 <a href="mailto:mail@athiemann.net">Alexander Thiemann</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- jQuery -->
+  <script src="js/jquery.min.js"></script>
+
+  <!-- Bootstrap Core JavaScript -->
+  <script src="js/bootstrap.min.js"></script>
+
+  </body>
+
+  </html>
+

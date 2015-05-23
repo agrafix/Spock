@@ -1,5 +1,5 @@
 body, html {
-  background-color: #EEEEEE;
+  background-color: #FEFEFE;
   color: #555555;
   font-family: 'Open Sans', sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -31,7 +31,7 @@ body, html {
     padding-left: 0px;
   }
 }
-h2 {
+.main h2 {
   font-family: 'Lobster Two', cursive;
   font-size: 45px;
   font-weight: 400 !important;
@@ -99,7 +99,7 @@ header .social a {
 
 .hero {
   padding: 20px 0px;
-  color: #EBEBEB;
+  color: #FEFEFE;
   border-bottom: 1px solid #AAA;
 }
 .hero p {
@@ -184,3 +184,19 @@ footer .col-xs-6 {
   transition: background 1s ease;
 }
 
+.content {
+  color: rgb(96, 108, 113);
+  font-family: 'Open Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 17px;
+  line-height: 26px;
+  padding-bottom: 50px;
+}
+
+pre {
+  background-color: #f3f6fa;
+  border: solid 1px #dce6f0;
+}
+code {
+  background-color: rgba(0,0,0,0.04);
+  color: #333;
+}
