@@ -100,14 +100,14 @@ header {
 }
 /** LANDING/HOME **/
 .hero {
-  padding: 20px 0px;
+  padding: 40px 0px;
   color: #FEFEFE;
   border-bottom: 1px solid #AAA;
   .blue {
     color: darken($blue, 10%);
     text-shadow: none;
   }
-  p { font-size: 22px; }
+  p { font-size: 24px; padding: 10px 0px;}
   h1 {
     font-size: 40px;
     text-transform: uppercase;
@@ -135,6 +135,7 @@ header {
   color: #F9FDFF;
 }
 .home {
+  padding-top: 50px;
   text-align: center;
   h2 {
     font-family: 'Lobster Two', cursive;
@@ -143,7 +144,7 @@ header {
     color: #555;
   }
   .row {
-    padding-bottom: 50px;
+    padding-bottom: 75px;
   }
   .feat {
     min-height: 140px;
@@ -202,8 +203,9 @@ header {
 /** FOOTER **/
 footer {
   background-color: #191919;
+  padding-top: 20px;
   .social {
-    padding-top: 15px;
+    padding: 20px 0px;
   }
   .social a {
     background-color: #1E78AD;
@@ -233,7 +235,8 @@ footer {
 }
 .copy {
   font-size: 13px;
-  margin: 20px;
+  padding-top: 10px;
+  padding-bottom: 30px;
   color: #AAA;
 }
 
