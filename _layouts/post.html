@@ -1,0 +1,25 @@
+---
+layout: default
+---
+<div class="blog-content">
+    <!-- Heading -->
+    <h1><a href="{{ page.url }}">{{ page.title }}</a></h1>
+    <!-- Blog Meta -->
+    <div class="blog-meta">
+        <!-- Meta Icons -->
+        <i class="fa fa-calendar calendar"></i> {{ page.date | date: "%Y/%m/%d" }}&nbsp;&nbsp;
+        <i class="fa fa-user user"></i> {{ page.author }}&nbsp;&nbsp;
+    </div>
+    <!-- Content -->
+    <div class="text-content">{{ content }}</div>
+    <hr>
+    <!-- Buttons -->
+    <div class="next-prev-btn">
+        {% if page.previous.url %}
+        <a href="{{ page.previous.url }}" class="btn btn-danger"> <i class="fa fa-angle-double-left"></i> Previous Post</a>
+        {% endif %}
+        {% if page.next.url %}
+        <a href="{{page.next.url}}" class="btn btn-danger pull-right">Next Post <i class="fa fa-angle-double-right"></i> </a>
+        {% endif %}
+    </div>
+</div>

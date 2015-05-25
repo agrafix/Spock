@@ -54,6 +54,12 @@ h4 {
 .main .row {
   padding-bottom: 50px;
 }
+.content h1 a {
+  color: #667176;
+}
+.content h1 a:hover {
+  text-decoration: none;
+}
 .social {
   padding-top: 10px;
 }
@@ -199,4 +205,33 @@ pre {
 code {
   background-color: rgba(0,0,0,0.04);
   color: #333;
+}
+.blog-content {
+  margin-top: 25px;
+}
+.blog-content p {
+  padding-top: 20px;
+}
+.blog-content hr {
+  border-color: #E2E2E2;
+}
+.blog-meta {
+  border-top: 1px solid #ECECEC;
+  border-bottom: 1px solid #ECECEC;
+  padding: 10px 0px;
+}
+.blog-meta i {
+  margin-right: 5px;
+  width: 30px;
+  height: 30px;
+  line-height: 30px;
+  border-radius: 35px;
+  text-align: center;
+  color: #fff;
+}
+.calendar {
+  background-color: #60A6CC;
+}
+.user {
+  background-color: #B3D18F;
 }

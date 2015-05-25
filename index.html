@@ -1,197 +1,51 @@
-<!DOCTYPE html>
-<html lang="en">
+---
+layout: home
+---
 
-<head>
-
-  <meta charset="utf-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="">
-  <meta name="author" content="">
-
-  <title>Spock Web Framework</title>
-
-  <!-- Bootstrap Core CSS -->
-  <link href="css/bootstrap.min.css" rel="stylesheet">
-  <link href="css/main.css" rel="stylesheet">
-
-  <!-- Custom Fonts -->
-  <link href="http://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
-  <link href="http://fonts.googleapis.com/css?family=Open+Sans:400,700,600" rel='stylesheet' type='text/css'>
-  <link href="http://fonts.googleapis.com/css?family=Lobster+Two" rel='stylesheet' type='text/css'>
-  <link href="http://fonts.googleapis.com/css?family=Droid+Serif:400,400italic" rel='stylesheet' type='text/css'>
-
-  <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
-  <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
-  <!--[if lt IE 9]>
-    <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
-    <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
-  <![endif]-->
-
-</head>
-
-<body>
-
-  <!-- Navigation -->
-  <header>
-    <div class="top">
-      <div class="container">
-        <div class="row">
-          <div class="col-md-6">
-            <div class="logo">
-              <h1><a href="/">Spock Web Framework</a></h1>
-            </div>
-          </div>
-          <div class="col-md-6">
-            <ul class="navigation pull-right">
-              <a class="btn btn-default" href="/">Home</a>
-              <a class="btn btn-default" href="/tutorial/">Tutorial</a>
-              <a class="btn btn-default" href="/blog/">Blog</a>
-              <a class="btn btn-default" href="https://hackage.haskell.org/package/Spock" target="_blank">Docs</a>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="hero">
-      <div class="container">
-        <div class="row">
-          <div class="col-md-8">
-            <h1>SIMPLE<span class="blue">.</span> EXPRESSIVE<span class="blue">.</span> FAST<span class="blue">.</span></h1>
-            <p>Kickstart your next Haskell web application within seconds using Spock.</p>
-            <a href="https://hackage.haskell.org/package/Spock" class="btn btn-default btn-download">
-              <i class="fa fa-cloud-download"></i> Download from Hackage
-            </a> <strong>or run <i>cabal install Spock</i></strong>
-            <div class="social">
-              <a href="https://github.com/agrafix/Spock">
-                <i class="fa fa-github"></i>
-              </a>
-            </div>
-          </div>
-          <div class="col-md-4">
-            <img src="http://www.spock.li/img/browser.png" class="img-responsive">
-          </div>
-        </div>
-      </div>
-    </div>
-  </header>
-
-  <!-- Main Content -->
-  <div class="container main">
-    <div class="row">
-      <div class="col-md-12">
-        <h2>Features</h2>
-        <p>
-          Spock is a lightweight Haskell web framework inspired by Ruby's Sinatra.
-          It provides a full toolbox including everything to get a quick start into
-          web programming using Haskell.
-        </p>
-      </div>
-    </div>
-    <div class="row">
-      <div class="col-md-3 col-xs-6">
-        <div class="feat">
-          <p><i class="fa fa-bolt"></i></p>
-          <h4>Fast routing</h4>
-          <p>Spock provides fast route dispatching in a type safe environment</p>
-        </div>
-      </div>
-      <div class="col-md-3 col-xs-6">
-        <div class="feat">
-          <p><i class="fa fa-shield"></i></p>
-          <h4>Secure</h4>
-          <p>Built in support for cookies, secure sessions and CSRF-protection</p>
-        </div>
-      </div>
-      <div class="col-md-3 col-xs-6">
-        <div class="feat">
-          <p><i class="fa fa-ship"></i></p>
-          <h4>Easy deployment</h4>
-          <p>
-            Applications supported by Spock are easily deployed
-            using <a href="https://halcyon.sh/shootout/#hello-spock">Halcyon</a>
-            or <a href="http://docker.io">Docker</a>
-          </p>
-        </div>
-      </div>
-      <div class="col-md-3 col-xs-6">
-        <div class="feat">
-          <p><i class="fa fa-github-alt"></i></p>
-          <h4>Open source</h4>
-          <p>
-            Spock and all ecosystem packages are open sourced on
-            <a href="https://github.com/agrafix/Spock">Github</a>. Feel free to review code or contribute!
-          </p>
-        </div>
-      </div>
+<div class="row">
+  <div class="col-md-12">
+    <h2>Features</h2>
+    <p>
+      Spock is a lightweight Haskell web framework inspired by Ruby's Sinatra.
+      It provides a full toolbox including everything to get a quick start into
+      web programming using Haskell.
+    </p>
+  </div>
+</div>
+<div class="row">
+  <div class="col-md-3 col-xs-6">
+    <div class="feat">
+      <p><i class="fa fa-bolt"></i></p>
+      <h4>Fast routing</h4>
+      <p>Spock provides fast route dispatching in a type safe environment</p>
     </div>
   </div>
-
-  <footer>
-    <div class="container">
-      <div class="row">
-        <div class="col-md-3  col-xs-6">
-          <div>
-            <h5>Spock</h5>
-            <a href="https://github.com/agrafix/Spock">Github</a><br>
-            <a href="https://hackage.haskell.org/package/Spock">Hackage</a><br>
-            <a href="https://www.stackage.org/package/Spock">Stackage</a>
-          </div>
-        </div>
-        <div class="col-md-3  col-xs-6">
-          <div>
-            <h5>Addons</h5>
-            <a href="https://hackage.haskell.org/package/Spock-worker">Spock-worker</a><br>
-            <a href="https://hackage.haskell.org/package/Spock-digestive">Spock-digestive</a><br>
-          </div>
-        </div>
-        <div class="col-md-3  col-xs-6">
-          <div>
-            <h5>Works great with</h5>
-            <a href="https://hackage.haskell.org/package/validate-input">validate-input</a><br>
-            <a href="https://hackage.haskell.org/package/users">users</a><br>
-            <a href="https://hackage.haskell.org/package/lucid">lucid</a><br>
-            <a href="https://hackage.haskell.org/package/persistent">persistent</a><br>
-            <a href="https://hackage.haskell.org/package/wai-middleware-static">wai-middleware-static</a><br>
-            <a href="https://hackage.haskell.org/package/hasql">hasql</a>
-          </div>
-        </div>
-        <div class="col-md-3  col-xs-6">
-          <div>
-            <h5>Products built with Spock</h5>
-            <a href="https://www.tramcloud.net">TramCloud</a><br>
-            <a href="http://cpmed.de">Checkpad</a><br>
-            <a href="http://findmelike.com">FindMeLike</a><br>
-            <a href="http://www.optinomic.com/">Optinomic</a>
-          </div>
-        </div>
-      </div>
-      <div class="row">
-      <div class="social text-center">
-        <!-- Social Media Icons -->
-        <a href="https://github.com/agrafix" class="facebook"><i class="fa fa-github"></i></a>
-        <a href="https://twitter.com/agrafix" class="twitter"><i class="fa fa-twitter"></i></a>
-        <a href="https://plus.google.com/+AlexanderThiemann" class="google-plus"><i class="fa fa-google-plus"></i></a>
-      </div>
-      </div>
-      <div class="row">
-        <div class="col-md-12">
-          <hr>
-          <div class="copy text-center">
-            &copy; 2015 <a href="mailto:mail@athiemann.net">Alexander Thiemann</a>
-          </div>
-        </div>
-      </div>
+  <div class="col-md-3 col-xs-6">
+    <div class="feat">
+      <p><i class="fa fa-shield"></i></p>
+      <h4>Secure</h4>
+      <p>Built in support for cookies, secure sessions and CSRF-protection</p>
     </div>
-  </footer>
-
-  <!-- jQuery -->
-  <script src="js/jquery.min.js"></script>
-
-  <!-- Bootstrap Core JavaScript -->
-  <script src="js/bootstrap.min.js"></script>
-
-</body>
-
-</html>
+  </div>
+  <div class="col-md-3 col-xs-6">
+    <div class="feat">
+      <p><i class="fa fa-ship"></i></p>
+      <h4>Easy deployment</h4>
+      <p>
+        Applications supported by Spock are easily deployed
+        using <a href="https://halcyon.sh/shootout/#hello-spock">Halcyon</a>
+        or <a href="http://docker.io">Docker</a>
+      </p>
+    </div>
+  </div>
+  <div class="col-md-3 col-xs-6">
+    <div class="feat">
+      <p><i class="fa fa-github-alt"></i></p>
+      <h4>Open source</h4>
+      <p>
+        Spock and all ecosystem packages are open sourced on
+        <a href="https://github.com/agrafix/Spock">Github</a>. Feel free to review code or contribute!
+      </p>
+    </div>
+  </div>
+</div>
