@@ -2,6 +2,7 @@
 ---
 $page_width: 900px;
 $background: #FEFEFE;
+$footer: #191919;
 $text-color: #555;
 $blue: #69B8E5;
 $green: #C8E9A0;
@@ -12,7 +13,7 @@ $green: #C8E9A0;
 @media (min-width: 768px) { .container { width: $page_width; } }
 
 body, html {
-  background-color: $background;
+  background-color: $footer;
   color: $text-color;
   font-family: 'Open Sans', sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -42,6 +43,9 @@ h4 {
   line-height: 50px;
   margin-right: 10px;
   border-radius: 40px;
+}
+.content-wrapper {
+  background-color: $background;
 }
 /** HEADER **/
 header {
@@ -202,7 +206,7 @@ header {
 
 /** FOOTER **/
 footer {
-  background-color: #191919;
+  background-color: $footer;
   padding-top: 20px;
   .social {
     padding: 20px 0px;
