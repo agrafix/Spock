@@ -122,10 +122,8 @@ HVectElim '[a,b,c,d] x ≡ a -> (b -> (c -> (d -> x)))
 Finally, routes can be serialized with
 
 {% highlight haskell %}
-renderRoute :: HasRep as => Path as -> HVectElim as Text
+renderRoute :: Path as -> HVectElim as Text
 {% endhighlight %}
-
-The `HasRep as` constraint is an implementation detail and can be ignored.
 
 Internally, all route handlers are stored in a tree-like structure which can be efficiently queried for matches.
 
