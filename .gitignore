@@ -1,11 +1,2 @@
-dist
-cabal-dev
-*.o
-*.hi
-*.chi
-*.chs.h
-.virthualenv
-.DS_Store
-.cabal-sandbox
-cabal.sandbox.config
-*~
+_site/
+.sass-cache

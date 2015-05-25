@@ -1,0 +1,24 @@
+---
+title: Blog
+layout: default
+permalink: /blog/
+---
+
+{% for post in site.posts limit 15 %}
+<div class="blog-content">
+    <!-- Heading -->
+    <h1><a href="{{ post.url | prepend: site.baseurl }}">{{ post.title }}</a></h1>
+    <!-- Blog Meta -->
+    <div class="blog-meta">
+        <!-- Meta Icons -->
+        <i class="fa fa-calendar calendar"></i> {{ post.date | date: "%Y/%m/%d" }}&nbsp;&nbsp;
+        <i class="fa fa-user user"></i> {{ post.author }}&nbsp;&nbsp;
+    </div>
+    <!-- Paragraph -->
+    <p>{{ post.content | strip_html | truncatewords:75}}</p>
+    <!-- Button -->
+    <a href="{{ post.url | prepend: site.baseurl }}" class="btn btn-sm btn-danger">Read More...</a>
+    <!-- Horizontal Line -->
+    <hr>
+</div>
+{% endfor %}
