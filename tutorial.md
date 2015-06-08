@@ -55,7 +55,7 @@ Let us take a quick look at the interesting parts of the example. First, we impo
 {% highlight haskell %}
 import Web.Spock.Safe
 {% endhighlight %}
-You might wounder about the `.Safe` - there's also a counterpart called `.Simple`. The key difference is
+You might wonder about the `.Safe` - there's also a counterpart called `.Simple`. The key difference is
 in the way actions are mapped to URLs. The `.Safe`-Module allows us to define this mapping in a type safe way,
 while the `.Simple` defers these checks to runtime. We recommend using the `.Safe` module, because it eliminates
 many bugs at compile time and makes code much easier to follow.
