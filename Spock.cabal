@@ -40,7 +40,7 @@ library
                        Web.Spock.Internal.Types,
                        Web.Spock.Internal.Wire
   build-depends:
-                       aeson >= 0.6.2.1,
+                       aeson >= 0.7,
                        base >= 4 && < 5,
                        base64-bytestring >=1.0,
                        bytestring >=0.10,
