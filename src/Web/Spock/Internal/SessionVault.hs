@@ -4,7 +4,10 @@ module Web.Spock.Internal.SessionVault where
 
 import Web.Spock.Internal.Types
 
+#if MIN_VERSION_base(4,8,0)
+#else
 import Control.Applicative
+#endif
 import Control.Concurrent.STM (STM)
 import Control.Monad
 import Data.Hashable
