@@ -27,6 +27,7 @@ tested-with:         GHC==7.6.3, GHC==7.8.3, GHC==7.10.1
 library
   hs-source-dirs:      src
   exposed-modules:
+                       Web.Spock,
                        Web.Spock.Internal.Util,
                        Web.Spock.Internal.SessionVault,
                        Web.Spock.Safe,

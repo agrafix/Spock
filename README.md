@@ -28,6 +28,22 @@ Benchmarks:
 * https://github.com/philopon/apiary-benchmark
 * https://github.com/agrafix/Spock-scotty-benchmark
 
+## Usage (Typesafe, recommended)
+
+```haskell
+{-# LANGUAGE OverloadedStrings #-}
+import Web.Spock
+
+import qualified Data.Text as T
+
+main =
+    runSpock 3000 $ spockT id $
+    do get ("echo" <//> var) $ \something ->
+        text $ T.concat ["Echo: ", something]
+```
+
+(read more at [Type-safe routing in Spock](http://www.spock.li/2015/04/19/type-safe_routing.html))
+
 ## Usage (Simple)
 
 ```haskell
@@ -45,22 +61,6 @@ main =
         do Just number <- param "number"
            text $ T.concat ["Just a number: ", number]
 ```
-
-## Usage (Typesafe)
-
-```haskell
-{-# LANGUAGE OverloadedStrings #-}
-import Web.Spock.Safe
-
-import qualified Data.Text as T
-
-main =
-    runSpock 3000 $ spockT id $
-    do get ("echo" <//> var) $ \something ->
-        text $ T.concat ["Echo: ", something]
-```
-
-(read more at [Type-safe routing in Spock](http://www.spock.li/2015/04/19/type-safe_routing.html))
 
 ## Install
 
