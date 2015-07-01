@@ -43,7 +43,7 @@ getSpockHeart = webM ask
 
 -- | Run an action inside of Spocks core monad. This allows you to use runQuery and getState
 runSpockIO :: WebState conn sess st -> WebStateM conn sess st a -> IO a
-runSpockIO st (WebStateM action) =
+runSpockIO st (WebStateT action) =
     runResourceT $
     runReaderT action st
 

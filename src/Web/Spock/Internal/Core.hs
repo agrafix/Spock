@@ -61,7 +61,7 @@ spockAll regIf sessionCfg poolOrConn initialState defs =
                , web_sessionMgr = sessionMgr
                , web_state = initialState
                }
-       spockAllT regIf (\m -> runResourceT $ runReaderT (runWebStateM m) internalState) $
+       spockAllT regIf (\m -> runResourceT $ runReaderT (runWebStateT m) internalState) $
                do defs
                   middleware (sm_middleware sessionMgr)
 

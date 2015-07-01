@@ -5,6 +5,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 module Web.Spock.Internal.Types where
 
 import Web.Spock.Internal.CoreAction
@@ -138,24 +140,23 @@ data SafeActionStore conn sess st
 
 type SafeActionHash = T.Text
 
-newtype WebStateM conn sess st a = WebStateM { runWebStateM :: ReaderT (WebState conn sess st) (ResourceT IO) a }
-    deriving (Monad, Functor, Applicative, MonadIO, MonadReader (WebState conn sess st))
+newtype WebStateT conn sess st m a = WebStateT { runWebStateT :: ReaderT (WebState conn sess st) m a }
+    deriving (Monad, Functor, Applicative, MonadIO, MonadReader (WebState conn sess st), MonadTrans)
 
-instance MonadBase IO (WebStateM conn sess st) where
-    liftBase = WebStateM . liftBase
+instance MonadBase b m => MonadBase b (WebStateT conn sess st m) where
+    liftBase = liftBaseDefault
 
-#if MIN_VERSION_monad_control(1,0,0)
-newtype WStM conn sess st a = WStM { unWStM :: StM (ReaderT (WebState conn sess st) (ResourceT IO)) a }
-#endif
+instance MonadTransControl (WebStateT conn sess st) where
+    type StT (WebStateT conn sess st) a = a
+    liftWith = defaultLiftWith WebStateT runWebStateT
+    restoreT = defaultRestoreT WebStateT
 
-instance MonadBaseControl IO (WebStateM conn sess st) where
-#if MIN_VERSION_monad_control(1,0,0)
-    type StM (WebStateM conn sess st) a = WStM conn sess st a
-#else
-    newtype StM (WebStateM conn sess st) a = WStM { unWStM :: StM (ReaderT (WebState conn sess st) (ResourceT IO)) a }
-#endif
-    liftBaseWith f = WebStateM . liftBaseWith $ \runInBase -> f $ liftM WStM . runInBase . runWebStateM
-    restoreM = WebStateM . restoreM . unWStM
+instance MonadBaseControl b m => MonadBaseControl b (WebStateT conn sess st m) where
+    type StM (WebStateT conn sess st m) a = ComposeSt (WebStateT conn sess st) m a
+    restoreM = defaultRestoreM
+    liftBaseWith = defaultLiftBaseWith
+
+type WebStateM conn sess st = WebStateT conn sess st (ResourceT IO)
 
 type SessionId = T.Text
 data Session conn sess st

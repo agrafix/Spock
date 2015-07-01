@@ -50,7 +50,7 @@ library
                        hashable >=1.2,
                        http-types >=0.8,
                        list-t >=0.4,
-                       monad-control >=0.3,
+                       monad-control >=1.0,
                        mtl >=2.1,
                        old-locale >=1.0,
                        path-pieces >=0.1.4,
