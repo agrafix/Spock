@@ -96,7 +96,7 @@ instance Error ActionInterupt where
 
 newtype ActionT m a
     = ActionT { runActionT :: ErrorT ActionInterupt (RWST RequestInfo () ResponseState m) a }
-      deriving (Monad, Functor, Applicative, MonadIO, MonadReader RequestInfo, MonadState ResponseState, MonadError ActionInterupt)
+      deriving (Monad, Functor, Applicative, Alternative, MonadIO, MonadReader RequestInfo, MonadState ResponseState, MonadError ActionInterupt)
 
 instance MonadTrans ActionT where
     lift = ActionT . lift . lift
