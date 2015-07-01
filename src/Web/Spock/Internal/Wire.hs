@@ -84,6 +84,10 @@ data ActionInterupt
     | ActionMiddlewarePass
     deriving (Show)
 
+instance Monoid ActionInterupt where
+    mempty = ActionDone
+    mappend _ a = a
+
 #if MIN_VERSION_mtl(2,2,0)
 type ErrorT = ExceptT
 runErrorT :: ExceptT e m a -> m (Either e a)
