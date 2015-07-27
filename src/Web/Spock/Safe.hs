@@ -39,15 +39,15 @@ import qualified Web.Spock.Internal.Core as C
 
 import Control.Applicative
 import Control.Monad.Trans
+import Data.HVect hiding (head)
 import Data.Monoid
-import Data.HVect
 import Network.HTTP.Types.Method
 import Prelude hiding (head)
 import Web.Routing.SafeRouting hiding (renderRoute)
-import qualified Web.Routing.SafeRouting as SR
 import qualified Data.Text as T
 import qualified Network.HTTP.Types as Http
 import qualified Network.Wai as Wai
+import qualified Web.Routing.SafeRouting as SR
 
 type SpockM conn sess st a = SpockT (WebStateM conn sess st) a
 
@@ -188,4 +188,4 @@ hookSafeActions =
 
 -- | Render a route applying path pieces
 renderRoute :: Path as -> HVectElim as T.Text
-renderRoute route = hVectCurryExpl (pathToRep route) (T.cons '/' . SR.renderRoute route)
+renderRoute route = curryExpl (pathToRep route) (T.cons '/' . SR.renderRoute route)
