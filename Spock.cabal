@@ -1,14 +1,20 @@
 name:                Spock
-version:             0.7.10.0
+version:             0.7.11.0
 synopsis:            Another Haskell web framework for rapid development
 description:         This toolbox provides everything you need to get a quick start into web hacking with haskell:
                      .
                      * fast routing
+                     .
                      * middleware
+                     .
                      * json
+                     .
                      * sessions
+                     .
                      * cookies
+                     .
                      * database helper
+                     .
                      * csrf-protection
                      .
                      A tutorial is available at <http://www.spock.li/tutorial/ spock.li>
@@ -50,13 +56,14 @@ library
                        directory >=1.2,
                        hashable >=1.2,
                        http-types >=0.8,
+                       hvect >= 0.2,
                        list-t >=0.4,
                        monad-control >=1.0,
                        mtl >=2.1,
                        old-locale >=1.0,
                        path-pieces >=0.1.4,
                        random >=1.0,
-                       reroute >=0.2.3,
+                       reroute >=0.3,
                        resource-pool >=0.2,
                        resourcet >= 0.4,
                        stm >=2.4,
