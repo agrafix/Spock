@@ -11,7 +11,7 @@ module Web.Spock.Shared
      -- * Action types
     , SpockAction, ActionT
      -- * Handling requests
-    , request, header, cookie
+    , request, header, rawHeader, cookie
     , preferredFormat, ClientPreferredFormat(..)
     , body, jsonBody, jsonBody'
     , files, UploadedFile (..)

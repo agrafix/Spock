@@ -5,7 +5,7 @@
 module Web.Spock.Internal.CoreAction
     ( ActionT
     , UploadedFile (..)
-    , request, header, cookie, body, jsonBody, jsonBody'
+    , request, header, rawHeader, cookie, body, jsonBody, jsonBody'
     , files, params, param, param', setStatus, setHeader, redirect
     , jumpNext, middlewarePass, modifyVault, queryVault
     , setCookie, setCookie', deleteCookie
@@ -29,7 +29,7 @@ import Control.Monad.Reader
 import Control.Monad.State hiding (get, put)
 import Data.Monoid
 import Data.Time
-import Network.HTTP.Types.Header (ResponseHeaders)
+import Network.HTTP.Types.Header (HeaderName, ResponseHeaders)
 import Network.HTTP.Types.Status
 import Prelude hiding (head)
 #if MIN_VERSION_time(1,5,0)
@@ -57,9 +57,14 @@ request = asks ri_request
 -- | Read a header
 header :: MonadIO m => T.Text -> ActionT m (Maybe T.Text)
 header t =
-    do req <- request
-       return $ fmap T.decodeUtf8 (lookup (CI.mk (T.encodeUtf8 t)) $ Wai.requestHeaders req)
+    liftM (fmap T.decodeUtf8) $ rawHeader (CI.mk (T.encodeUtf8 t))
 {-# INLINE header #-}
+
+-- | Read a header without converting it to text
+rawHeader :: MonadIO m => HeaderName -> ActionT m (Maybe BS.ByteString)
+rawHeader t =
+    liftM (lookup t . Wai.requestHeaders) request
+{-# INLINE rawHeader #-}
 
 -- | Read a cookie
 cookie :: MonadIO m => T.Text -> ActionT m (Maybe T.Text)
