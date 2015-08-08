@@ -24,6 +24,13 @@ app =
            text $ "int" <> T.pack (show i)
        get ("param-test" <//> "static") $
            text "static"
+       get ("cookie" <//> "single") $
+           do setCookie "single" "test" 3600
+              text "set"
+       get ("cookie" <//> "multiple") $
+           do setCookie "multiple1" "test1" 3600
+              setCookie "multiple2" "test2" 3600
+              text "set"
        subcomponent "/subcomponent" $
          do get "foo" $ text "foo"
             subcomponent "/subcomponent2" $

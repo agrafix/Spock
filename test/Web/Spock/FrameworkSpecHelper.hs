@@ -4,6 +4,9 @@ module Web.Spock.FrameworkSpecHelper where
 import Test.Hspec
 import Test.Hspec.Wai
 
+import Data.Monoid
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import qualified Network.Wai as Wai
 
 frameworkSpec :: IO Wai.Application -> Spec
@@ -11,6 +14,7 @@ frameworkSpec app =
     with app $
     do routingSpec
        actionSpec
+       cookieTest
 
 routingSpec :: SpecWith Wai.Application
 routingSpec =
@@ -52,3 +56,38 @@ routingSpec =
 actionSpec :: SpecWith Wai.Application
 actionSpec =
     describe "Action Framework" $ return ()
+
+cookieTest :: SpecWith Wai.Application
+cookieTest =
+    describe "Cookies" $
+    do it "sets single cookies correctly" $
+          get "/cookie/single" `shouldRespondWith`
+                  "set"
+                  { matchStatus = 200
+                  , matchHeaders =
+                      [ matchCookie "single" "test"
+                      ]
+                  }
+       it "sets multiple cookies correctly" $
+          get "/cookie/multiple" `shouldRespondWith`
+                  "set"
+                  { matchStatus = 200
+                  , matchHeaders =
+                      [ matchCookie "multiple1" "test1"
+                      , matchCookie "multiple2" "test2"
+                      ]
+                  }
+
+matchCookie :: T.Text -> T.Text -> MatchHeader
+matchCookie name val =
+    MatchHeader $ \headers ->
+        let relevantHeaders = filter (\h -> fst h == "Set-Cookie") headers
+            loop [] =
+                Just ("No cookie named " ++ T.unpack name ++ " with value "
+                      ++ T.unpack val ++ " found")
+            loop (x:xs) =
+                let (cname, cval) = T.breakOn "=" $ fst $ T.breakOn ";" $ T.decodeUtf8 $ snd x
+                in if cname == name && cval == "=" <> val
+                   then Nothing
+                   else loop xs
+        in loop relevantHeaders
