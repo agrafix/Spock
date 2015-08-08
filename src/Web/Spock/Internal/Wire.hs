@@ -341,7 +341,7 @@ requestSizeCheck maxSize req =
                                atomicModifyIORef currentSize $ \sz ->
                                let !nextSize = sz + fromIntegral (BS.length bs)
                                in (nextSize, nextSize)
-                           if total >= maxSize
+                           if total > maxSize
                            then throwIO SizeException
                            else return bs
                   }

@@ -91,6 +91,7 @@ test-suite spocktests
                        Web.Spock.SimpleSpec
   build-depends:
                        base,
+                       bytestring,
                        hspec >= 2.0,
                        hspec-wai >= 0.6,
                        http-types,

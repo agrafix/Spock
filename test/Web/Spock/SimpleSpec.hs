@@ -44,4 +44,8 @@ app =
        hookAny GET $ text . T.intercalate "/"
 
 spec :: Spec
-spec = describe "SimpleRouting" $ frameworkSpec (spockAsApp $ spockT id app)
+spec =
+    describe "SimpleRouting" $
+    do frameworkSpec (spockAsApp $ spockT id app)
+       sizeLimitSpec $ \lim -> spockAsApp $ spockLimT (Just lim) id $
+          post "/size" $ body >>= bytes

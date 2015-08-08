@@ -5,9 +5,33 @@ import Test.Hspec
 import Test.Hspec.Wai
 
 import Data.Monoid
+import Data.Word
+import qualified Data.ByteString.Lazy.Char8 as BSLC
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Network.Wai as Wai
+
+sizeLimitSpec :: (Word64 -> IO Wai.Application) -> Spec
+sizeLimitSpec app =
+    with (app maxSize) $
+    describe "Request size limit" $
+    do it "allows small enough requests the way" $
+          do post "/size" okBs `shouldRespondWith` matcher 200 okBs
+             post "/size" okBs2 `shouldRespondWith` matcher 200 okBs2
+       it "denys large requests the way" $
+          post "/size" tooLongBs `shouldRespondWith` 413
+    where
+      matcher s b =
+          ResponseMatcher
+          { matchStatus = s
+          , matchBody = Just b
+          , matchHeaders = []
+          }
+      maxSize = 1024
+      okBs = BSLC.replicate (fromIntegral maxSize - 50) 'i'
+      okBs2 = BSLC.replicate (fromIntegral maxSize) 'j'
+      tooLongBs = BSLC.replicate (fromIntegral maxSize + 100) 'k'
+
 
 frameworkSpec :: IO Wai.Application -> Spec
 frameworkSpec app =

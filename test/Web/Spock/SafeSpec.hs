@@ -63,3 +63,5 @@ spec =
     describe "SafeRouting" $
     do frameworkSpec (spockAsApp $ spockT id app)
        routeRenderingSpec
+       sizeLimitSpec $ \lim -> spockAsApp $ spockLimT (Just lim) id $
+          post "size" $ body >>= bytes
