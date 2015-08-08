@@ -6,6 +6,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE DeriveGeneric #-}
 module Web.Spock.Internal.Wire where
 
 import Control.Arrow ((***))
@@ -22,6 +23,7 @@ import Control.Monad.Reader.Class ()
 import Control.Monad.Trans.Resource
 import Data.Hashable
 import Data.Maybe
+import GHC.Generics
 import Network.HTTP.Types.Header (ResponseHeaders)
 import Network.HTTP.Types.Method
 import Network.HTTP.Types.Status
@@ -69,9 +71,50 @@ data RequestInfo
 
 newtype ResponseBody = ResponseBody (Status -> ResponseHeaders -> Wai.Response)
 
+data MultiHeader
+   = MultiHeaderCacheControl
+   | MultiHeaderConnection
+   | MultiHeaderContentEncoding
+   | MultiHeaderContentLanguage
+   | MultiHeaderPragma
+   | MultiHeaderProxyAuthenticate
+   | MultiHeaderTrailer
+   | MultiHeaderTransferEncoding
+   | MultiHeaderUpgrade
+   | MultiHeaderVia
+   | MultiHeaderWarning
+   | MultiHeaderWWWAuth
+   | MultiHeaderSetCookie
+     deriving (Show, Eq, Enum, Bounded, Generic)
+
+instance Hashable MultiHeader
+
+multiHeaderCI :: MultiHeader -> CI.CI BS.ByteString
+multiHeaderCI mh =
+    case mh of
+      MultiHeaderCacheControl -> "Cache-Control"
+      MultiHeaderConnection -> "Connection"
+      MultiHeaderContentEncoding -> "Content-Encoding"
+      MultiHeaderContentLanguage -> "Content-Language"
+      MultiHeaderPragma -> "Pragma"
+      MultiHeaderProxyAuthenticate -> "Proxy-Authenticate"
+      MultiHeaderTrailer -> "Trailer"
+      MultiHeaderTransferEncoding -> "Transfer-Encoding"
+      MultiHeaderUpgrade -> "Upgrade"
+      MultiHeaderVia -> "Via"
+      MultiHeaderWarning -> "Warning"
+      MultiHeaderWWWAuth -> "WWW-Authenticate"
+      MultiHeaderSetCookie -> "Set-Cookie"
+
+multiHeaderMap :: HM.HashMap (CI.CI BS.ByteString) MultiHeader
+multiHeaderMap =
+    HM.fromList $ flip map [minBound..maxBound] $ \mh ->
+    (multiHeaderCI mh, mh)
+
 data ResponseState
    = ResponseState
    { rs_responseHeaders :: !(HM.HashMap (CI.CI BS.ByteString) BS.ByteString)
+   , rs_multiResponseHeaders :: !(HM.HashMap MultiHeader [BS.ByteString])
    , rs_status :: !Status
    , rs_responseBody :: !ResponseBody
    }
@@ -106,14 +149,22 @@ instance MonadTrans ActionT where
     lift = ActionT . lift . lift
 
 respStateToResponse :: ResponseState -> Wai.Response
-respStateToResponse (ResponseState headers status (ResponseBody body)) =
-    body status $ HM.toList headers
+respStateToResponse (ResponseState headers multiHeaders status (ResponseBody body)) =
+    let mkMultiHeader (k, vals) =
+            let kCi = multiHeaderCI k
+            in map (\v -> (kCi, v)) vals
+        outHeaders =
+            HM.toList headers
+            ++ (concatMap mkMultiHeader $ HM.toList multiHeaders)
+    in body status outHeaders
 
 errorResponse :: Status -> BSL.ByteString -> ResponseState
 errorResponse s e =
     ResponseState
     { rs_responseHeaders =
           HM.singleton "Content-Type" "text/html"
+    , rs_multiResponseHeaders =
+          HM.empty
     , rs_status = s
     , rs_responseBody = ResponseBody $ \status headers ->
         Wai.responseLBS status headers $
@@ -201,8 +252,13 @@ applyAction req mkEnv ((captures, selectedAction) : xs) =
            runRWST (runErrorT $ runActionT selectedAction) env defResp
        case r of
          Left (ActionRedirect loc) ->
-             return $ Just $ ResponseState (rs_responseHeaders respState) status302 $ ResponseBody $
-                 \status headers -> Wai.responseLBS status (("Location", T.encodeUtf8 loc) : headers) BSL.empty
+             return $ Just $
+                    respState
+                    { rs_status = status302
+                    , rs_responseBody =
+                        ResponseBody $ \status headers ->
+                            Wai.responseLBS status (("Location", T.encodeUtf8 loc) : headers) BSL.empty
+                    }
          Left ActionTryNext ->
              applyAction req mkEnv xs
          Left (ActionError errorMsg) ->

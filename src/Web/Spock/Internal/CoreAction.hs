@@ -168,15 +168,40 @@ setStatus s =
     modify $ \rs -> rs { rs_status = s }
 {-# INLINE setStatus #-}
 
--- | Set a response header. Overwrites already defined headers
+-- | Set a response header. If the response header
+-- is allowed to occur multiple times (as in RFC 2616), it will
+-- be appended. Otherwise the previous value is overwritten.
+-- See 'setMultiHeader'.
 setHeader :: MonadIO m => T.Text -> T.Text -> ActionT m ()
 setHeader k v =
+    do let ciVal = CI.mk $ T.encodeUtf8 k
+       case HM.lookup ciVal multiHeaderMap of
+         Just mhk ->
+             setMultiHeader mhk v
+         Nothing ->
+             setHeaderUnsafe k v
+{-# INLINE setHeader #-}
+
+-- | INTERNAL: Set a response header that can occur multiple times. (eg: Cache-Control)
+setMultiHeader :: MonadIO m => MultiHeader -> T.Text -> ActionT m ()
+setMultiHeader k v =
+    modify $ \rs ->
+        rs
+        { rs_multiResponseHeaders =
+              HM.insertWith (++) k [T.encodeUtf8 v] (rs_multiResponseHeaders rs)
+        }
+{-# INLINE setMultiHeader #-}
+
+-- | INTERNAL: Unsafely set a header (no checking if the header can occur multiple times)
+setHeaderUnsafe :: MonadIO m => T.Text -> T.Text -> ActionT m ()
+setHeaderUnsafe k v =
     modify $ \rs ->
         rs
         { rs_responseHeaders =
               HM.insert (CI.mk $ T.encodeUtf8 k) (T.encodeUtf8 v) (rs_responseHeaders rs)
         }
-{-# INLINE setHeader #-}
+{-# INLINE setHeaderUnsafe #-}
+
 
 -- | Abort the current action and jump the next one matching the route
 jumpNext :: MonadIO m => ActionT m a
@@ -226,7 +251,7 @@ deleteCookie name = setCookie' name T.empty epoch
 -- | Set a cookie living until a specific 'UTCTime'
 setCookie' :: MonadIO m => T.Text -> T.Text -> UTCTime -> ActionT m ()
 setCookie' name value validUntil =
-    setHeader "Set-Cookie" rendered
+    setMultiHeader MultiHeaderSetCookie rendered
     where
       rendered =
           let formattedTime =
@@ -262,28 +287,28 @@ lazyBytes val =
 -- | Send text as a response body. Content-Type will be "text/plain"
 text :: MonadIO m => T.Text -> ActionT m a
 text val =
-    do setHeader "Content-Type" "text/plain; charset=utf-8"
+    do setHeaderUnsafe "Content-Type" "text/plain; charset=utf-8"
        bytes $ T.encodeUtf8 val
 {-# INLINE text #-}
 
 -- | Send a text as response body. Content-Type will be "text/html"
 html :: MonadIO m => T.Text -> ActionT m a
 html val =
-    do setHeader "Content-Type" "text/html; charset=utf-8"
+    do setHeaderUnsafe "Content-Type" "text/html; charset=utf-8"
        bytes $ T.encodeUtf8 val
 {-# INLINE html #-}
 
 -- | Send a file as response
 file :: MonadIO m => T.Text -> FilePath -> ActionT m a
 file contentType filePath =
-     do setHeader "Content-Type" contentType
+     do setHeaderUnsafe "Content-Type" contentType
         response $ \status headers -> Wai.responseFile status headers filePath Nothing
 {-# INLINE file #-}
 
 -- | Send json as response. Content-Type will be "application/json"
 json :: (A.ToJSON a, MonadIO m) => a -> ActionT m b
 json val =
-    do setHeader "Content-Type" "application/json; charset=utf-8"
+    do setHeaderUnsafe "Content-Type" "application/json; charset=utf-8"
        lazyBytes $ A.encode val
 {-# INLINE json #-}
 
@@ -320,5 +345,5 @@ requireBasicAuth realmTitle authFun cont =
     where
       authFailed =
           do setStatus status401
-             setHeader "WWW-Authenticate" ("Basic realm=\"" <> realmTitle <> "\"")
+             setMultiHeader MultiHeaderWWWAuth ("Basic realm=\"" <> realmTitle <> "\"")
              html "<h1>Authentication required.</h1>"
