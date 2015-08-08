@@ -14,7 +14,7 @@ the routing, read the corresponding blog post available at <http://www.spock.li/
 module Web.Spock.Safe
     ( -- * Spock's route definition monad
       spock, SpockM
-    , spockT, SpockT
+    , spockT, spockLimT, SpockT
      -- * Defining routes
     , Path, root, Var, var, static, (<//>)
      -- * Rendering routes
@@ -41,6 +41,7 @@ import Control.Applicative
 import Control.Monad.Trans
 import Data.HVect hiding (head)
 import Data.Monoid
+import Data.Word
 import Network.HTTP.Types.Method
 import Prelude hiding (head)
 import Web.Routing.SafeRouting hiding (renderRoute)
@@ -62,9 +63,9 @@ instance MonadTrans SpockT where
 -- Spock works with database libraries that already implement connection pooling and
 -- with those that don't come with it out of the box. For more see the 'PoolOrConn' type.
 -- Use @runSpock@ to run the app or @spockAsApp@ to create a @Wai.Application@
-spock :: SessionCfg sess -> PoolOrConn conn -> st -> SpockM conn sess st () -> IO Wai.Middleware
-spock sessCfg poolOrConn initSt spockAppl =
-    C.spockAll SafeRouter sessCfg poolOrConn initSt (runSpockT spockAppl')
+spock :: SpockCfg conn sess st -> SpockM conn sess st () -> IO Wai.Middleware
+spock spockCfg spockAppl =
+    C.spockAll SafeRouter spockCfg (runSpockT spockAppl')
     where
       spockAppl' =
           do hookSafeActions
@@ -72,12 +73,21 @@ spock sessCfg poolOrConn initSt spockAppl =
 
 -- | Create a raw spock application with custom underlying monad
 -- Use @runSpock@ to run the app or @spockAsApp@ to create a @Wai.Application@
+-- The first argument is request size limit in bytes. Set to 'Nothing' to disable.
 spockT :: (MonadIO m)
        => (forall a. m a -> IO a)
        -> SpockT m ()
        -> IO Wai.Middleware
-spockT liftFun (SpockT app) =
-    C.spockAllT SafeRouter liftFun app
+spockT = spockLimT Nothing
+
+-- | Like @spockT@, but first argument is request size limit in bytes. Set to 'Nothing' to disable.
+spockLimT :: (MonadIO m)
+       => Maybe Word64
+       -> (forall a. m a -> IO a)
+       -> SpockT m ()
+       -> IO Wai.Middleware
+spockLimT mSizeLimit liftFun (SpockT app) =
+    C.spockAllT mSizeLimit SafeRouter liftFun app
 
 -- | Specify an action that will be run when the HTTP verb 'GET' and the given route match
 get :: MonadIO m => Path xs -> HVectElim xs (ActionT m ()) -> SpockT m ()

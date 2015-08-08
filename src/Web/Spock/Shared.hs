@@ -21,6 +21,8 @@ module Web.Spock.Shared
     , text, html, file, json, stream, response
       -- * Middleware helpers
     , middlewarePass, modifyVault, queryVault
+      -- * Configuration
+    , SpockCfg (..), defaultSpockCfg
       -- * Database
     , PoolOrConn (..), ConnBuilder (..), PoolCfg (..)
       -- * Accessing Database and State

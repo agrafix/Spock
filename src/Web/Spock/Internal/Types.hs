@@ -24,6 +24,7 @@ import Data.Hashable
 import Data.Pool
 import Data.Time.Clock ( UTCTime(..), NominalDiffTime )
 import Data.Typeable
+import Data.Word
 import Network.Wai
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
@@ -35,6 +36,29 @@ type SpockAllM r conn sess st a =
 -- | The SpockAction is the monad of all route-actions. You have access
 -- to the database, session and state of your application.
 type SpockAction conn sess st = ActionT (WebStateM conn sess st)
+
+-- | Spock configuration
+data SpockCfg conn sess st
+   = SpockCfg
+   { spc_initialState :: st
+     -- ^ initial application global state
+   , spc_database :: PoolOrConn conn
+     -- ^ See 'PoolOrConn'
+   , spc_sessionCfg :: SessionCfg sess
+     -- ^ See 'SessionCfg'
+   , spc_maxRequestSize :: Maybe Word64
+     -- ^ Maximum request size in bytes. 'Nothing' means no limit. Defaults to 5 MB in @defaultSpockCfg@.
+   }
+
+-- | Spock configuration with reasonable defaults
+defaultSpockCfg :: sess -> PoolOrConn conn -> st -> SpockCfg conn sess st
+defaultSpockCfg sess conn st =
+    SpockCfg
+    { spc_initialState = st
+    , spc_database = conn
+    , spc_sessionCfg = defaultSessionCfg sess
+    , spc_maxRequestSize = Just (5 * 1024 * 1024)
+    }
 
 -- | If Spock should take care of connection pooling, you need to configure
 -- it depending on what you need.

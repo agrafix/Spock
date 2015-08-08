@@ -1,12 +1,14 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DoAndIfThenElse #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE DeriveGeneric #-}
 module Web.Spock.Internal.Wire where
 
 import Control.Arrow ((***))
@@ -22,7 +24,10 @@ import Control.Monad.Error
 import Control.Monad.Reader.Class ()
 import Control.Monad.Trans.Resource
 import Data.Hashable
+import Data.IORef
 import Data.Maybe
+import Data.Typeable
+import Data.Word
 import GHC.Generics
 import Network.HTTP.Types.Header (ResponseHeaders)
 import Network.HTTP.Types.Method
@@ -125,7 +130,7 @@ data ActionInterupt
     | ActionError String
     | ActionDone
     | ActionMiddlewarePass
-    deriving (Show)
+    deriving (Show, Typeable)
 
 instance Monoid ActionInterupt where
     mempty = ActionDone
@@ -187,6 +192,10 @@ invalidReq =
 serverError :: ResponseState
 serverError =
     errorResponse status500 "500 - Internal Server Error!"
+
+sizeError :: ResponseState
+sizeError =
+    errorResponse status413 "413 - Request body too large!"
 
 type SpockAllT r m a =
     RegistryT r Wai.Middleware StdMethod m a
@@ -272,32 +281,78 @@ applyAction req mkEnv ((captures, selectedAction) : xs) =
          Right () ->
              return $ Just respState
 
-handleRequest :: MonadIO m => (forall a. m a -> IO a)
-              -> [(ParamMap, ActionT m ())]
-              -> InternalState
-              -> Wai.Application -> Wai.Application
-handleRequest registryLift allActions st coreApp req respond =
-    do (mkEnv, vaultVar, cleanUp) <- makeActionEnvironment st req
-       mRespState <-
-           registryLift (applyAction req mkEnv allActions)
-           `catch` \(e :: SomeException) ->
-              do putStrLn $ "Spock Error while handling " ++ show (Wai.pathInfo req) ++ ": " ++ show e
-                 return $ Just serverError
-       cleanUp
-       case mRespState of
-         Just respState ->
+handleRequest
+    :: MonadIO m
+    => Maybe Word64
+    -> (forall a. m a -> IO a)
+    -> [(ParamMap, ActionT m ())]
+    -> InternalState
+    -> Wai.Application -> Wai.Application
+handleRequest mLimit registryLift allActions st coreApp req respond =
+    do reqGo <-
+           case mLimit of
+             Nothing -> return req
+             Just lim -> requestSizeCheck lim req
+       handleRequest' registryLift allActions st coreApp reqGo respond
+
+handleRequest' :: MonadIO m => (forall a. m a -> IO a)
+               -> [(ParamMap, ActionT m ())]
+               -> InternalState
+               -> Wai.Application -> Wai.Application
+handleRequest' registryLift allActions st coreApp req respond =
+    do actEnv <-
+           (Left <$> makeActionEnvironment st req)
+           `catch` \(_ :: SizeException) ->
+               return (Right sizeError)
+       case actEnv of
+         Left (mkEnv, vaultVar, cleanUp) ->
+             do mRespState <-
+                    registryLift (applyAction req mkEnv allActions)
+                    `catch` \(_ :: SizeException) ->
+                        return (Just sizeError)
+                    `catch` \(e :: SomeException) ->
+                        do putStrLn $ "Spock Error while handling " ++ show (Wai.pathInfo req) ++ ": " ++ show e
+                           return $ Just serverError
+                cleanUp
+                case mRespState of
+                  Just respState ->
+                      respond $ respStateToResponse respState
+                  Nothing ->
+                      do newVault <- atomically $ readTVar vaultVar
+                         let req' = req { Wai.vault = V.union newVault (Wai.vault req) }
+                         coreApp req' respond
+         Right respState ->
              respond $ respStateToResponse respState
-         Nothing ->
-             do newVault <- atomically $ readTVar vaultVar
-                let req' = req { Wai.vault = V.union newVault (Wai.vault req) }
-                coreApp req' respond
+
+data SizeException
+    = SizeException
+    deriving (Show, Typeable)
+
+instance Exception SizeException
+
+requestSizeCheck :: Word64 -> Wai.Request -> IO Wai.Request
+requestSizeCheck maxSize req =
+    do currentSize <- newIORef 0
+       return $ req
+                  { Wai.requestBody =
+                        do bs <- Wai.requestBody req
+                           total <-
+                               atomicModifyIORef currentSize $ \sz ->
+                               let !nextSize = sz + fromIntegral (BS.length bs)
+                               in (nextSize, nextSize)
+                           if total >= maxSize
+                           then throwIO SizeException
+                           else return bs
+                  }
+
 
 buildMiddleware :: forall m r. (MonadIO m, AbstractRouter r, RouteAppliedAction r ~ ActionT m ())
-         => r
+         => Maybe Word64
+         -> r
          -> (forall a. m a -> IO a)
          -> SpockAllT r m ()
          -> IO Wai.Middleware
-buildMiddleware registryIf registryLift spockActions =
+buildMiddleware mLimit registryIf registryLift spockActions =
     do (_, getMatchingRoutes, middlewares) <-
            registryLift $ runRegistry registryIf spockActions
        let spockMiddleware = foldl (.) id middlewares
@@ -309,5 +364,5 @@ buildMiddleware registryIf registryLift spockActions =
               Right stdMethod ->
                   do let allActions = getMatchingRoutes stdMethod (Wai.pathInfo req)
                      runResourceT $ withInternalState $ \st ->
-                         handleRequest registryLift allActions st coreApp req respond
+                         handleRequest mLimit registryLift allActions st coreApp req respond
        return $ spockMiddleware . app

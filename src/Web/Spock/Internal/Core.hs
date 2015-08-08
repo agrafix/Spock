@@ -27,6 +27,7 @@ import Control.Monad.Error
 import Control.Monad.Trans.Reader
 import Control.Monad.Trans.Resource
 import Data.Pool
+import Data.Word
 import Prelude hiding (head)
 import Web.Routing.AbstractRouter
 import qualified Network.Wai as Wai
@@ -39,12 +40,10 @@ spockAll :: forall r conn sess st.
             , RouteAppliedAction r ~ ActionT (WebStateM conn sess st) ()
             )
          => r
-         -> SessionCfg sess
-         -> PoolOrConn conn
-         -> st
+         -> SpockCfg conn sess st
          -> SpockAllM r conn sess st ()
          -> IO Wai.Middleware
-spockAll regIf sessionCfg poolOrConn initialState defs =
+spockAll regIf spockCfg defs =
     do sessionMgr <- createSessionManager sessionCfg
        connectionPool <-
            case poolOrConn of
@@ -61,14 +60,19 @@ spockAll regIf sessionCfg poolOrConn initialState defs =
                , web_sessionMgr = sessionMgr
                , web_state = initialState
                }
-       spockAllT regIf (\m -> runResourceT $ runReaderT (runWebStateT m) internalState) $
+       spockAllT (spc_maxRequestSize spockCfg) regIf (\m -> runResourceT $ runReaderT (runWebStateT m) internalState)  $
                do defs
                   middleware (sm_middleware sessionMgr)
+    where
+      sessionCfg = spc_sessionCfg spockCfg
+      poolOrConn = spc_database spockCfg
+      initialState = spc_initialState spockCfg
 
 -- | Run a raw spock server on a defined port. If you don't need
 -- a custom base monad you can just supply 'id' as lift function.
 spockAllT :: (MonadIO m, AbstractRouter r, RouteAppliedAction r ~ ActionT m ())
-       => r
+       => Maybe Word64
+       -> r
        -> (forall a. m a -> IO a)
        -> SpockAllT r m ()
        -> IO Wai.Middleware

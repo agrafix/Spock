@@ -12,7 +12,7 @@ You should consider using that (see "Web.Spock.Safe") instead of this module. Th
 module Web.Spock.Simple
     ( -- * Spock's route definition monad
       spock, SpockM
-    , spockT, SpockT
+    , spockT, spockLimT, SpockT
      -- * Defining routes
     , SpockRoute, (<//>)
      -- * Hooking routes
@@ -36,6 +36,7 @@ import Control.Applicative
 import Control.Monad.Trans
 import Data.Monoid
 import Data.String
+import Data.Word
 import Network.HTTP.Types.Method
 import Prelude hiding (head)
 import Web.Routing.TextRouting
@@ -63,22 +64,30 @@ instance IsString SpockRoute where
 -- Spock works with database libraries that already implement connection pooling and
 -- with those that don't come with it out of the box. For more see the 'PoolOrConn' type.
 -- Use @runSpock@ to run the app or @spockAsApp@ to create a @Wai.Application@
-spock :: SessionCfg sess -> PoolOrConn conn -> st -> SpockM conn sess st () -> IO Wai.Middleware
-spock sessCfg poolOrConn initSt spockAppl =
-    C.spockAll TextRouter sessCfg poolOrConn initSt (runSpockT spockAppl')
+spock :: SpockCfg conn sess st -> SpockM conn sess st () -> IO Wai.Middleware
+spock cfg spockAppl =
+    C.spockAll TextRouter cfg (runSpockT spockAppl')
     where
       spockAppl' =
           do hookSafeActions
              spockAppl
 
 -- | Create a raw spock application with custom underlying monad
--- Use @runSpock@ to run the app or @spockAsApp@ to create a @Wai.Application@
+-- Use @runSpock@ to run the app or @spockAsApp@ to create a @Wai.Application@.
 spockT :: (MonadIO m)
        => (forall a. m a -> IO a)
        -> SpockT m ()
        -> IO Wai.Middleware
-spockT liftFun (SpockT app) =
-    C.spockAllT TextRouter liftFun app
+spockT = spockLimT Nothing
+
+-- | Like @spockT@, but the first argument is request size limit in bytes. Set to 'Nothing' to disable.
+spockLimT :: (MonadIO m)
+       => Maybe Word64
+       -> (forall a. m a -> IO a)
+       -> SpockT m ()
+       -> IO Wai.Middleware
+spockLimT mSizeLimit liftFun (SpockT app) =
+    C.spockAllT mSizeLimit TextRouter liftFun app
 
 -- | Combine two route components safely
 --
