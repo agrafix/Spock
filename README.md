@@ -10,7 +10,7 @@ For more information and tutorials, visit [spock.li](http://www.spock.li)
 ## Intro
 
 Hackage: [Spock](http://hackage.haskell.org/package/Spock)
-Tutorial: [Spock Tutorial](http://www.spock.li/tutorial/)
+Tutorial: [Spock Tutorial](https://www.spock.li/tutorial/)
 
 Another Haskell web framework for rapid development: This toolbox provides
 everything you need to get a quick start into web hacking with haskell:
@@ -42,7 +42,7 @@ main =
         text $ T.concat ["Echo: ", something]
 ```
 
-(read more at [Type-safe routing in Spock](http://www.spock.li/2015/04/19/type-safe_routing.html))
+(read more at [Type-safe routing in Spock](https://www.spock.li/2015/04/19/type-safe_routing.html))
 
 ## Usage (Simple)
 
