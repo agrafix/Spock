@@ -1,8 +1,8 @@
 language: haskell
 env:
 - GHCVER=7.6.3
-- GHCVER=7.8.3
-- GHCVER=7.10.1
+- GHCVER=7.8.4
+- GHCVER=7.10.2
 - GHCVER=head
 matrix:
   allow_failures:
@@ -38,7 +38,7 @@ deploy:
   username: AlexanderThiemann
   skip_cleanup: true
   on:
-    condition: "$GHCVER = 7.8.3"
+    condition: "$GHCVER = 7.8.4"
     tags: true
   password:
     secure: IX4eMDPtSCbNl/3yJpRsvgCsJ5KanCdyENqxQCxoVwe1cv1zK5lcqy2fwlJmFdCXPSuhxlWq9YIbmaOjPS316aGjMfNx+zw/+BQAyKvHU2HPXjAfUZElaVr4fHafL8s2QC/w3TkxjqrA1mGi9qKwX8iSFsxGccif62BmEGB7fQ8=
