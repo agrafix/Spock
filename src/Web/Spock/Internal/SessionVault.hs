@@ -12,6 +12,7 @@ import Control.Applicative
 import Control.Concurrent.STM (STM)
 import Control.Monad
 import Data.Hashable
+import Focus as F
 import qualified ListT as L
 import qualified STMContainers.Map as STMMap
 import qualified Data.Text as T
@@ -55,3 +56,10 @@ filterSessions cond sv =
                map getSessionKey $
                filter (not . cond) allVals
        forM_ deleteKeys $ flip deleteSession sv
+
+-- | Perform action on all sessions
+mapSessions :: IsSession s => (s -> STM s) -> SessionVault s -> STM ()
+mapSessions f sv@(SessionVault smap) =
+    do allVals <- toList sv
+       forM_ allVals $ \sess ->
+           STMMap.focus (F.adjustM f) (getSessionKey sess) smap

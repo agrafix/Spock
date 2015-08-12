@@ -1,5 +1,5 @@
 name:                Spock
-version:             0.8.0.0
+version:             0.8.1.0
 synopsis:            Another Haskell web framework for rapid development
 description:         This toolbox provides everything you need to get a quick start into web hacking with haskell:
                      .
@@ -57,6 +57,7 @@ library
                        case-insensitive >=1.1,
                        containers >=0.5,
                        directory >=1.2,
+                       focus >=0.1,
                        hashable >=1.2,
                        http-types >=0.8,
                        hvect >= 0.2,

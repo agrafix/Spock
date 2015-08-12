@@ -34,7 +34,7 @@ module Web.Spock.Shared
     , SessionPersistCfg(..), readShowSessionPersist
     , SessionId
     , getSessionId, readSession, writeSession
-    , modifySession, modifySession', modifyReadSession, clearAllSessions
+    , modifySession, modifySession', modifyReadSession, mapAllSessions, clearAllSessions
      -- * Internals for extending Spock
     , getSpockHeart, runSpockIO, WebStateM, WebState
     )
@@ -45,6 +45,7 @@ import Web.Spock.Internal.SessionManager
 import Web.Spock.Internal.Types
 import Web.Spock.Internal.CoreAction
 import Control.Monad
+import Control.Concurrent.STM (STM)
 import System.Directory
 import qualified Web.Spock.Internal.Wire as W
 import qualified Network.Wai as Wai
@@ -105,6 +106,13 @@ clearAllSessions :: SpockAction conn sess st ()
 clearAllSessions =
     do mgr <- getSessMgr
        sm_clearAllSessions mgr
+
+-- | Apply a transformation to all sessions. Be careful with this, as this
+-- may cause many STM transaction retries.
+mapAllSessions :: (sess -> STM sess) -> SpockAction conn sess st ()
+mapAllSessions f =
+    do mgr <- getSessMgr
+       sm_mapSessions mgr f
 
 -- | Simple session persisting configuration. DO NOT USE IN PRODUCTION
 readShowSessionPersist :: (Read a, Show a) => FilePath -> SessionPersistCfg a

@@ -55,6 +55,7 @@ createSessionManager cfg =
           , sm_writeSession = writeSessionImpl vaultKey cacheHM
           , sm_modifySession = modifySessionImpl vaultKey cacheHM
           , sm_clearAllSessions = clearAllSessionsImpl cacheHM
+          , sm_mapSessions = mapAllSessionsImpl cacheHM
           , sm_middleware = sessionMiddleware cfg vaultKey cacheHM
           , sm_addSafeAction = addSafeActionImpl vaultKey cacheHM
           , sm_lookupSafeAction = lookupSafeActionImpl vaultKey cacheHM
@@ -288,6 +289,15 @@ clearAllSessionsImpl :: SV.SessionVault (Session conn sess st)
                      -> SpockAction conn sess st ()
 clearAllSessionsImpl sessionRef =
     liftIO $ atomically $ SV.filterSessions (const False) sessionRef
+
+mapAllSessionsImpl ::
+    SV.SessionVault (Session conn sess st)
+    -> (sess -> STM sess)
+    -> SpockAction conn sess st ()
+mapAllSessionsImpl sessionRef f =
+    liftIO $ atomically $ flip SV.mapSessions sessionRef $ \sess ->
+        do newData <- f (sess_data sess)
+           return $ sess { sess_data = newData }
 
 housekeepSessions :: SessionCfg sess
                   -> SV.SessionVault (Session conn sess st)
