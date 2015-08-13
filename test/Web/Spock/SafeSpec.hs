@@ -7,6 +7,7 @@ import Web.Spock.FrameworkSpecHelper
 
 import Data.Monoid
 import Test.Hspec
+import qualified Test.Hspec.Wai as Test
 import qualified Data.Text as T
 
 app :: SpockT IO ()
@@ -58,10 +59,32 @@ routeRenderingSpec =
              let r3 = "blog" <//> (var :: Var Int) <//> (var :: Var T.Text)
              renderRoute r3 2 "BIIM" `shouldBe` "/blog/2/BIIM"
 
+ctxApp :: SpockT IO ()
+ctxApp =
+    prehook hook $
+    do get "test" $ getContext >>= text
+       post "test" $ getContext >>= text
+    where
+      hook =
+          do sid <- header "X-ApiKey"
+             case sid of
+               Just s -> return s
+               Nothing -> text "Missing ApiKey"
+
+ctxSpec :: Spec
+ctxSpec =
+    describe "Contexts" $
+    Test.with (spockAsApp $ spockT id ctxApp) $
+    it "should work" $
+       do Test.request "GET" "/test" [] "" `Test.shouldRespondWith` "Missing ApiKey"
+          Test.request "GET" "/test" [("X-ApiKey", "foo")] "" `Test.shouldRespondWith` "foo"
+          Test.request "POST" "/test" [("X-ApiKey", "foo")] "" `Test.shouldRespondWith` "foo"
+
 spec :: Spec
 spec =
     describe "SafeRouting" $
     do frameworkSpec (spockAsApp $ spockT id app)
+       ctxSpec
        routeRenderingSpec
        sizeLimitSpec $ \lim -> spockAsApp $ spockLimT (Just lim) id $
           post "size" $ body >>= bytes
