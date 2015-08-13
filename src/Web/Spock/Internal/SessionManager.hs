@@ -22,9 +22,8 @@ import Data.Time
 #else
 import System.Locale (defaultTimeLocale)
 #endif
-import System.Random
-import qualified Data.ByteString.Base64.URL as B64
-import qualified Data.ByteString.Char8 as BSC
+import qualified Crypto.Random as CR
+import qualified Data.ByteString.Base64 as B64
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
@@ -40,7 +39,8 @@ withSessionManager sessCfg =
 
 createSessionManager :: SessionCfg sess -> IO (SessionManager conn sess st)
 createSessionManager cfg =
-    do oldSess <- loadSessions
+    do pool <- CR.createEntropyPool
+       oldSess <- loadSessions
        cacheHM <-
            atomically $
            do mapV <- SV.newSessionVault
@@ -56,8 +56,8 @@ createSessionManager cfg =
           , sm_modifySession = modifySessionImpl vaultKey cacheHM
           , sm_clearAllSessions = clearAllSessionsImpl cacheHM
           , sm_mapSessions = mapAllSessionsImpl cacheHM
-          , sm_middleware = sessionMiddleware cfg vaultKey cacheHM
-          , sm_addSafeAction = addSafeActionImpl vaultKey cacheHM
+          , sm_middleware = sessionMiddleware pool cfg vaultKey cacheHM
+          , sm_addSafeAction = addSafeActionImpl pool vaultKey cacheHM
           , sm_lookupSafeAction = lookupSafeActionImpl vaultKey cacheHM
           , sm_removeSafeAction = removeSafeActionImpl vaultKey cacheHM
           , sm_closeSessionManager = killThread housekeepThread
@@ -127,17 +127,19 @@ readSessionBase vK sessionRef =
                   Just session ->
                       return session
 
-addSafeActionImpl :: V.Key SessionId
-                  -> SV.SessionVault (Session conn sess st)
-                  -> PackedSafeAction conn sess st
-                  -> SpockActionCtx ctx conn sess st SafeActionHash
-addSafeActionImpl vaultKey sessionMapVar safeAction =
+addSafeActionImpl ::
+    CR.EntropyPool
+    -> V.Key SessionId
+    -> SV.SessionVault (Session conn sess st)
+    -> PackedSafeAction conn sess st
+    -> SpockActionCtx ctx conn sess st SafeActionHash
+addSafeActionImpl pool vaultKey sessionMapVar safeAction =
     do base <- readSessionBase vaultKey sessionMapVar
        case HM.lookup safeAction (sas_reverse (sess_safeActions base)) of
          Just safeActionHash ->
              return safeActionHash
          Nothing ->
-             do safeActionHash <- liftIO (randomHash 40)
+             do safeActionHash <- liftIO (randomHash pool 40)
                 let f sas =
                         sas
                         { sas_forward = HM.insert safeActionHash safeAction (sas_forward sas)
@@ -194,11 +196,13 @@ modifySessionImpl vK sessionRef f =
                in (session { sess_data = sessData' }, out)
        modifySessionBase vK sessionRef modFun
 
-sessionMiddleware :: SessionCfg sess
-                  -> V.Key SessionId
-                  -> SV.SessionVault (Session conn sess st)
-                  -> Wai.Middleware
-sessionMiddleware cfg vK sessionRef app req respond =
+sessionMiddleware ::
+    CR.EntropyPool
+    -> SessionCfg sess
+    -> V.Key SessionId
+    -> SV.SessionVault (Session conn sess st)
+    -> Wai.Middleware
+sessionMiddleware pool cfg vK sessionRef app req respond =
     case getCookieFromReq (sc_cookieName cfg) of
       Just sid ->
           do mSess <- loadSessionImpl cfg sessionRef sid
@@ -241,15 +245,17 @@ sessionMiddleware cfg vK sessionRef app req respond =
               then mapReqHeaders (addCookie sess) unwrappedResp
               else unwrappedResp
       mkNew =
-          do newSess <- newSessionImpl cfg sessionRef defVal
+          do newSess <- newSessionImpl pool cfg sessionRef defVal
              withSess True newSess
 
-newSessionImpl :: SessionCfg sess
-               -> SV.SessionVault (Session conn sess st)
-               -> sess
-               -> IO (Session conn sess st)
-newSessionImpl sessCfg sessionRef content =
-    do sess <- createSession sessCfg content
+newSessionImpl ::
+    CR.EntropyPool
+    -> SessionCfg sess
+    -> SV.SessionVault (Session conn sess st)
+    -> sess
+    -> IO (Session conn sess st)
+newSessionImpl pool sessCfg sessionRef content =
+    do sess <- createSession pool sessCfg content
        atomically $ SV.storeSession sess sessionRef
        return $! sess
 
@@ -312,19 +318,17 @@ housekeepSessions cfg sessionRef storeSessions =
        storeSessions (HM.fromList $ map (\v -> (SV.getSessionKey v, v)) newStatus)
        threadDelay (1000 * 1000 * (round $ sc_housekeepingInterval cfg))
 
-createSession :: SessionCfg sess -> sess -> IO (Session conn sess st)
-createSession sessCfg content =
-    do sid <- randomHash (sc_sessionIdEntropy sessCfg)
+createSession :: CR.EntropyPool -> SessionCfg sess -> sess -> IO (Session conn sess st)
+createSession pool sessCfg content =
+    do sid <- randomHash pool (sc_sessionIdEntropy sessCfg)
        now <- getCurrentTime
        let validUntil = addUTCTime (sc_sessionTTL sessCfg) now
            emptySafeActions =
                SafeActionStore HM.empty HM.empty
        return (Session sid validUntil content emptySafeActions)
 
-randomHash :: Int -> IO T.Text
-randomHash len =
-    do gen <- g
-       return $ T.replace "=" "" $ T.decodeUtf8 $ B64.encode $ BSC.pack $
-              take len $ randoms gen
-    where
-      g = newStdGen :: IO StdGen
+randomHash :: CR.EntropyPool -> Int -> IO T.Text
+randomHash pool len =
+    do let sys :: CR.SystemRNG
+           sys = CR.cprgCreate pool
+       return $ T.replace "=" "" $ T.decodeUtf8 $ B64.encode $ fst $ CR.cprgGenerateWithEntropy len sys

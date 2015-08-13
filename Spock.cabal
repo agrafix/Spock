@@ -56,6 +56,7 @@ library
                        bytestring >=0.10,
                        case-insensitive >=1.1,
                        containers >=0.5,
+                       crypto-random >= 0.0.8,
                        directory >=1.2,
                        focus >=0.1,
                        hashable >=1.2,
@@ -103,7 +104,9 @@ test-suite spocktests
                        stm,
                        reroute,
                        text,
-                       wai
+                       unordered-containers,
+                       wai,
+                       wai-extra
 
   ghc-options: -Wall -fno-warn-orphans
 
