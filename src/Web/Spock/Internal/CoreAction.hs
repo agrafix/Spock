@@ -6,6 +6,7 @@ module Web.Spock.Internal.CoreAction
     ( ActionT
     , UploadedFile (..)
     , request, header, rawHeader, cookie, body, jsonBody, jsonBody'
+    , reqMethod
     , files, params, param, param', setStatus, setHeader, redirect
     , jumpNext, middlewarePass, modifyVault, queryVault
     , setCookie, setCookie', deleteCookie
@@ -33,6 +34,7 @@ import qualified Control.Monad.State as ST
 import Data.Monoid
 import Data.Time
 import Network.HTTP.Types.Header (HeaderName, ResponseHeaders)
+import Network.HTTP.Types.Method
 import Network.HTTP.Types.Status
 import Prelude hiding (head)
 #if MIN_VERSION_time(1,5,0)
@@ -89,6 +91,11 @@ preferredFormat =
        Just t ->
          return $ detectPreferredFormat t
 {-# INLINE preferredFormat #-}
+
+-- | Returns the current request method, e.g. 'GET'
+reqMethod :: MonadIO m => ActionCtxT ctx m StdMethod
+reqMethod = asks ri_method
+{-# INLINE reqMethod #-}
 
 -- | Get the raw request body
 body :: MonadIO m => ActionCtxT ctx m BS.ByteString
@@ -354,6 +361,7 @@ requireBasicAuth realmTitle authFun cont =
 -- Get the context of the current request
 getContext :: MonadIO m => ActionCtxT ctx m ctx
 getContext = asks ri_context
+{-# INLINE getContext #-}
 
 -- Run an Action in a different context
 runInContext :: MonadIO m => ctx' -> ActionCtxT ctx' m a -> ActionCtxT ctx m a
@@ -372,3 +380,4 @@ runInContext newCtx action =
          Left interupt ->
              throwError interupt
          Right d -> return d
+{-# INLINE runInContext #-}

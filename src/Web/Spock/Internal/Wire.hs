@@ -68,7 +68,8 @@ data VaultIf
 
 data RequestInfo ctx
    = RequestInfo
-   { ri_request :: !Wai.Request
+   { ri_method :: !StdMethod
+   , ri_request :: !Wai.Request
    , ri_params :: !(HM.HashMap CaptureVar T.Text)
    , ri_queryParams :: [(T.Text, T.Text)]
    , ri_files :: !(HM.HashMap T.Text UploadedFile)
@@ -212,8 +213,8 @@ middlewareToApp mw =
       fallbackApp :: Wai.Application
       fallbackApp _ respond = respond notFound
 
-makeActionEnvironment :: InternalState -> Wai.Request -> IO (ParamMap -> RequestInfo (), TVar V.Vault, IO ())
-makeActionEnvironment st req =
+makeActionEnvironment :: InternalState -> StdMethod -> Wai.Request -> IO (ParamMap -> RequestInfo (), TVar V.Vault, IO ())
+makeActionEnvironment st stdMethod req =
     do (bodyParams, bodyFiles) <- P.parseRequestBody (P.tempFileBackEnd st) req
        vaultVar <- liftIO $ newTVarIO (Wai.vault req)
        let vaultIf =
@@ -235,7 +236,8 @@ makeActionEnvironment st req =
            queryParams = postParams ++ getParams
        return ( \params ->
                     RequestInfo
-                    { ri_request = req
+                    { ri_method = stdMethod
+                    , ri_request = req
                     , ri_params = params
                     , ri_queryParams = queryParams
                     , ri_files = uploadedFiles
@@ -288,25 +290,29 @@ applyAction req mkEnv ((captures, selectedAction) : xs) =
 
 handleRequest
     :: MonadIO m
-    => Maybe Word64
+    => StdMethod
+    -> Maybe Word64
     -> (forall a. m a -> IO a)
     -> [(ParamMap, ActionT m ())]
     -> InternalState
     -> Wai.Application -> Wai.Application
-handleRequest mLimit registryLift allActions st coreApp req respond =
+handleRequest stdMethod mLimit registryLift allActions st coreApp req respond =
     do reqGo <-
            case mLimit of
              Nothing -> return req
              Just lim -> requestSizeCheck lim req
-       handleRequest' registryLift allActions st coreApp reqGo respond
+       handleRequest' stdMethod registryLift allActions st coreApp reqGo respond
 
-handleRequest' :: MonadIO m => (forall a. m a -> IO a)
-               -> [(ParamMap, ActionT m ())]
-               -> InternalState
-               -> Wai.Application -> Wai.Application
-handleRequest' registryLift allActions st coreApp req respond =
+handleRequest' ::
+    MonadIO m
+    => StdMethod
+    -> (forall a. m a -> IO a)
+    -> [(ParamMap, ActionT m ())]
+    -> InternalState
+    -> Wai.Application -> Wai.Application
+handleRequest' stdMethod registryLift allActions st coreApp req respond =
     do actEnv <-
-           (Left <$> makeActionEnvironment st req)
+           (Left <$> makeActionEnvironment st stdMethod req)
            `catch` \(_ :: SizeException) ->
                return (Right sizeError)
        case actEnv of
@@ -369,5 +375,5 @@ buildMiddleware mLimit registryIf registryLift spockActions =
               Right stdMethod ->
                   do let allActions = getMatchingRoutes stdMethod (Wai.pathInfo req)
                      runResourceT $ withInternalState $ \st ->
-                         handleRequest mLimit registryLift allActions st coreApp req respond
+                         handleRequest stdMethod mLimit registryLift allActions st coreApp req respond
        return $ spockMiddleware . app
