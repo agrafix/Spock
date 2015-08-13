@@ -13,8 +13,8 @@ the routing, read the corresponding blog post available at <http://www.spock.li/
 -}
 module Web.Spock.Safe
     ( -- * Spock's route definition monad
-      spock, SpockM
-    , spockT, spockLimT, SpockT
+      spock, SpockM, SpockCtxM
+    , spockT, spockLimT, SpockT, SpockCtxT
      -- * Defining routes
     , Path, root, Var, var, static, (<//>)
      -- * Rendering routes
@@ -34,26 +34,25 @@ where
 
 
 import Web.Spock.Shared
-import Web.Spock.Internal.CoreAction (runInContext)
 import Web.Spock.Internal.Types
 import qualified Web.Spock.Internal.Core as C
 
 import Control.Applicative
-import Control.Monad.Trans
 import Control.Monad.Reader
 import Data.HVect hiding (head)
 import Data.Monoid
 import Data.Word
 import Network.HTTP.Types.Method
 import Prelude hiding (head, uncurry, curry)
-import Web.Routing.SafeRouting hiding (renderRoute)
 import Web.Routing.AbstractRouter (swapMonad)
+import Web.Routing.SafeRouting hiding (renderRoute)
 import qualified Data.Text as T
 import qualified Network.HTTP.Types as Http
 import qualified Network.Wai as Wai
 import qualified Web.Routing.SafeRouting as SR
 
-type SpockM conn sess st a = SpockT (WebStateM conn sess st) a
+type SpockM conn sess st = SpockCtxM () conn sess st
+type SpockCtxM ctx conn sess st = SpockCtxT ctx (WebStateM conn sess st)
 
 type SpockT = SpockCtxT ()
 
@@ -136,7 +135,6 @@ delete = hookRoute DELETE
 -- | Specify an action that will be run when the HTTP verb 'PATCH' and the given route match
 patch :: (HasRep xs, MonadIO m) => Path xs -> HVectElim xs (ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
 patch = hookRoute PATCH
-
 
 -- | Specify an action that will be run before all subroutes. It can modify the requests current context
 prehook :: forall m ctx ctx'. MonadIO m => ActionCtxT ctx m ctx' -> SpockCtxT ctx' m () -> SpockCtxT ctx m ()

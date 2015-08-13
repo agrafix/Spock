@@ -9,13 +9,15 @@ module Web.Spock.Shared
     (-- * Helpers for running Spock
       runSpock, spockAsApp
      -- * Action types
-    , SpockAction, ActionT, W.ActionCtxT
+    , SpockAction, SpockActionCtx, ActionT, W.ActionCtxT
      -- * Handling requests
     , request, header, rawHeader, cookie
     , preferredFormat, ClientPreferredFormat(..)
     , body, jsonBody, jsonBody'
     , files, UploadedFile (..)
     , params, param, param'
+     -- * Working with context
+    , getContext, runInContext
      -- * Sending responses
     , setStatus, setHeader, redirect, jumpNext, setCookie, setCookie', deleteCookie, bytes, lazyBytes
     , text, html, file, json, stream, response
@@ -65,51 +67,51 @@ spockAsApp = liftM W.middlewareToApp
 
 -- | Get the current users sessionId. Note that this ID should only be
 -- shown to it's owner as otherwise sessions can be hijacked.
-getSessionId :: SpockAction conn sess st SessionId
+getSessionId :: SpockActionCtx ctx conn sess st SessionId
 getSessionId =
     getSessMgr >>= sm_getSessionId
 
 -- | Write to the current session. Note that all data is stored on the server.
 -- The user only reciedes a sessionId to be identified.
-writeSession :: sess -> SpockAction conn sess st ()
+writeSession :: sess -> SpockActionCtx ctx conn sess st ()
 writeSession d =
     do mgr <- getSessMgr
        sm_writeSession mgr d
 
 -- | Modify the stored session
-modifySession :: (sess -> sess) -> SpockAction conn sess st ()
+modifySession :: (sess -> sess) -> SpockActionCtx ctx conn sess st ()
 modifySession f =
     modifySession' $ \sess -> (f sess, ())
 
 -- | Modify the stored session and return a value
-modifySession' :: (sess -> (sess, a)) -> SpockAction conn sess st a
+modifySession' :: (sess -> (sess, a)) -> SpockActionCtx ctx conn sess st a
 modifySession' f =
     do mgr <- getSessMgr
        sm_modifySession mgr f
 
 -- | Modify the stored session and return the new value after modification
-modifyReadSession :: (sess -> sess) -> SpockAction conn sess st sess
+modifyReadSession :: (sess -> sess) -> SpockActionCtx ctx conn sess st sess
 modifyReadSession f =
     modifySession' $ \sess ->
         let x = f sess
         in (x, x)
 
 -- | Read the stored session
-readSession :: SpockAction conn sess st sess
+readSession :: SpockActionCtx ctx conn sess st sess
 readSession =
     do mgr <- getSessMgr
        sm_readSession mgr
 
 -- | Globally delete all existing sessions. This is useful for example if you want
 -- to require all users to relogin
-clearAllSessions :: SpockAction conn sess st ()
+clearAllSessions :: SpockActionCtx ctx conn sess st ()
 clearAllSessions =
     do mgr <- getSessMgr
        sm_clearAllSessions mgr
 
 -- | Apply a transformation to all sessions. Be careful with this, as this
 -- may cause many STM transaction retries.
-mapAllSessions :: (sess -> STM sess) -> SpockAction conn sess st ()
+mapAllSessions :: (sess -> STM sess) -> SpockActionCtx ctx conn sess st ()
 mapAllSessions f =
     do mgr <- getSessMgr
        sm_mapSessions mgr f

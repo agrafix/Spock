@@ -86,7 +86,7 @@ createSessionManager cfg =
 
 getSessionIdImpl :: V.Key SessionId
                  -> SV.SessionVault (Session conn sess st)
-                 -> SpockAction conn sess st SessionId
+                 -> SpockActionCtx ctx conn sess st SessionId
 getSessionIdImpl vK sessionRef =
     do sess <- readSessionBase vK sessionRef
        return $ sess_id sess
@@ -94,7 +94,7 @@ getSessionIdImpl vK sessionRef =
 modifySessionBase :: V.Key SessionId
                   -> SV.SessionVault (Session conn sess st)
                   -> (Session conn sess st -> (Session conn sess st, a))
-                  -> SpockAction conn sess st a
+                  -> SpockActionCtx ctx conn sess st a
 modifySessionBase vK sessionRef modFun =
     do req <- request
        case V.lookup vK (Wai.vault req) of
@@ -113,7 +113,7 @@ modifySessionBase vK sessionRef modFun =
 
 readSessionBase :: V.Key SessionId
                 -> SV.SessionVault (Session conn sess st)
-                -> SpockAction conn sess st (Session conn sess st)
+                -> SpockActionCtx ctx conn sess st (Session conn sess st)
 readSessionBase vK sessionRef =
     do req <- request
        case V.lookup vK (Wai.vault req) of
@@ -130,7 +130,7 @@ readSessionBase vK sessionRef =
 addSafeActionImpl :: V.Key SessionId
                   -> SV.SessionVault (Session conn sess st)
                   -> PackedSafeAction conn sess st
-                  -> SpockAction conn sess st SafeActionHash
+                  -> SpockActionCtx ctx conn sess st SafeActionHash
 addSafeActionImpl vaultKey sessionMapVar safeAction =
     do base <- readSessionBase vaultKey sessionMapVar
        case HM.lookup safeAction (sas_reverse (sess_safeActions base)) of
@@ -149,7 +149,7 @@ addSafeActionImpl vaultKey sessionMapVar safeAction =
 lookupSafeActionImpl :: V.Key SessionId
                      -> SV.SessionVault (Session conn sess st)
                      -> SafeActionHash
-                     -> SpockAction conn sess st (Maybe (PackedSafeAction conn sess st))
+                     -> SpockActionCtx ctx conn sess st (Maybe (PackedSafeAction conn sess st))
 lookupSafeActionImpl vaultKey sessionMapVar hash =
     do base <- readSessionBase vaultKey sessionMapVar
        return $ HM.lookup hash (sas_forward (sess_safeActions base))
@@ -157,7 +157,7 @@ lookupSafeActionImpl vaultKey sessionMapVar hash =
 removeSafeActionImpl :: V.Key SessionId
                      -> SV.SessionVault (Session conn sess st)
                      -> PackedSafeAction conn sess st
-                     -> SpockAction conn sess st ()
+                     -> SpockActionCtx ctx conn sess st ()
 removeSafeActionImpl vaultKey sessionMapVar action =
     modifySessionBase vaultKey sessionMapVar (\s -> (s { sess_safeActions = f (sess_safeActions s ) }, ()))
     where
@@ -172,7 +172,7 @@ removeSafeActionImpl vaultKey sessionMapVar action =
 
 readSessionImpl :: V.Key SessionId
                 -> SV.SessionVault (Session conn sess st)
-                -> SpockAction conn sess st sess
+                -> SpockActionCtx ctx conn sess st sess
 readSessionImpl vK sessionRef =
     do base <- readSessionBase vK sessionRef
        return (sess_data base)
@@ -180,14 +180,14 @@ readSessionImpl vK sessionRef =
 writeSessionImpl :: V.Key SessionId
                  -> SV.SessionVault (Session conn sess st)
                  -> sess
-                 -> SpockAction conn sess st ()
+                 -> SpockActionCtx ctx conn sess st ()
 writeSessionImpl vK sessionRef value =
     modifySessionImpl vK sessionRef (const (value, ()))
 
 modifySessionImpl :: V.Key SessionId
                   -> SV.SessionVault (Session conn sess st)
                   -> (sess -> (sess, a))
-                  -> SpockAction conn sess st a
+                  -> SpockActionCtx ctx conn sess st a
 modifySessionImpl vK sessionRef f =
     do let modFun session =
                let (sessData', out) = f (sess_data session)
@@ -286,14 +286,14 @@ deleteSessionImpl sessionRef sid =
     atomically $ SV.deleteSession sid sessionRef
 
 clearAllSessionsImpl :: SV.SessionVault (Session conn sess st)
-                     -> SpockAction conn sess st ()
+                     -> SpockActionCtx ctx conn sess st ()
 clearAllSessionsImpl sessionRef =
     liftIO $ atomically $ SV.filterSessions (const False) sessionRef
 
 mapAllSessionsImpl ::
     SV.SessionVault (Session conn sess st)
     -> (sess -> STM sess)
-    -> SpockAction conn sess st ()
+    -> SpockActionCtx ctx conn sess st ()
 mapAllSessionsImpl sessionRef f =
     liftIO $ atomically $ flip SV.mapSessions sessionRef $ \sess ->
         do newData <- f (sess_data sess)

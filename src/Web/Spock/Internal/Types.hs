@@ -9,7 +9,6 @@
 {-# LANGUAGE UndecidableInstances #-}
 module Web.Spock.Internal.Types where
 
-import Web.Spock.Internal.CoreAction
 import Web.Spock.Internal.Wire
 
 #if MIN_VERSION_base(4,8,0)
@@ -34,9 +33,12 @@ import qualified Data.Text as T
 type SpockAllM r conn sess st a =
     SpockAllT r (WebStateM conn sess st) a
 
--- | The SpockAction is the monad of all route-actions. You have access
--- to the database, session and state of your application.
-type SpockAction conn sess st = ActionT (WebStateM conn sess st)
+-- | The 'SpockAction' is the monad of all route-actions. You have access
+-- to the context of the request and database, session and state of your application.
+type SpockActionCtx ctx conn sess st = ActionCtxT ctx (WebStateM conn sess st)
+
+-- | The 'SpockAction' is a specialisation of 'SpockActionCtx' with a '()' context.
+type SpockAction conn sess st = SpockActionCtx () conn sess st
 
 -- | Spock configuration
 data SpockCfg conn sess st
@@ -197,15 +199,15 @@ instance Show (Session conn sess st) where
 
 data SessionManager conn sess st
    = SessionManager
-   { sm_getSessionId :: SpockAction conn sess st SessionId
-   , sm_readSession :: SpockAction conn sess st sess
-   , sm_writeSession :: sess -> SpockAction conn sess st ()
-   , sm_modifySession :: forall a. (sess -> (sess, a)) -> SpockAction conn sess st a
-   , sm_mapSessions :: (sess -> STM sess) -> SpockAction conn sess st ()
-   , sm_clearAllSessions :: SpockAction conn sess st ()
+   { sm_getSessionId :: forall ctx. SpockActionCtx ctx conn sess st SessionId
+   , sm_readSession :: forall ctx. SpockActionCtx ctx conn sess st sess
+   , sm_writeSession :: forall ctx. sess -> SpockActionCtx ctx conn sess st ()
+   , sm_modifySession :: forall a ctx. (sess -> (sess, a)) -> SpockActionCtx ctx conn sess st a
+   , sm_mapSessions :: forall ctx. (sess -> STM sess) -> SpockActionCtx ctx conn sess st ()
+   , sm_clearAllSessions :: forall ctx. SpockActionCtx ctx conn sess st ()
    , sm_middleware :: Middleware
-   , sm_addSafeAction :: PackedSafeAction conn sess st -> SpockAction conn sess st SafeActionHash
-   , sm_lookupSafeAction :: SafeActionHash -> SpockAction conn sess st (Maybe (PackedSafeAction conn sess st))
-   , sm_removeSafeAction :: PackedSafeAction conn sess st -> SpockAction conn sess st ()
+   , sm_addSafeAction :: forall ctx. PackedSafeAction conn sess st -> SpockActionCtx ctx conn sess st SafeActionHash
+   , sm_lookupSafeAction :: forall ctx. SafeActionHash -> SpockActionCtx ctx conn sess st (Maybe (PackedSafeAction conn sess st))
+   , sm_removeSafeAction :: forall ctx. PackedSafeAction conn sess st -> SpockActionCtx ctx conn sess st ()
    , sm_closeSessionManager :: IO ()
    }
