@@ -47,6 +47,8 @@ spockAll regIf spockCfg defs =
     do sessionMgr <- createSessionManager sessionCfg
        connectionPool <-
            case poolOrConn of
+             PCNoDatabase ->
+                 createPool (return ()) (const $ return ()) 5 60 5
              PCPool p ->
                  return p
              PCConn cb ->

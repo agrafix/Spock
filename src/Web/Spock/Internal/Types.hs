@@ -1,11 +1,12 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 module Web.Spock.Internal.Types where
 
@@ -82,9 +83,10 @@ data ConnBuilder a
 
 -- | You can feed Spock with either a connection pool, or instructions on how to build
 -- a connection pool. See 'ConnBuilder'
-data PoolOrConn a
-   = PCPool (Pool a)
-   | PCConn (ConnBuilder a)
+data PoolOrConn a where
+    PCPool :: Pool a -> PoolOrConn a
+    PCConn :: ConnBuilder a -> PoolOrConn a
+    PCNoDatabase :: PoolOrConn ()
 
 -- | Session configuration with reasonable defaults
 defaultSessionCfg :: a -> SessionCfg a

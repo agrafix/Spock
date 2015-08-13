@@ -117,7 +117,7 @@ sessionSpec =
                  do val <- readSession
                     text (T.pack $ show val)
       spockCfg =
-          defaultSpockCfg (0 :: Int) (PCPool undefined) True
+          defaultSpockCfg (0 :: Int) PCNoDatabase True
 
       getSessCookie :: Wai.SResponse -> Maybe T.Text
       getSessCookie resp =
