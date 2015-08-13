@@ -1,7 +1,8 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE DoAndIfThenElse #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE DoAndIfThenElse #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 module Web.Spock.Internal.Core
