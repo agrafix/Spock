@@ -11,6 +11,7 @@ module Web.Spock.Internal.CoreAction
     , setCookie, setCookie', deleteCookie
     , bytes, lazyBytes, text, html, file, json, stream, response
     , requireBasicAuth
+    , getContext, runInContext
     , preferredFormat, ClientPreferredFormat(..)
     )
 where
@@ -26,7 +27,9 @@ import Control.Monad.Except
 import Control.Monad.Error
 #endif
 import Control.Monad.Reader
+import Control.Monad.RWS.Strict (runRWST)
 import Control.Monad.State hiding (get, put)
+import qualified Control.Monad.State as ST
 import Data.Monoid
 import Data.Time
 import Network.HTTP.Types.Header (HeaderName, ResponseHeaders)
@@ -50,24 +53,24 @@ import qualified Data.Vault.Lazy as V
 import qualified Network.Wai as Wai
 
 -- | Get the original Wai Request object
-request :: MonadIO m => ActionT m Wai.Request
+request :: MonadIO m => ActionCtxT ctx m Wai.Request
 request = asks ri_request
 {-# INLINE request #-}
 
 -- | Read a header
-header :: MonadIO m => T.Text -> ActionT m (Maybe T.Text)
+header :: MonadIO m => T.Text -> ActionCtxT ctx m (Maybe T.Text)
 header t =
     liftM (fmap T.decodeUtf8) $ rawHeader (CI.mk (T.encodeUtf8 t))
 {-# INLINE header #-}
 
 -- | Read a header without converting it to text
-rawHeader :: MonadIO m => HeaderName -> ActionT m (Maybe BS.ByteString)
+rawHeader :: MonadIO m => HeaderName -> ActionCtxT ctx m (Maybe BS.ByteString)
 rawHeader t =
     liftM (lookup t . Wai.requestHeaders) request
 {-# INLINE rawHeader #-}
 
 -- | Read a cookie
-cookie :: MonadIO m => T.Text -> ActionT m (Maybe T.Text)
+cookie :: MonadIO m => T.Text -> ActionCtxT ctx m (Maybe T.Text)
 cookie name =
     do req <- request
        return $ lookup "cookie" (Wai.requestHeaders req) >>= lookup name . parseCookies . T.decodeUtf8
@@ -78,7 +81,7 @@ cookie name =
 {-# INLINE cookie #-}
 
 -- | Tries to dected the preferred format of the response using the Accept header
-preferredFormat :: MonadIO m => ActionT m ClientPreferredFormat
+preferredFormat :: MonadIO m => ActionCtxT ctx m ClientPreferredFormat
 preferredFormat =
   do mAccept <- header "accept"
      case mAccept of
@@ -88,7 +91,7 @@ preferredFormat =
 {-# INLINE preferredFormat #-}
 
 -- | Get the raw request body
-body :: MonadIO m => ActionT m BS.ByteString
+body :: MonadIO m => ActionCtxT ctx m BS.ByteString
 body =
     do req <- request
        let parseBody = liftIO $ Wai.requestBody req
@@ -101,14 +104,14 @@ body =
 {-# INLINE body #-}
 
 -- | Parse the request body as json
-jsonBody :: (MonadIO m, A.FromJSON a) => ActionT m (Maybe a)
+jsonBody :: (MonadIO m, A.FromJSON a) => ActionCtxT ctx m (Maybe a)
 jsonBody =
     do b <- body
        return $ A.decodeStrict b
 {-# INLINE jsonBody #-}
 
 -- | Parse the request body as json and fails with 500 status code on error
-jsonBody' :: (MonadIO m, A.FromJSON a) => ActionT m a
+jsonBody' :: (MonadIO m, A.FromJSON a) => ActionCtxT ctx m a
 jsonBody' =
     do b <- body
        case A.eitherDecodeStrict' b of
@@ -120,13 +123,13 @@ jsonBody' =
 {-# INLINE jsonBody' #-}
 
 -- | Get uploaded files
-files :: MonadIO m => ActionT m (HM.HashMap T.Text UploadedFile)
+files :: MonadIO m => ActionCtxT ctx m (HM.HashMap T.Text UploadedFile)
 files =
     asks ri_files
 {-# INLINE files #-}
 
 -- | Get all request params
-params :: MonadIO m => ActionT m [(T.Text, T.Text)]
+params :: MonadIO m => ActionCtxT ctx m [(T.Text, T.Text)]
 params =
     do p <- asks ri_params
        qp <- asks ri_queryParams
@@ -134,7 +137,7 @@ params =
 {-# INLINE params #-}
 
 -- | Read a request param. Spock looks in route captures first, then in POST variables and at last in GET variables
-param :: (PathPiece p, MonadIO m) => T.Text -> ActionT m (Maybe p)
+param :: (PathPiece p, MonadIO m) => T.Text -> ActionCtxT ctx m (Maybe p)
 param k =
     do p <- asks ri_params
        qp <- asks ri_queryParams
@@ -151,7 +154,7 @@ param k =
 {-# INLINE param #-}
 
 -- | Like 'param', but outputs an error when a param is missing
-param' :: (PathPiece p, MonadIO m) => T.Text -> ActionT m p
+param' :: (PathPiece p, MonadIO m) => T.Text -> ActionCtxT ctx m p
 param' k =
     do mParam <- param k
        case mParam of
@@ -163,7 +166,7 @@ param' k =
 {-# INLINE param' #-}
 
 -- | Set a response status
-setStatus :: MonadIO m => Status -> ActionT m ()
+setStatus :: MonadIO m => Status -> ActionCtxT ctx m ()
 setStatus s =
     modify $ \rs -> rs { rs_status = s }
 {-# INLINE setStatus #-}
@@ -172,7 +175,7 @@ setStatus s =
 -- is allowed to occur multiple times (as in RFC 2616), it will
 -- be appended. Otherwise the previous value is overwritten.
 -- See 'setMultiHeader'.
-setHeader :: MonadIO m => T.Text -> T.Text -> ActionT m ()
+setHeader :: MonadIO m => T.Text -> T.Text -> ActionCtxT ctx m ()
 setHeader k v =
     do let ciVal = CI.mk $ T.encodeUtf8 k
        case HM.lookup ciVal multiHeaderMap of
@@ -183,7 +186,7 @@ setHeader k v =
 {-# INLINE setHeader #-}
 
 -- | INTERNAL: Set a response header that can occur multiple times. (eg: Cache-Control)
-setMultiHeader :: MonadIO m => MultiHeader -> T.Text -> ActionT m ()
+setMultiHeader :: MonadIO m => MultiHeader -> T.Text -> ActionCtxT ctx m ()
 setMultiHeader k v =
     modify $ \rs ->
         rs
@@ -193,7 +196,7 @@ setMultiHeader k v =
 {-# INLINE setMultiHeader #-}
 
 -- | INTERNAL: Unsafely set a header (no checking if the header can occur multiple times)
-setHeaderUnsafe :: MonadIO m => T.Text -> T.Text -> ActionT m ()
+setHeaderUnsafe :: MonadIO m => T.Text -> T.Text -> ActionCtxT ctx m ()
 setHeaderUnsafe k v =
     modify $ \rs ->
         rs
@@ -204,12 +207,12 @@ setHeaderUnsafe k v =
 
 
 -- | Abort the current action and jump the next one matching the route
-jumpNext :: MonadIO m => ActionT m a
+jumpNext :: MonadIO m => ActionCtxT ctx m a
 jumpNext = throwError ActionTryNext
 {-# INLINE jumpNext #-}
 
 -- | Redirect to a given url
-redirect :: MonadIO m => T.Text -> ActionT m a
+redirect :: MonadIO m => T.Text -> ActionCtxT ctx m a
 redirect = throwError . ActionRedirect
 {-# INLINE redirect #-}
 
@@ -217,39 +220,39 @@ redirect = throwError . ActionRedirect
 -- this to pass request handling to the underlying application.
 -- If Spock is not uses as a middleware, or there is no underlying application
 -- this will result in 404 error.
-middlewarePass :: MonadIO m => ActionT m a
+middlewarePass :: MonadIO m => ActionCtxT ctx m a
 middlewarePass = throwError ActionMiddlewarePass
 {-# INLINE middlewarePass #-}
 
 -- | Modify the vault (useful for sharing data between middleware and app)
-modifyVault :: MonadIO m => (V.Vault -> V.Vault) -> ActionT m ()
+modifyVault :: MonadIO m => (V.Vault -> V.Vault) -> ActionCtxT ctx m ()
 modifyVault f =
     do vaultIf <- asks ri_vaultIf
        liftIO $ vi_modifyVault vaultIf f
 {-# INLINE modifyVault #-}
 
 -- | Query the vault
-queryVault :: MonadIO m => V.Key a -> ActionT m (Maybe a)
+queryVault :: MonadIO m => V.Key a -> ActionCtxT ctx m (Maybe a)
 queryVault k =
     do vaultIf <- asks ri_vaultIf
        liftIO $ vi_lookupKey vaultIf k
 {-# INLINE queryVault #-}
 
 -- | Set a cookie living for a given number of seconds
-setCookie :: MonadIO m => T.Text -> T.Text -> NominalDiffTime -> ActionT m ()
+setCookie :: MonadIO m => T.Text -> T.Text -> NominalDiffTime -> ActionCtxT ctx m ()
 setCookie name value validSeconds =
     do now <- liftIO getCurrentTime
        setCookie' name value (validSeconds `addUTCTime` now)
 {-# INLINE setCookie #-}
 
-deleteCookie :: MonadIO m => T.Text -> ActionT m ()
+deleteCookie :: MonadIO m => T.Text -> ActionCtxT ctx m ()
 deleteCookie name = setCookie' name T.empty epoch
   where
     epoch = UTCTime (fromGregorian 1970 1 1) (secondsToDiffTime 0)
 {-# INLINE deleteCookie #-}
 
 -- | Set a cookie living until a specific 'UTCTime'
-setCookie' :: MonadIO m => T.Text -> T.Text -> UTCTime -> ActionT m ()
+setCookie' :: MonadIO m => T.Text -> T.Text -> UTCTime -> ActionCtxT ctx m ()
 setCookie' name value validUntil =
     setMultiHeader MultiHeaderSetCookie rendered
     where
@@ -266,54 +269,54 @@ setCookie' name value validUntil =
 {-# INLINE setCookie' #-}
 
 -- | Use a custom 'Wai.Response' generator as response body.
-response :: MonadIO m => (Status -> ResponseHeaders -> Wai.Response) -> ActionT m a
+response :: MonadIO m => (Status -> ResponseHeaders -> Wai.Response) -> ActionCtxT ctx m a
 response val =
     do modify $ \rs -> rs { rs_responseBody = ResponseBody val }
        throwError ActionDone
 {-# INLINE response #-}
 
 -- | Send a 'ByteString' as response body. Provide your own "Content-Type"
-bytes :: MonadIO m => BS.ByteString -> ActionT m a
+bytes :: MonadIO m => BS.ByteString -> ActionCtxT ctx m a
 bytes val =
     lazyBytes $ BSL.fromStrict val
 {-# INLINE bytes #-}
 
 -- | Send a lazy 'ByteString' as response body. Provide your own "Content-Type"
-lazyBytes :: MonadIO m => BSL.ByteString -> ActionT m a
+lazyBytes :: MonadIO m => BSL.ByteString -> ActionCtxT ctx m a
 lazyBytes val =
     response $ \status headers -> Wai.responseLBS status headers val
 {-# INLINE lazyBytes #-}
 
 -- | Send text as a response body. Content-Type will be "text/plain"
-text :: MonadIO m => T.Text -> ActionT m a
+text :: MonadIO m => T.Text -> ActionCtxT ctx m a
 text val =
     do setHeaderUnsafe "Content-Type" "text/plain; charset=utf-8"
        bytes $ T.encodeUtf8 val
 {-# INLINE text #-}
 
 -- | Send a text as response body. Content-Type will be "text/html"
-html :: MonadIO m => T.Text -> ActionT m a
+html :: MonadIO m => T.Text -> ActionCtxT ctx m a
 html val =
     do setHeaderUnsafe "Content-Type" "text/html; charset=utf-8"
        bytes $ T.encodeUtf8 val
 {-# INLINE html #-}
 
 -- | Send a file as response
-file :: MonadIO m => T.Text -> FilePath -> ActionT m a
+file :: MonadIO m => T.Text -> FilePath -> ActionCtxT ctx m a
 file contentType filePath =
      do setHeaderUnsafe "Content-Type" contentType
         response $ \status headers -> Wai.responseFile status headers filePath Nothing
 {-# INLINE file #-}
 
 -- | Send json as response. Content-Type will be "application/json"
-json :: (A.ToJSON a, MonadIO m) => a -> ActionT m b
+json :: (A.ToJSON a, MonadIO m) => a -> ActionCtxT ctx m b
 json val =
     do setHeaderUnsafe "Content-Type" "application/json; charset=utf-8"
        lazyBytes $ A.encode val
 {-# INLINE json #-}
 
 -- | Use a 'Wai.StreamingBody' to generate a response.
-stream :: MonadIO m => Wai.StreamingBody -> ActionT m a
+stream :: MonadIO m => Wai.StreamingBody -> ActionCtxT ctx m a
 stream val =
     response $ \status headers -> Wai.responseStream status headers val
 {-# INLINE stream #-}
@@ -326,7 +329,7 @@ stream val =
 -- >   requireBasicAuth "Secret Page" (\user pass -> return (user == "admin" && pass == "1234")) $
 -- >   do html "This is top secret content. Login using that secret code I provided ;-)"
 --
-requireBasicAuth :: MonadIO m => T.Text -> (T.Text -> T.Text -> m Bool) -> ActionT m a -> ActionT m a
+requireBasicAuth :: MonadIO m => T.Text -> (T.Text -> T.Text -> m Bool) -> ActionCtxT ctx m a -> ActionCtxT ctx m a
 requireBasicAuth realmTitle authFun cont =
     do mAuthHeader <- header "Authorization"
        case mAuthHeader of
@@ -347,3 +350,25 @@ requireBasicAuth realmTitle authFun cont =
           do setStatus status401
              setMultiHeader MultiHeaderWWWAuth ("Basic realm=\"" <> realmTitle <> "\"")
              html "<h1>Authentication required.</h1>"
+
+-- Get the context of the current request
+getContext :: MonadIO m => ActionCtxT ctx m ctx
+getContext = asks ri_context
+
+-- Run an Action in a different context
+runInContext :: MonadIO m => ctx' -> ActionCtxT ctx' m a -> ActionCtxT ctx m a
+runInContext newCtx action =
+    do currentEnv <- ask
+       currentRespState <- ST.get
+       (r, newRespState, _) <-
+          lift $
+          do let env =
+                     currentEnv
+                     { ri_context = newCtx
+                     }
+             runRWST (runErrorT $ runActionCtxT action) env currentRespState
+       ST.put newRespState
+       case r of
+         Left interupt ->
+             throwError interupt
+         Right d -> return d

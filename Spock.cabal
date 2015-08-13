@@ -67,7 +67,7 @@ library
                        old-locale >=1.0,
                        path-pieces >=0.1.4,
                        random >=1.0,
-                       reroute >=0.3,
+                       reroute >=0.3.1,
                        resource-pool >=0.2,
                        resourcet >= 0.4,
                        stm >=2.4,

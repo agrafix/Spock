@@ -66,13 +66,14 @@ data VaultIf
    , vi_lookupKey :: forall a. V.Key a -> IO (Maybe a)
    }
 
-data RequestInfo
+data RequestInfo ctx
    = RequestInfo
-   { ri_request :: Wai.Request
-   , ri_params :: HM.HashMap CaptureVar T.Text
+   { ri_request :: !Wai.Request
+   , ri_params :: !(HM.HashMap CaptureVar T.Text)
    , ri_queryParams :: [(T.Text, T.Text)]
-   , ri_files :: HM.HashMap T.Text UploadedFile
-   , ri_vaultIf :: VaultIf
+   , ri_files :: !(HM.HashMap T.Text UploadedFile)
+   , ri_vaultIf :: !VaultIf
+   , ri_context :: !ctx
    }
 
 newtype ResponseBody = ResponseBody (Status -> ResponseHeaders -> Wai.Response)
@@ -147,12 +148,14 @@ instance Error ActionInterupt where
     strMsg = ActionError
 #endif
 
-newtype ActionT m a
-    = ActionT { runActionT :: ErrorT ActionInterupt (RWST RequestInfo () ResponseState m) a }
-      deriving (Monad, Functor, Applicative, Alternative, MonadIO, MonadReader RequestInfo, MonadState ResponseState, MonadError ActionInterupt)
+type ActionT = ActionCtxT ()
 
-instance MonadTrans ActionT where
-    lift = ActionT . lift . lift
+newtype ActionCtxT ctx m a
+    = ActionCtxT { runActionCtxT :: ErrorT ActionInterupt (RWST (RequestInfo ctx) () ResponseState m) a }
+      deriving (Monad, Functor, Applicative, Alternative, MonadIO, MonadReader (RequestInfo ctx), MonadState ResponseState, MonadError ActionInterupt)
+
+instance MonadTrans (ActionCtxT ctx) where
+    lift = ActionCtxT . lift . lift
 
 respStateToResponse :: ResponseState -> Wai.Response
 respStateToResponse (ResponseState headers multiHeaders status (ResponseBody body)) =
@@ -209,7 +212,7 @@ middlewareToApp mw =
       fallbackApp :: Wai.Application
       fallbackApp _ respond = respond notFound
 
-makeActionEnvironment :: InternalState -> Wai.Request -> IO (ParamMap -> RequestInfo, TVar V.Vault, IO ())
+makeActionEnvironment :: InternalState -> Wai.Request -> IO (ParamMap -> RequestInfo (), TVar V.Vault, IO ())
 makeActionEnvironment st req =
     do (bodyParams, bodyFiles) <- P.parseRequestBody (P.tempFileBackEnd st) req
        vaultVar <- liftIO $ newTVarIO (Wai.vault req)
@@ -237,6 +240,7 @@ makeActionEnvironment st req =
                     , ri_queryParams = queryParams
                     , ri_files = uploadedFiles
                     , ri_vaultIf = vaultIf
+                    , ri_context = ()
                     }
               , vaultVar
               , removeUploadedFiles uploadedFiles
@@ -250,7 +254,7 @@ removeUploadedFiles uploadedFiles =
 
 applyAction :: MonadIO m
             => Wai.Request
-            -> (ParamMap -> RequestInfo)
+            -> (ParamMap -> RequestInfo ())
             -> [(ParamMap, ActionT m ())]
             -> m (Maybe ResponseState)
 applyAction _ _ [] =
@@ -259,7 +263,7 @@ applyAction req mkEnv ((captures, selectedAction) : xs) =
     do let env = mkEnv captures
            defResp = errorResponse status200 ""
        (r, respState, _) <-
-           runRWST (runErrorT $ runActionT selectedAction) env defResp
+           runRWST (runErrorT $ runActionCtxT selectedAction) env defResp
        case r of
          Left (ActionRedirect loc) ->
              return $ Just $

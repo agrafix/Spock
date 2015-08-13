@@ -1,5 +1,7 @@
 flags: {}
 packages:
 - '.'
+- location: ../reroute
+  extra-dep: yes
 extra-deps: []
 resolver: nightly-2015-08-08

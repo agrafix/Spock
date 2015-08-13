@@ -20,7 +20,7 @@ module Web.Spock.Safe
      -- * Rendering routes
     , renderRoute
      -- * Hooking routes
-    , subcomponent
+    , subcomponent, prehook
     , get, post, getpost, head, put, delete, patch, hookRoute, hookAny
     , Http.StdMethod (..)
       -- * Adding Wai.Middleware
@@ -34,17 +34,20 @@ where
 
 
 import Web.Spock.Shared
+import Web.Spock.Internal.CoreAction (runInContext)
 import Web.Spock.Internal.Types
 import qualified Web.Spock.Internal.Core as C
 
 import Control.Applicative
 import Control.Monad.Trans
+import Control.Monad.Reader
 import Data.HVect hiding (head)
 import Data.Monoid
 import Data.Word
 import Network.HTTP.Types.Method
-import Prelude hiding (head)
+import Prelude hiding (head, uncurry, curry)
 import Web.Routing.SafeRouting hiding (renderRoute)
+import Web.Routing.AbstractRouter (swapMonad)
 import qualified Data.Text as T
 import qualified Network.HTTP.Types as Http
 import qualified Network.Wai as Wai
@@ -52,12 +55,22 @@ import qualified Web.Routing.SafeRouting as SR
 
 type SpockM conn sess st a = SpockT (WebStateM conn sess st) a
 
-newtype SpockT m a
-    = SpockT { runSpockT :: C.SpockAllT (SafeRouter (ActionT m) ()) m a
-             } deriving (Monad, Functor, Applicative, MonadIO)
+type SpockT = SpockCtxT ()
 
-instance MonadTrans SpockT where
-    lift = SpockT . lift
+newtype LiftHooked ctx m =
+    LiftHooked { unLiftHooked :: forall a. ActionCtxT ctx m a -> ActionCtxT () m a }
+
+injectHook :: LiftHooked ctx m -> (forall a. ActionCtxT ctx' m a -> ActionCtxT ctx m a) -> LiftHooked ctx' m
+injectHook (LiftHooked baseHook) nextHook =
+    LiftHooked $ baseHook . nextHook
+
+newtype SpockCtxT ctx m a
+    = SpockCtxT
+    { runSpockT :: C.SpockAllT (SafeRouter (ActionT m) ()) (ReaderT (LiftHooked ctx m) m) a
+    } deriving (Monad, Functor, Applicative, MonadIO)
+
+instance MonadTrans (SpockCtxT ctx) where
+    lift = SpockCtxT . lift . lift
 
 -- | Create a spock application using a given db storageLayer and an initial state.
 -- Spock works with database libraries that already implement connection pooling and
@@ -65,7 +78,7 @@ instance MonadTrans SpockT where
 -- Use @runSpock@ to run the app or @spockAsApp@ to create a @Wai.Application@
 spock :: SpockCfg conn sess st -> SpockM conn sess st () -> IO Wai.Middleware
 spock spockCfg spockAppl =
-    C.spockAll SafeRouter spockCfg (runSpockT spockAppl')
+    C.spockAll SafeRouter spockCfg (baseAppHook spockAppl')
     where
       spockAppl' =
           do hookSafeActions
@@ -81,50 +94,80 @@ spockT :: (MonadIO m)
 spockT = spockLimT Nothing
 
 -- | Like @spockT@, but first argument is request size limit in bytes. Set to 'Nothing' to disable.
-spockLimT :: (MonadIO m)
+spockLimT :: forall m .MonadIO m
        => Maybe Word64
        -> (forall a. m a -> IO a)
        -> SpockT m ()
        -> IO Wai.Middleware
-spockLimT mSizeLimit liftFun (SpockT app) =
-    C.spockAllT mSizeLimit SafeRouter liftFun app
+spockLimT mSizeLimit liftFun app =
+    C.spockAllT mSizeLimit SafeRouter liftFun (baseAppHook app)
+
+baseAppHook :: forall m. MonadIO m => SpockT m () -> C.SpockAllT (SafeRouter (ActionT m) ()) m ()
+baseAppHook app =
+    swapMonad lifter (runSpockT app)
+    where
+      lifter :: forall b. ReaderT (LiftHooked () m) m b -> m b
+      lifter action = runReaderT action (LiftHooked id)
 
 -- | Specify an action that will be run when the HTTP verb 'GET' and the given route match
-get :: MonadIO m => Path xs -> HVectElim xs (ActionT m ()) -> SpockT m ()
+get :: (HasRep xs, MonadIO m) => Path xs -> HVectElim xs (ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
 get = hookRoute GET
 
 -- | Specify an action that will be run when the HTTP verb 'POST' and the given route match
-post :: MonadIO m => Path xs -> HVectElim xs (ActionT m ()) -> SpockT m ()
+post :: (HasRep xs, MonadIO m) => Path xs -> HVectElim xs (ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
 post = hookRoute POST
 
 -- | Specify an action that will be run when the HTTP verb 'GET'/'POST' and the given route match
-getpost :: MonadIO m => Path xs -> HVectElim xs (ActionT m ()) -> SpockT m ()
+getpost :: (HasRep xs, MonadIO m) => Path xs -> HVectElim xs (ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
 getpost r a = hookRoute POST r a >> hookRoute GET r a
 
 -- | Specify an action that will be run when the HTTP verb 'HEAD' and the given route match
-head :: MonadIO m => Path xs -> HVectElim xs (ActionT m ()) -> SpockT m ()
+head :: (HasRep xs, MonadIO m) => Path xs -> HVectElim xs (ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
 head = hookRoute HEAD
 
 -- | Specify an action that will be run when the HTTP verb 'PUT' and the given route match
-put :: MonadIO m => Path xs -> HVectElim xs (ActionT m ()) -> SpockT m ()
+put :: (HasRep xs, MonadIO m) => Path xs -> HVectElim xs (ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
 put = hookRoute PUT
 
 -- | Specify an action that will be run when the HTTP verb 'DELETE' and the given route match
-delete :: MonadIO m => Path xs -> HVectElim xs (ActionT m ()) -> SpockT m ()
+delete :: (HasRep xs, MonadIO m) => Path xs -> HVectElim xs (ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
 delete = hookRoute DELETE
 
 -- | Specify an action that will be run when the HTTP verb 'PATCH' and the given route match
-patch :: MonadIO m => Path xs -> HVectElim xs (ActionT m ()) -> SpockT m ()
+patch :: (HasRep xs, MonadIO m) => Path xs -> HVectElim xs (ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
 patch = hookRoute PATCH
 
+
+-- | Specify an action that will be run before all subroutes. It can modify the requests current context
+prehook :: forall m ctx ctx'. MonadIO m => ActionCtxT ctx m ctx' -> SpockCtxT ctx' m () -> SpockCtxT ctx m ()
+prehook hook (SpockCtxT hookBody) =
+    SpockCtxT $
+    do prevHook <- lift ask
+       let newHook :: ActionCtxT ctx' m a -> ActionCtxT ctx m a
+           newHook act =
+               do newCtx <- hook
+                  runInContext newCtx act
+           hookLift :: forall a. ReaderT (LiftHooked ctx' m) m a -> ReaderT (LiftHooked ctx m) m a
+           hookLift a =
+               lift $ runReaderT a (injectHook prevHook newHook)
+       swapMonad hookLift hookBody
+
 -- | Specify an action that will be run when a HTTP verb and the given route match
-hookRoute :: Monad m => StdMethod -> Path xs -> HVectElim xs (ActionT m ()) -> SpockT m ()
-hookRoute m path action = SpockT $ C.hookRoute m (SafeRouterPath path) (HVectElim' action)
+hookRoute :: forall xs ctx m. (HasRep xs, Monad m) => StdMethod -> Path xs -> HVectElim xs (ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
+hookRoute m path action =
+    SpockCtxT $
+    do hookLift <- lift $ asks unLiftHooked
+       let actionPacker :: HVectElim xs (ActionCtxT ctx m ()) -> HVect xs -> ActionCtxT () m ()
+           actionPacker act captures = hookLift (uncurry act captures)
+       C.hookRoute m (SafeRouterPath path) (HVectElim' $ curry $ actionPacker action)
 
 -- | Specify an action that will be run when a HTTP verb matches but no defined route matches.
 -- The full path is passed as an argument
-hookAny :: Monad m => StdMethod -> ([T.Text] -> ActionT m ()) -> SpockT m ()
-hookAny m action = SpockT $ C.hookAny m action
+hookAny :: Monad m => StdMethod -> ([T.Text] -> ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
+hookAny m action =
+    SpockCtxT $
+    do hookLift <- lift $ asks unLiftHooked
+       C.hookAny m (hookLift . action)
 
 -- | Define a subcomponent. Usage example:
 --
@@ -136,12 +179,12 @@ hookAny m action = SpockT $ C.hookAny m action
 --
 -- The request \/site\/home will be routed to homeHandler and the
 -- request \/admin\/home will be routed to adminHomeHandler
-subcomponent :: Monad m => Path '[] -> SpockT m () -> SpockT m ()
-subcomponent p (SpockT subapp) = SpockT $ C.subcomponent (SafeRouterPath p) subapp
+subcomponent :: Monad m => Path '[] -> SpockCtxT ctx m () -> SpockCtxT ctx m ()
+subcomponent p (SpockCtxT subapp) = SpockCtxT $ C.subcomponent (SafeRouterPath p) subapp
 
 -- | Hook wai middleware into Spock
-middleware :: Monad m => Wai.Middleware -> SpockT m ()
-middleware = SpockT . C.middleware
+middleware :: Monad m => Wai.Middleware -> SpockCtxT ctx m ()
+middleware = SpockCtxT . C.middleware
 
 -- | Wire up a safe action: Safe actions are actions that are protected from
 -- csrf attacks. Here's a usage example:
