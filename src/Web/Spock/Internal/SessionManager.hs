@@ -311,11 +311,16 @@ housekeepSessions :: SessionCfg sess
                   -> IO ()
 housekeepSessions cfg sessionRef storeSessions =
     do now <- getCurrentTime
-       newStatus <-
+       (newStatus, oldStatus) <-
            atomically $
-           do SV.filterSessions (\sess -> sess_validUntil sess > now) sessionRef
-              SV.toList sessionRef
-       storeSessions (HM.fromList $ map (\v -> (SV.getSessionKey v, v)) newStatus)
+           do oldSt <- SV.toList sessionRef
+              SV.filterSessions (\sess -> sess_validUntil sess > now) sessionRef
+              (,) <$> SV.toList sessionRef <*> pure oldSt
+       let packSessionHm = HM.fromList . map (\v -> (SV.getSessionKey v, v))
+           oldHm = packSessionHm oldStatus
+           newHm = packSessionHm newStatus
+       storeSessions newHm
+       sh_removed (sc_hooks cfg) (HM.map sess_data $ oldHm `HM.difference` newHm)
        threadDelay (1000 * 1000 * (round $ sc_housekeepingInterval cfg))
 
 createSession :: CR.EntropyPool -> SessionCfg sess -> sess -> IO (Session conn sess st)

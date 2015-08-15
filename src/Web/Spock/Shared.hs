@@ -33,6 +33,7 @@ module Web.Spock.Shared
     , requireBasicAuth
      -- * Sessions
     , defaultSessionCfg, SessionCfg (..)
+    , defaultSessionHooks, SessionHooks (..)
     , SessionPersistCfg(..), readShowSessionPersist
     , SessionId
     , getSessionId, readSession, writeSession

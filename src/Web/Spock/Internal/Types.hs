@@ -99,6 +99,7 @@ defaultSessionCfg emptySession =
     , sc_emptySession = emptySession
     , sc_persistCfg = Nothing
     , sc_housekeepingInterval = 60 * 10
+    , sc_hooks = defaultSessionHooks
     }
 
 -- | Configuration for the session manager
@@ -118,6 +119,21 @@ data SessionCfg a
      -- ^ persistence interface for sessions
    , sc_housekeepingInterval :: NominalDiffTime
      -- ^ how often should the session manager check for dangeling dead sessions
+   , sc_hooks :: SessionHooks a
+     -- ^ hooks into the session manager
+   }
+
+-- | NOP session hooks
+defaultSessionHooks :: SessionHooks a
+defaultSessionHooks =
+    SessionHooks
+    { sh_removed = const $ return ()
+    }
+
+-- | Hook into the session manager to trigger custom behavior
+data SessionHooks a
+   = SessionHooks
+   { sh_removed :: HM.HashMap SessionId a -> IO ()
    }
 
 data SessionPersistCfg a
