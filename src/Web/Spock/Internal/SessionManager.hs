@@ -12,6 +12,10 @@ import Web.Spock.Internal.Util
 import qualified Web.Spock.Internal.SessionVault as SV
 
 import Control.Arrow (first)
+#if MIN_VERSION_base(4,8,0)
+#else
+import Control.Applicative
+#endif
 import Control.Concurrent
 import Control.Concurrent.STM
 import Control.Exception
