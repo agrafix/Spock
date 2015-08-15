@@ -34,7 +34,7 @@ import qualified Data.Text as T
 type SpockAllM r conn sess st a =
     SpockAllT r (WebStateM conn sess st) a
 
--- | The 'SpockAction' is the monad of all route-actions. You have access
+-- | The 'SpockActionCtx' is the monad of all route-actions. You have access
 -- to the context of the request and database, session and state of your application.
 type SpockActionCtx ctx conn sess st = ActionCtxT ctx (WebStateM conn sess st)
 

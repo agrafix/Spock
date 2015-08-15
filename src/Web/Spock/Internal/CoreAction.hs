@@ -143,7 +143,7 @@ params =
        return (qp ++ map (first unCaptureVar) (HM.toList p))
 {-# INLINE params #-}
 
--- | Read a request param. Spock looks in route captures first, then in POST variables and at last in GET variables
+-- | Read a request param. Spock looks in route captures first (in simple routing), then in POST variables and at last in GET variables
 param :: (PathPiece p, MonadIO m) => T.Text -> ActionCtxT ctx m (Maybe p)
 param k =
     do p <- asks ri_params
@@ -358,12 +358,12 @@ requireBasicAuth realmTitle authFun cont =
              setMultiHeader MultiHeaderWWWAuth ("Basic realm=\"" <> realmTitle <> "\"")
              html "<h1>Authentication required.</h1>"
 
--- Get the context of the current request
+-- | Get the context of the current request
 getContext :: MonadIO m => ActionCtxT ctx m ctx
 getContext = asks ri_context
 {-# INLINE getContext #-}
 
--- Run an Action in a different context
+-- | Run an Action in a different context
 runInContext :: MonadIO m => ctx' -> ActionCtxT ctx' m a -> ActionCtxT ctx m a
 runInContext newCtx action =
     do currentEnv <- ask
