@@ -41,6 +41,13 @@ app =
            do setCookie "multiple1" "test1" 3600
               setCookie "multiple2" "test2" 3600
               text "set"
+       get "set-header" $
+           do setHeader "X-FooBar" "Baz"
+              text "ok"
+       get "set-multi-header" $
+           do setHeader "Content-Language" "de"
+              setHeader "Content-Language" "en"
+              text "ok"
        hookAny GET $ text . T.intercalate "/"
 
 spec :: Spec

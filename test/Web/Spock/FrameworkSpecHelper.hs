@@ -38,6 +38,7 @@ frameworkSpec app =
     with app $
     do routingSpec
        actionSpec
+       headerTest
        cookieTest
 
 routingSpec :: SpecWith Wai.Application
@@ -99,6 +100,26 @@ cookieTest =
                   , matchHeaders =
                       [ matchCookie "multiple1" "test1"
                       , matchCookie "multiple2" "test2"
+                      ]
+                  }
+headerTest :: SpecWith Wai.Application
+headerTest =
+    describe "Headers" $
+    do it "supports custom headers" $
+          get "/set-header" `shouldRespondWith`
+                  "ok"
+                  { matchStatus = 200
+                  , matchHeaders =
+                      [ "X-FooBar" <:> "Baz"
+                      ]
+                  }
+       it "supports multi headers" $
+          get "/set-multi-header" `shouldRespondWith`
+                  "ok"
+                  { matchStatus = 200
+                  , matchHeaders =
+                      [ "Content-Language" <:> "de"
+                      , "Content-Language" <:> "en"
                       ]
                   }
 
