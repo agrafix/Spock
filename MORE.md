@@ -1,41 +1,3 @@
-Spock
-=====
-
-[![Build Status](https://travis-ci.org/agrafix/Spock.svg)](https://travis-ci.org/agrafix/Spock)
-[![Hackage](https://img.shields.io/hackage/v/Spock.svg)](http://hackage.haskell.org/package/Spock)
-
-## Intro
-
-Hackage: [Spock](http://hackage.haskell.org/package/Spock)
-Stackage: [Spock](https://www.stackage.org/package/Spock)
-
-Another Haskell web framework for rapid development
-
-
-## Library Usage Example
-
-```haskell
-{-# LANGUAGE OverloadedStrings #-}
-import Web.Spock
-
-import qualified Data.Text as T
-
-main =
-    runSpock 3000 $ spockT id $
-    do get ("echo" <//> var) $ \something ->
-        text $ T.concat ["Echo: ", something]
-
-```
-
-For more examples check the examples/ directory.
-
-## Install
-
-* Using cabal: `cabal install Spock`
-* Using Stack: `stack install Spock`
-* From Source (cabal): `git clone https://github.com/agrafix/Spock.git && cd Spock && cabal install`
-* From Source (stack): `git clone https://github.com/agrafix/Spock.git && cd Spock && stack build`
-
 ## Features
 
 Another Haskell web framework for rapid development: This toolbox provides
@@ -107,17 +69,3 @@ implementation differs from scotty's.
 
 * Tim Baumann [Github](https://github.com/timjb) (lot's of help with typesafe routing)
 * Tom Nielsen [Github](https://github.com/glutamate)  (much feedback and small improvements)
-
-
-## Misc
-
-### Supported GHC Versions
-
-* 7.6.3
-* 7.8.4
-* 7.10.2
-
-### License
-
-Released under the BSD3 license.
-(c) 2013 - 2015 Alexander Thiemann

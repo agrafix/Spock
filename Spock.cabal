@@ -121,4 +121,4 @@ benchmark spock-simple-example
 
 source-repository head
   type:     git
-  location: git://github.com/agrafix/Spock.git
+  location: https://github.com/agrafix/Spock
