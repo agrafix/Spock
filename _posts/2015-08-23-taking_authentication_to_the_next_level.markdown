@@ -19,7 +19,7 @@ main =
    runSpock 5000 $ spockT $
    get "some-action" $
    do () <- getContext
-   	  text "Context was (). Boring!"
+      text "Context was (). Boring!"
 {% endhighlight %}
 
 Now this isn't really much news and it does not seem very useful. That's why you can now register `prehook`s, that is actions that run before contained wired routes:
@@ -34,11 +34,11 @@ main =
    runSpock 5000 $ spockT $
    do get "some-action" $
         do () <- getContext
-   	       text "Context was (). Boring!"
-   	  prehook (return 42) $
-   	    get "other-action" $
-   	    do magicNumber <- getContext
-   	       text "And the magic number is: " <> (T.pack $ show magicNumber)
+           text "Context was (). Boring!"
+      prehook (return 42) $
+        get "other-action" $
+        do magicNumber <- getContext
+           text "And the magic number is: " <> (T.pack $ show magicNumber)
 {% endhighlight %}
 
 We've now hooked an action `return 42` before our `get "other-action"` route. The type of `prehook :: forall m ctx ctx'. MonadIO m => ActionCtxT ctx m ctx' -> SpockCtxT ctx' m () -> SpockCtxT ctx m ()` might seem a little bit complicated at first sight, but it really is not: You supply the action that runs in the current context `ctx` and return a new context `ctx'`. Then you supply new routes that will work on that context `ctx'`. The type "inside" the `prehook` in our example above would be `SpockCtxT Int m a` and `getContext` will thus return an `Int`.
@@ -55,8 +55,8 @@ requireUser action =
    do sess <- readSession
       mUser <- getUserFromSession sess
       case mUser of
-      	 Nothing -> text "Sorry, no access!"
-      	 Just user -> action user
+         Nothing -> text "Sorry, no access!"
+         Just user -> action user
 
 requireAdmin :: (Admin -> ActionT m a) -> ActionT m a
 -- ...
@@ -78,7 +78,7 @@ main =
       get "all-customers" $
         do allCustomersWithSecretData <- getCustomers
            json allCustomersWithSecretData
-   	  -- ...
+      -- ...
 {% endhighlight %}
 
 Oops, we even forgot to write `requireUser` for the `/all-customers` route, so now even not logged in users can access all our customers and their secret data. Not good!
@@ -107,8 +107,8 @@ authHook =
        sess <- readSession
        mUser <- getUserFromSession sess
        case mUser of
-      	   Nothing -> text "Sorry, no access!"
-      	   Just user -> return (user :&: oldCtx)
+           Nothing -> text "Sorry, no access!"
+           Just user -> return (user :&: oldCtx)
 {% endhighlight %}
 
 *`HVect` is a heterogenous strict list, learn more about heterogenous collections [here][hs-wiki-hlist]*
@@ -157,7 +157,7 @@ main =
                 json allCustomersWithSecretData
            prehook adminHook $
              get "admin-panel" $ text "Hi admin!"
-   	  -- ...
+      -- ...
 {% endhighlight %}
 
 Great! No more `requireUser` all over the place. Now let's make sure that the `getCustomers` function can only be called when a user is logged in:
