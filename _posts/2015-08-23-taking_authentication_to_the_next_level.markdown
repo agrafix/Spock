@@ -184,5 +184,5 @@ Looking forward to your Feedback on [Reddit][reddit-post] and [HackerNews][hn-po
 [typefamily]: https://wiki.haskell.org/GHC/Type_families
 [funblog-web-blog]: https://github.com/agrafix/funblog/blob/1324088e67fc14d471964763e95662195fe3e849/src/Web/Blog.hs
 [gh-issue]: https://github.com/agrafix/Spock/issues
-[reddit-post]: https://todo
-[hn-post]: https://todo
+[reddit-post]: https://www.reddit.com/r/haskell/comments/3i4d0b/spock_taking_authentication_to_the_next_level/
+[hn-post]: https://news.ycombinator.com/item?id=10106739
