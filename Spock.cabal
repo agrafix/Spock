@@ -110,15 +110,6 @@ test-suite spocktests
 
   ghc-options: -Wall -fno-warn-orphans
 
-benchmark spock-simple-example
-  type:                exitcode-stdio-1.0
-  ghc-options:         -auto-all -Wall -O2
-  hs-source-dirs:      examples/simple
-  main-is:             Main.hs
-  build-depends:
-    base,
-    Spock
-
 source-repository head
   type:     git
   location: https://github.com/agrafix/Spock
