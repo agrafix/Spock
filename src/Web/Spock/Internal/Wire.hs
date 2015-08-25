@@ -117,8 +117,27 @@ multiHeaderCI mh =
 
 multiHeaderMap :: HM.HashMap (CI.CI BS.ByteString) MultiHeader
 multiHeaderMap =
-    HM.fromList $ flip map [minBound..maxBound] $ \mh ->
+    HM.fromList $ flip map allHeaders $ \mh ->
     (multiHeaderCI mh, mh)
+    where
+      -- this is a nasty hack until we know more about the origin of
+      -- uncaught exception: ErrorCall (toEnum{MultiHeader}: tag (-12565) is outside of enumeration's range (0,12))
+      -- see: https://ghc.haskell.org/trac/ghc/ticket/10792 and https://github.com/agrafix/Spock/issues/44
+      allHeaders =
+          [ MultiHeaderCacheControl
+          , MultiHeaderConnection
+          , MultiHeaderContentEncoding
+          , MultiHeaderContentLanguage
+          , MultiHeaderPragma
+          , MultiHeaderProxyAuthenticate
+          , MultiHeaderTrailer
+          , MultiHeaderTransferEncoding
+          , MultiHeaderUpgrade
+          , MultiHeaderVia
+          , MultiHeaderWarning
+          , MultiHeaderWWWAuth
+          , MultiHeaderSetCookie
+          ]
 
 data ResponseState
    = ResponseState
