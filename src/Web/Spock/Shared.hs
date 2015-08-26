@@ -19,7 +19,7 @@ module Web.Spock.Shared
      -- * Working with context
     , getContext, runInContext
      -- * Sending responses
-    , setStatus, setHeader, redirect, jumpNext, setCookie, setCookie', deleteCookie, bytes, lazyBytes
+    , setStatus, setHeader, redirect, jumpNext, CookieSettings(..), defaultCookieSettings, CookieEOL(..), setCookie, deleteCookie, bytes, lazyBytes
     , text, html, file, json, stream, response
       -- * Middleware helpers
     , middlewarePass, modifyVault, queryVault

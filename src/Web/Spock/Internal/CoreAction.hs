@@ -2,14 +2,16 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE DoAndIfThenElse #-}
+{-# LANGUAGE RecordWildCards #-}
 module Web.Spock.Internal.CoreAction
     ( ActionT
     , UploadedFile (..)
     , request, header, rawHeader, cookie, body, jsonBody, jsonBody'
     , reqMethod
     , files, params, param, param', setStatus, setHeader, redirect
+    , CookieSettings(..), CookieEOL(..), defaultCookieSettings
+    , setCookie, deleteCookie
     , jumpNext, middlewarePass, modifyVault, queryVault
-    , setCookie, setCookie', deleteCookie
     , bytes, lazyBytes, text, html, file, json, stream, response
     , requireBasicAuth
     , getContext, runInContext
@@ -17,6 +19,7 @@ module Web.Spock.Internal.CoreAction
     )
 where
 
+import Web.Spock.Internal.Cookies
 import Web.Spock.Internal.Util
 import Web.Spock.Internal.Wire
 
@@ -37,10 +40,6 @@ import Network.HTTP.Types.Header (HeaderName, ResponseHeaders)
 import Network.HTTP.Types.Method
 import Network.HTTP.Types.Status
 import Prelude hiding (head)
-#if MIN_VERSION_time(1,5,0)
-#else
-import System.Locale (defaultTimeLocale)
-#endif
 import Web.PathPieces
 import Web.Routing.AbstractRouter
 import qualified Data.Aeson as A
@@ -245,36 +244,6 @@ queryVault k =
        liftIO $ vi_lookupKey vaultIf k
 {-# INLINE queryVault #-}
 
--- | Set a cookie living for a given number of seconds
-setCookie :: MonadIO m => T.Text -> T.Text -> NominalDiffTime -> ActionCtxT ctx m ()
-setCookie name value validSeconds =
-    do now <- liftIO getCurrentTime
-       setCookie' name value (validSeconds `addUTCTime` now)
-{-# INLINE setCookie #-}
-
-deleteCookie :: MonadIO m => T.Text -> ActionCtxT ctx m ()
-deleteCookie name = setCookie' name T.empty epoch
-  where
-    epoch = UTCTime (fromGregorian 1970 1 1) (secondsToDiffTime 0)
-{-# INLINE deleteCookie #-}
-
--- | Set a cookie living until a specific 'UTCTime'
-setCookie' :: MonadIO m => T.Text -> T.Text -> UTCTime -> ActionCtxT ctx m ()
-setCookie' name value validUntil =
-    setMultiHeader MultiHeaderSetCookie rendered
-    where
-      rendered =
-          let formattedTime =
-                  T.pack $ formatTime defaultTimeLocale "%a, %d-%b-%Y %X %Z" validUntil
-          in T.concat [ name
-                      , "="
-                      , value
-                      , "; path=/; expires="
-                      , formattedTime
-                      , ";"
-                      ]
-{-# INLINE setCookie' #-}
-
 -- | Use a custom 'Wai.Response' generator as response body.
 response :: MonadIO m => (Status -> ResponseHeaders -> Wai.Response) -> ActionCtxT ctx m a
 response val =
@@ -381,3 +350,18 @@ runInContext newCtx action =
              throwError interupt
          Right d -> return d
 {-# INLINE runInContext #-}
+
+setCookie :: MonadIO m => T.Text -> T.Text -> CookieSettings -> ActionCtxT ctx m ()
+setCookie name value cs =
+    do now <- liftIO getCurrentTime
+       let cookieHeaderString = generateCookieHeaderString name value cs now
+       setMultiHeader MultiHeaderSetCookie cookieHeaderString
+{-# INLINE setCookie #-}
+
+deleteCookie :: MonadIO m => T.Text -> ActionCtxT ctx m ()
+deleteCookie name = setCookie name T.empty cs
+  where
+    cs = defaultCookieSettings { cs_EOL = CookieValidUntil epoch }
+    epoch = UTCTime (fromGregorian 1970 1 1) (secondsToDiffTime 0)
+{-# INLINE deleteCookie #-}
+

@@ -37,6 +37,7 @@ library
   hs-source-dirs:      src
   exposed-modules:
                        Web.Spock,
+                       Web.Spock.Internal.Cookies,
                        Web.Spock.Internal.Util,
                        Web.Spock.Internal.SessionVault,
                        Web.Spock.Safe,
@@ -90,6 +91,7 @@ test-suite spocktests
   main-is:             Spec.hs
   other-modules:
                        Web.Spock.FrameworkSpecHelper,
+                       Web.Spock.Internal.CookiesSpec,
                        Web.Spock.Internal.UtilSpec,
                        Web.Spock.Internal.SessionVaultSpec,
                        Web.Spock.SafeSpec,
@@ -104,6 +106,7 @@ test-suite spocktests
                        stm,
                        reroute,
                        text,
+                       time,
                        unordered-containers,
                        wai,
                        wai-extra
