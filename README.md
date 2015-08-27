@@ -59,6 +59,7 @@ Benchmarks:
 
 * [Tutorial](https://www.spock.li/tutorial/)
 * [Type-safe routing in Spock](https://www.spock.li/2015/04/19/type-safe_routing.html) 
+* [Beginning Web Programming in Haskell (using Spock)](https://www.youtube.com/watch?v=GobPiGL9jJ4)
 
 ### Talks
 

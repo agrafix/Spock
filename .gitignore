@@ -10,3 +10,4 @@
 *.aux
 *.hp
 .stack-work/
+_site/
