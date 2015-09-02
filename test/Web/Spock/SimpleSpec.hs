@@ -35,11 +35,11 @@ app =
               PrefHTML -> text "html"
               x -> text (T.pack (show x))
        get "/cookie/single" $
-           do setCookie "single" "test" 3600
+           do setCookie "single" "test" defaultCookieSettings { cs_EOL = CookieValidFor 3600 }
               text "set"
        get "/cookie/multiple" $
-           do setCookie "multiple1" "test1" 3600
-              setCookie "multiple2" "test2" 3600
+           do setCookie "multiple1" "test1" defaultCookieSettings { cs_EOL = CookieValidFor 3600 }
+              setCookie "multiple2" "test2" defaultCookieSettings { cs_EOL = CookieValidFor 3600 }
               text "set"
        get "set-header" $
            do setHeader "X-FooBar" "Baz"
