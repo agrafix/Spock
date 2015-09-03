@@ -10,7 +10,7 @@ import Web.Spock.Internal.Cookies
 
 spec :: Spec
 spec =
-    describe "Generating Cookies" $
+    do describe "Generating Cookies" $
         do describe "with the default settings" $
             do let generated = g "foo" "bar" def
 
@@ -67,7 +67,22 @@ spec =
 
            describe "when setting the secure option" $
                it "should generate the secure key" $
-                   g "foo" "bar" def { cs_secure = True } `shouldContainOnce` "secure"
+                   g "foo" "bar" def { cs_secure = True } `shouldContainOnce` "Secure"
+
+           describe "cookie value" $
+               it "should be urlencoded" $
+                   g "foo" "most+special chars;%бисквитки" def `shouldContainOnce`
+                     "foo=most%2Bspecial%20chars%3B%25%D0%B1%D0%B8%D1%81%D0%BA%D0%B2%D0%B8%D1%82%D0%BA%D0%B8"
+
+       describe "Parsing cookies" $
+           do it "should parse urlencoded multiple cookies" $
+                  parseCookies "foo=bar;quux=h&m" `shouldBe` [("foo", "bar"), ("quux", "h&m")]
+
+              it "should parse urlencoded values" $
+                 parseCookies "foo=most%2Bspecial%20chars%3B%25" `shouldBe` [("foo", "most+special chars;%")]
+
+              it "should parse urlencoded utf-8 content" $
+                 parseCookies "foo=%D0%B1%D0%B8%D1%81%D0%BA%D0%B2%D0%B8%D1%82%D0%BA%D0%B8" `shouldBe` [("foo", "бисквитки")]
 
   where
       g n v cs = generateCookieHeaderString n v cs t

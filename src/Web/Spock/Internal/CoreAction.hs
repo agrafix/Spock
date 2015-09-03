@@ -74,11 +74,7 @@ rawHeader t =
 cookie :: MonadIO m => T.Text -> ActionCtxT ctx m (Maybe T.Text)
 cookie name =
     do req <- request
-       return $ lookup "cookie" (Wai.requestHeaders req) >>= lookup name . parseCookies . T.decodeUtf8
-    where
-      parseCookies :: T.Text -> [(T.Text, T.Text)]
-      parseCookies = map parseCookie . T.splitOn ";" . T.concat . T.words
-      parseCookie = first T.init . T.breakOnEnd "="
+       return $ lookup "cookie" (Wai.requestHeaders req) >>= lookup name . parseCookies
 {-# INLINE cookie #-}
 
 -- | Tries to dected the preferred format of the response using the Accept header

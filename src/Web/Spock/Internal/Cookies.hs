@@ -7,15 +7,19 @@ module Web.Spock.Internal.Cookies
     , defaultCookieSettings
     , CookieEOL(..)
     , generateCookieHeaderString
+    , parseCookies
     )
 where
 
-import           Data.Monoid            ((<>))
-import qualified Data.Text              as T
+import qualified Data.ByteString.Char8   as BS
+import           Data.Monoid             ((<>))
+import           Data.String.Conversions (cs)
+import qualified Data.Text               as T
 import           Data.Time
+import qualified Network.HTTP.Types.URI  as URI (urlEncode, urlDecode)
 #if MIN_VERSION_time(1,5,0)
 #else
-import           System.Locale          (defaultTimeLocale)
+import           System.Locale           (defaultTimeLocale)
 #endif
 
 data CookieSettings = CookieSettings { cs_EOL      :: CookieEOL
@@ -48,11 +52,11 @@ generateCookieHeaderString name value CookieSettings{..} now =
                                                , secure
                                                ]
   where
-      nv       = T.concat [name, "=", value]
+      nv       = T.concat [name, "=", urlEncode value]
       path     = T.concat ["path=", cs_path]
       domain   = if T.null cs_domain then T.empty else T.concat ["domain=", cs_domain]
       httpOnly = if cs_HTTPOnly then "HttpOnly" else T.empty
-      secure   = if cs_secure then "secure" else T.empty
+      secure   = if cs_secure then "Secure" else T.empty
 
       maxAge = case cs_EOL of
           CookieValidForSession -> T.empty
@@ -72,4 +76,15 @@ generateCookieHeaderString name value CookieSettings{..} now =
       expiresValue :: UTCTime -> T.Text
       expiresValue t =
           T.pack $ formatTime defaultTimeLocale "%a, %d %b %Y %X %Z" t
+
+      urlEncode :: T.Text -> T.Text
+      urlEncode = cs . URI.urlEncode True . cs
+
+parseCookies :: BS.ByteString -> [(T.Text, T.Text)]
+parseCookies = map parseCookie . BS.split ';'
+  where
+    parseCookie :: BS.ByteString -> (T.Text, T.Text)
+    parseCookie cstr =
+        let (name, urlEncValue) = BS.break (== '=') cstr
+        in  (cs name, cs . URI.urlDecode True . BS.drop 1 $ urlEncValue)
 
