@@ -3,7 +3,7 @@
 module Web.Spock.Internal.CookiesSpec (spec) where
 
 import Test.Hspec
-import qualified Data.Text as T
+import qualified Data.ByteString as BS
 import Data.Time
 
 import Web.Spock.Internal.Cookies
@@ -30,10 +30,10 @@ spec =
                    generated `shouldNotContain'` "domain="
 
                it "should not generate a httponly key" $
-                   T.toLower generated `shouldNotContain'` "httponly"
+                   generated `shouldNotContain'` "HttpOnly"
 
                it "should not generate a secure key" $
-                   T.toLower generated `shouldNotContain'` "secure"
+                   generated `shouldNotContain'` "Secure"
 
            describe "when setting an expiration time in the future" $
             do let generated = g "foo" "bar" def { cs_EOL = CookieValidUntil (UTCTime (fromGregorian 2016 1 1) 0) }
@@ -89,6 +89,6 @@ spec =
       def      = defaultCookieSettings
       t        = UTCTime (fromGregorian 2015 9 1) (21*60*60)
 
-      shouldContainOnce haystack needle = T.count needle haystack `shouldBe` 1
-      shouldNotContain' haystack needle = T.count needle haystack `shouldBe` 0
+      shouldContainOnce haystack needle = snd (BS.breakSubstring needle haystack) `shouldNotBe` BS.empty
+      shouldNotContain' haystack needle = snd (BS.breakSubstring needle haystack) `shouldBe` BS.empty
 

@@ -13,8 +13,8 @@ where
 
 import qualified Data.ByteString.Char8   as BS
 import           Data.Monoid             ((<>))
-import           Data.String.Conversions (cs)
 import qualified Data.Text               as T
+import qualified Data.Text.Encoding      as T
 import           Data.Time
 import qualified Network.HTTP.Types.URI  as URI (urlEncode, urlDecode)
 #if MIN_VERSION_time(1,5,0)
@@ -23,8 +23,8 @@ import           System.Locale           (defaultTimeLocale)
 #endif
 
 data CookieSettings = CookieSettings { cs_EOL      :: CookieEOL
-                                     , cs_path     :: T.Text
-                                     , cs_domain   :: T.Text
+                                     , cs_path     :: BS.ByteString
+                                     , cs_domain   :: BS.ByteString
                                      , cs_HTTPOnly :: Bool
                                      , cs_secure   :: Bool
                                      }
@@ -37,48 +37,48 @@ defaultCookieSettings :: CookieSettings
 defaultCookieSettings = CookieSettings { cs_EOL      = CookieValidForSession
                                        , cs_HTTPOnly = False
                                        , cs_secure   = False
-                                       , cs_domain   = T.empty
+                                       , cs_domain   = BS.empty
                                        , cs_path     = "/"
                                        }
 
-generateCookieHeaderString :: T.Text -> T.Text -> CookieSettings -> UTCTime -> T.Text
+generateCookieHeaderString :: T.Text -> T.Text -> CookieSettings -> UTCTime -> BS.ByteString
 generateCookieHeaderString name value CookieSettings{..} now =
-    T.intercalate "; " $ filter (not . T.null) [ nv
-                                               , domain
-                                               , path
-                                               , maxAge
-                                               , expires
-                                               , httpOnly
-                                               , secure
-                                               ]
+    BS.intercalate "; " $ filter (not . BS.null) [ nv
+                                                 , domain
+                                                 , path
+                                                 , maxAge
+                                                 , expires
+                                                 , httpOnly
+                                                 , secure
+                                                 ]
   where
-      nv       = T.concat [name, "=", urlEncode value]
-      path     = T.concat ["path=", cs_path]
-      domain   = if T.null cs_domain then T.empty else T.concat ["domain=", cs_domain]
-      httpOnly = if cs_HTTPOnly then "HttpOnly" else T.empty
-      secure   = if cs_secure then "Secure" else T.empty
+      nv       = BS.concat [T.encodeUtf8 name, "=", urlEncode value]
+      path     = BS.concat ["path=", cs_path]
+      domain   = if BS.null cs_domain then BS.empty else BS.concat ["domain=", cs_domain]
+      httpOnly = if cs_HTTPOnly then "HttpOnly" else BS.empty
+      secure   = if cs_secure then "Secure" else BS.empty
 
       maxAge = case cs_EOL of
-          CookieValidForSession -> T.empty
+          CookieValidForSession -> BS.empty
           CookieValidFor n      -> "max-age=" <> maxAgeValue n
           CookieValidUntil t    -> "max-age=" <> maxAgeValue (diffUTCTime t now)
 
       expires = case cs_EOL of
-          CookieValidForSession -> T.empty
+          CookieValidForSession -> BS.empty
           CookieValidFor n      -> "expires=" <> expiresValue (addUTCTime n now)
           CookieValidUntil t    -> "expires=" <> expiresValue t
 
-      maxAgeValue :: NominalDiffTime -> T.Text
+      maxAgeValue :: NominalDiffTime -> BS.ByteString
       maxAgeValue nrOfSeconds =
           let v = round (max nrOfSeconds 0) :: Integer
-          in  T.pack (show v)
+          in  BS.pack (show v)
 
-      expiresValue :: UTCTime -> T.Text
+      expiresValue :: UTCTime -> BS.ByteString
       expiresValue t =
-          T.pack $ formatTime defaultTimeLocale "%a, %d %b %Y %X %Z" t
+          BS.pack $ formatTime defaultTimeLocale "%a, %d %b %Y %X %Z" t
 
-      urlEncode :: T.Text -> T.Text
-      urlEncode = cs . URI.urlEncode True . cs
+      urlEncode :: T.Text -> BS.ByteString
+      urlEncode = URI.urlEncode True . T.encodeUtf8
 
 parseCookies :: BS.ByteString -> [(T.Text, T.Text)]
 parseCookies = map parseCookie . BS.split ';'
@@ -86,5 +86,5 @@ parseCookies = map parseCookie . BS.split ';'
     parseCookie :: BS.ByteString -> (T.Text, T.Text)
     parseCookie cstr =
         let (name, urlEncValue) = BS.break (== '=') cstr
-        in  (cs name, cs . URI.urlDecode True . BS.drop 1 $ urlEncValue)
+        in  (T.decodeUtf8 name, T.decodeUtf8 . URI.urlDecode True . BS.drop 1 $ urlEncValue)
 
