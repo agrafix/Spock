@@ -24,7 +24,7 @@ import           System.Locale           (defaultTimeLocale)
 
 data CookieSettings = CookieSettings { cs_EOL      :: CookieEOL
                                      , cs_path     :: BS.ByteString
-                                     , cs_domain   :: BS.ByteString
+                                     , cs_domain   :: Maybe BS.ByteString
                                      , cs_HTTPOnly :: Bool
                                      , cs_secure   :: Bool
                                      }
@@ -37,7 +37,7 @@ defaultCookieSettings :: CookieSettings
 defaultCookieSettings = CookieSettings { cs_EOL      = CookieValidForSession
                                        , cs_HTTPOnly = False
                                        , cs_secure   = False
-                                       , cs_domain   = BS.empty
+                                       , cs_domain   = Nothing
                                        , cs_path     = "/"
                                        }
 
@@ -54,7 +54,9 @@ generateCookieHeaderString name value CookieSettings{..} now =
   where
       nv       = BS.concat [T.encodeUtf8 name, "=", urlEncode value]
       path     = BS.concat ["path=", cs_path]
-      domain   = if BS.null cs_domain then BS.empty else BS.concat ["domain=", cs_domain]
+      domain   = case cs_domain of
+                    Nothing -> BS.empty
+                    Just d  -> BS.concat ["domain=", d]
       httpOnly = if cs_HTTPOnly then "HttpOnly" else BS.empty
       secure   = if cs_secure then "Secure" else BS.empty
 

@@ -59,7 +59,7 @@ spec =
 
            describe "when setting the domain" $
                it "should generate the correct domain pair" $
-                   g "foo" "bar" def { cs_domain = "example.org" } `shouldContainOnce` "domain=example.org"
+                   g "foo" "bar" def { cs_domain = Just "example.org" } `shouldContainOnce` "domain=example.org"
 
            describe "when setting the httponly option" $
                it "should generate the httponly key" $
