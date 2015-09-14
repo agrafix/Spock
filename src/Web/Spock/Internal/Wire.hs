@@ -206,6 +206,19 @@ errorResponse s e =
                    ]
     }
 
+defResponse :: ResponseState
+defResponse =
+    ResponseState
+    { rs_responseHeaders =
+          HM.empty
+    , rs_multiResponseHeaders =
+          HM.empty
+    , rs_status = status200
+    , rs_responseBody = ResponseBody $ \status headers ->
+        Wai.responseLBS status headers $
+        BSL.empty
+    }
+
 notFound :: Wai.Response
 notFound =
     respStateToResponse $ errorResponse status404 "404 - File not found"
@@ -283,9 +296,8 @@ applyAction _ _ [] =
     return $ Just $ errorResponse status404 "404 - File not found"
 applyAction req mkEnv ((captures, selectedAction) : xs) =
     do let env = mkEnv captures
-           defResp = errorResponse status200 ""
        (r, respState, _) <-
-           runRWST (runErrorT $ runActionCtxT selectedAction) env defResp
+           runRWST (runErrorT $ runActionCtxT selectedAction) env defResponse
        case r of
          Left (ActionRedirect loc) ->
              return $ Just $
