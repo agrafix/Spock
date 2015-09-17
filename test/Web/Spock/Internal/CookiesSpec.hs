@@ -3,14 +3,14 @@
 module Web.Spock.Internal.CookiesSpec (spec) where
 
 import Test.Hspec
-import qualified Data.Text as T
+import qualified Data.ByteString as BS
 import Data.Time
 
 import Web.Spock.Internal.Cookies
 
 spec :: Spec
 spec =
-    describe "Generating Cookies" $
+    do describe "Generating Cookies" $
         do describe "with the default settings" $
             do let generated = g "foo" "bar" def
 
@@ -30,10 +30,10 @@ spec =
                    generated `shouldNotContain'` "domain="
 
                it "should not generate a httponly key" $
-                   T.toLower generated `shouldNotContain'` "httponly"
+                   generated `shouldNotContain'` "HttpOnly"
 
                it "should not generate a secure key" $
-                   T.toLower generated `shouldNotContain'` "secure"
+                   generated `shouldNotContain'` "Secure"
 
            describe "when setting an expiration time in the future" $
             do let generated = g "foo" "bar" def { cs_EOL = CookieValidUntil (UTCTime (fromGregorian 2016 1 1) 0) }
@@ -59,7 +59,7 @@ spec =
 
            describe "when setting the domain" $
                it "should generate the correct domain pair" $
-                   g "foo" "bar" def { cs_domain = "example.org" } `shouldContainOnce` "domain=example.org"
+                   g "foo" "bar" def { cs_domain = Just "example.org" } `shouldContainOnce` "domain=example.org"
 
            describe "when setting the httponly option" $
                it "should generate the httponly key" $
@@ -67,13 +67,28 @@ spec =
 
            describe "when setting the secure option" $
                it "should generate the secure key" $
-                   g "foo" "bar" def { cs_secure = True } `shouldContainOnce` "secure"
+                   g "foo" "bar" def { cs_secure = True } `shouldContainOnce` "Secure"
+
+           describe "cookie value" $
+               it "should be urlencoded" $
+                   g "foo" "most+special chars;%бисквитки" def `shouldContainOnce`
+                     "foo=most%2Bspecial%20chars%3B%25%D0%B1%D0%B8%D1%81%D0%BA%D0%B2%D0%B8%D1%82%D0%BA%D0%B8"
+
+       describe "Parsing cookies" $
+           do it "should parse urlencoded multiple cookies" $
+                  parseCookies "foo=bar;quux=h&m" `shouldBe` [("foo", "bar"), ("quux", "h&m")]
+
+              it "should parse urlencoded values" $
+                 parseCookies "foo=most%2Bspecial%20chars%3B%25" `shouldBe` [("foo", "most+special chars;%")]
+
+              it "should parse urlencoded utf-8 content" $
+                 parseCookies "foo=%D0%B1%D0%B8%D1%81%D0%BA%D0%B2%D0%B8%D1%82%D0%BA%D0%B8" `shouldBe` [("foo", "бисквитки")]
 
   where
       g n v cs = generateCookieHeaderString n v cs t
       def      = defaultCookieSettings
       t        = UTCTime (fromGregorian 2015 9 1) (21*60*60)
 
-      shouldContainOnce haystack needle = T.count needle haystack `shouldBe` 1
-      shouldNotContain' haystack needle = T.count needle haystack `shouldBe` 0
+      shouldContainOnce haystack needle = snd (BS.breakSubstring needle haystack) `shouldNotBe` BS.empty
+      shouldNotContain' haystack needle = snd (BS.breakSubstring needle haystack) `shouldBe` BS.empty
 

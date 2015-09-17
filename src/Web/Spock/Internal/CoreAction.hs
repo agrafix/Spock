@@ -70,15 +70,11 @@ rawHeader t =
     liftM (lookup t . Wai.requestHeaders) request
 {-# INLINE rawHeader #-}
 
--- | Read a cookie
+-- | Read a cookie. The cookie value will already be urldecoded.
 cookie :: MonadIO m => T.Text -> ActionCtxT ctx m (Maybe T.Text)
 cookie name =
     do req <- request
-       return $ lookup "cookie" (Wai.requestHeaders req) >>= lookup name . parseCookies . T.decodeUtf8
-    where
-      parseCookies :: T.Text -> [(T.Text, T.Text)]
-      parseCookies = map parseCookie . T.splitOn ";" . T.concat . T.words
-      parseCookie = first T.init . T.breakOnEnd "="
+       return $ lookup "cookie" (Wai.requestHeaders req) >>= lookup name . parseCookies
 {-# INLINE cookie #-}
 
 -- | Tries to dected the preferred format of the response using the Accept header
@@ -182,35 +178,43 @@ setStatus s =
 -- be appended. Otherwise the previous value is overwritten.
 -- See 'setMultiHeader'.
 setHeader :: MonadIO m => T.Text -> T.Text -> ActionCtxT ctx m ()
-setHeader k v =
-    do let ciVal = CI.mk $ T.encodeUtf8 k
-       case HM.lookup ciVal multiHeaderMap of
-         Just mhk ->
-             setMultiHeader mhk v
-         Nothing ->
-             setHeaderUnsafe k v
+setHeader k v = setRawHeader (CI.mk $ T.encodeUtf8 k) (T.encodeUtf8 v)
 {-# INLINE setHeader #-}
+
+setRawHeader :: MonadIO m => CI.CI BS.ByteString -> BS.ByteString -> ActionCtxT ctx m ()
+setRawHeader k v =
+    do case HM.lookup k multiHeaderMap of
+         Just mhk ->
+             setRawMultiHeader mhk v
+         Nothing ->
+             setRawHeaderUnsafe k v
 
 -- | INTERNAL: Set a response header that can occur multiple times. (eg: Cache-Control)
 setMultiHeader :: MonadIO m => MultiHeader -> T.Text -> ActionCtxT ctx m ()
-setMultiHeader k v =
+setMultiHeader k v = setRawMultiHeader k (T.encodeUtf8 v)
+{-# INLINE setMultiHeader #-}
+
+setRawMultiHeader :: MonadIO m => MultiHeader -> BS.ByteString -> ActionCtxT ctx m ()
+setRawMultiHeader k v =
     modify $ \rs ->
         rs
         { rs_multiResponseHeaders =
-              HM.insertWith (++) k [T.encodeUtf8 v] (rs_multiResponseHeaders rs)
+              HM.insertWith (++) k [v] (rs_multiResponseHeaders rs)
         }
-{-# INLINE setMultiHeader #-}
 
 -- | INTERNAL: Unsafely set a header (no checking if the header can occur multiple times)
 setHeaderUnsafe :: MonadIO m => T.Text -> T.Text -> ActionCtxT ctx m ()
-setHeaderUnsafe k v =
+setHeaderUnsafe k v = setRawHeaderUnsafe (CI.mk $ T.encodeUtf8 k) (T.encodeUtf8 v)
+{-# INLINE setHeaderUnsafe #-}
+
+-- | INTERNAL: Unsafely set a header (no checking if the header can occur multiple times)
+setRawHeaderUnsafe :: MonadIO m => CI.CI BS.ByteString -> BS.ByteString -> ActionCtxT ctx m ()
+setRawHeaderUnsafe k v =
     modify $ \rs ->
         rs
         { rs_responseHeaders =
-              HM.insert (CI.mk $ T.encodeUtf8 k) (T.encodeUtf8 v) (rs_responseHeaders rs)
+              HM.insert k v (rs_responseHeaders rs)
         }
-{-# INLINE setHeaderUnsafe #-}
-
 
 -- | Abort the current action and jump the next one matching the route
 jumpNext :: MonadIO m => ActionCtxT ctx m a
@@ -351,13 +355,15 @@ runInContext newCtx action =
          Right d -> return d
 {-# INLINE runInContext #-}
 
+-- | Set a cookie. The cookie value will be urlencoded.
 setCookie :: MonadIO m => T.Text -> T.Text -> CookieSettings -> ActionCtxT ctx m ()
 setCookie name value cs =
     do now <- liftIO getCurrentTime
        let cookieHeaderString = generateCookieHeaderString name value cs now
-       setMultiHeader MultiHeaderSetCookie cookieHeaderString
+       setRawMultiHeader MultiHeaderSetCookie cookieHeaderString
 {-# INLINE setCookie #-}
 
+-- | Delete a cookie
 deleteCookie :: MonadIO m => T.Text -> ActionCtxT ctx m ()
 deleteCookie name = setCookie name T.empty cs
   where
