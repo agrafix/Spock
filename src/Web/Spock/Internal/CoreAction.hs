@@ -70,7 +70,7 @@ rawHeader t =
     liftM (lookup t . Wai.requestHeaders) request
 {-# INLINE rawHeader #-}
 
--- | Read a cookie
+-- | Read a cookie. The cookie value will already be urldecoded.
 cookie :: MonadIO m => T.Text -> ActionCtxT ctx m (Maybe T.Text)
 cookie name =
     do req <- request
@@ -355,6 +355,7 @@ runInContext newCtx action =
          Right d -> return d
 {-# INLINE runInContext #-}
 
+-- | Set a cookie. The cookie value will be urlencoded.
 setCookie :: MonadIO m => T.Text -> T.Text -> CookieSettings -> ActionCtxT ctx m ()
 setCookie name value cs =
     do now <- liftIO getCurrentTime
@@ -362,6 +363,7 @@ setCookie name value cs =
        setRawMultiHeader MultiHeaderSetCookie cookieHeaderString
 {-# INLINE setCookie #-}
 
+-- | Delete a cookie
 deleteCookie :: MonadIO m => T.Text -> ActionCtxT ctx m ()
 deleteCookie name = setCookie name T.empty cs
   where
