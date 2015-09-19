@@ -1,7 +1,6 @@
 {-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
-
 module Web.Spock.Internal.Cookies
     ( CookieSettings(..)
     , defaultCookieSettings

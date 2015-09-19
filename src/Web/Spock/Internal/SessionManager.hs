@@ -8,10 +8,11 @@ where
 
 import Web.Spock.Internal.Types
 import Web.Spock.Internal.CoreAction
+import Web.Spock.Internal.Wire
 import Web.Spock.Internal.Util
+import Web.Spock.Internal.Cookies
 import qualified Web.Spock.Internal.SessionVault as SV
 
-import Control.Arrow (first)
 #if MIN_VERSION_base(4,8,0)
 #else
 import Control.Applicative
@@ -27,13 +28,11 @@ import Data.Time
 import System.Locale (defaultTimeLocale)
 #endif
 import qualified Crypto.Random as CR
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base64 as B64
-import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
-import qualified Data.Text.Lazy as TL
-import qualified Data.Text.Lazy.Encoding as TL
 import qualified Data.Vault.Lazy as V
 import qualified Network.Wai as Wai
 
@@ -55,6 +54,7 @@ createSessionManager cfg =
        return
           SessionManager
           { sm_getSessionId = getSessionIdImpl vaultKey cacheHM
+          , sm_regenerateSessionId = regenerateSessionIdImpl vaultKey cacheHM pool cfg
           , sm_readSession = readSessionImpl vaultKey cacheHM
           , sm_writeSession = writeSessionImpl vaultKey cacheHM
           , sm_modifySession = modifySessionImpl vaultKey cacheHM
@@ -88,6 +88,20 @@ createSessionManager cfg =
           , sess_safeActions = SafeActionStore HM.empty HM.empty
           }
 
+regenerateSessionIdImpl ::
+    V.Key SessionId
+    -> SV.SessionVault (Session conn sess st)
+    -> CR.EntropyPool
+    -> SessionCfg sess
+    -> SpockActionCtx ctx conn sess st ()
+regenerateSessionIdImpl vK sessionRef entropyPool cfg =
+    do sess <- readSessionBase vK sessionRef
+       liftIO $ deleteSessionImpl sessionRef (sess_id sess)
+       newSession <- liftIO $ newSessionImpl entropyPool cfg sessionRef (sess_data sess)
+       now <- liftIO getCurrentTime
+       setRawMultiHeader MultiHeaderSetCookie $ makeSessionIdCookie cfg newSession now
+       modifyVault $ V.insert vK (sess_id newSession)
+
 getSessionIdImpl :: V.Key SessionId
                  -> SV.SessionVault (Session conn sess st)
                  -> SpockActionCtx ctx conn sess st SessionId
@@ -100,8 +114,8 @@ modifySessionBase :: V.Key SessionId
                   -> (Session conn sess st -> (Session conn sess st, a))
                   -> SpockActionCtx ctx conn sess st a
 modifySessionBase vK sessionRef modFun =
-    do req <- request
-       case V.lookup vK (Wai.vault req) of
+    do mValue <- queryVault vK
+       case mValue of
          Nothing ->
              error "(3) Internal Spock Session Error. Please report this bug!"
          Just sid ->
@@ -119,8 +133,8 @@ readSessionBase :: V.Key SessionId
                 -> SV.SessionVault (Session conn sess st)
                 -> SpockActionCtx ctx conn sess st (Session conn sess st)
 readSessionBase vK sessionRef =
-    do req <- request
-       case V.lookup vK (Wai.vault req) of
+    do mValue <- queryVault vK
+       case mValue of
          Nothing ->
              error "(1) Internal Spock Session Error. Please report this bug!"
          Just sid ->
@@ -160,10 +174,11 @@ lookupSafeActionImpl vaultKey sessionMapVar hash =
     do base <- readSessionBase vaultKey sessionMapVar
        return $ HM.lookup hash (sas_forward (sess_safeActions base))
 
-removeSafeActionImpl :: V.Key SessionId
-                     -> SV.SessionVault (Session conn sess st)
-                     -> PackedSafeAction conn sess st
-                     -> SpockActionCtx ctx conn sess st ()
+removeSafeActionImpl ::
+    V.Key SessionId
+    -> SV.SessionVault (Session conn sess st)
+    -> PackedSafeAction conn sess st
+    -> SpockActionCtx ctx conn sess st ()
 removeSafeActionImpl vaultKey sessionMapVar action =
     modifySessionBase vaultKey sessionMapVar (\s -> (s { sess_safeActions = f (sess_safeActions s ) }, ()))
     where
@@ -200,6 +215,18 @@ modifySessionImpl vK sessionRef f =
                in (session { sess_data = sessData' }, out)
        modifySessionBase vK sessionRef modFun
 
+makeSessionIdCookie :: SessionCfg sess -> Session conn sess st -> UTCTime -> BS.ByteString
+makeSessionIdCookie cfg sess now =
+    generateCookieHeaderString name value settings now
+    where
+      name = sc_cookieName cfg
+      value = sess_id sess
+      settings =
+          defaultCookieSettings
+          { cs_EOL = CookieValidUntil (sess_validUntil sess)
+          , cs_HTTPOnly = True
+          }
+
 sessionMiddleware ::
     CR.EntropyPool
     -> SessionCfg sess
@@ -220,34 +247,20 @@ sessionMiddleware pool cfg vK sessionRef app req respond =
     where
       getCookieFromReq name =
           lookup "cookie" (Wai.requestHeaders req) >>=
-                 lookup name . parseCookies . T.decodeUtf8
-      renderCookie name value validUntil =
-          let formattedTime =
-                  TL.pack $ formatTime defaultTimeLocale "%a, %d-%b-%Y %X %Z" validUntil
-          in TL.concat [ TL.fromStrict name
-                       , "="
-                       , TL.fromStrict value
-                       , "; path=/; expires="
-                       , formattedTime
-                       , ";"
-                       ]
-      parseCookies :: T.Text -> [(T.Text, T.Text)]
-      parseCookies = map parseCookie . T.splitOn ";" . T.concat . T.words
-      parseCookie = first T.init . T.breakOnEnd "="
-
+                 lookup name . parseCookies
       defVal = sc_emptySession cfg
       v = Wai.vault req
-      addCookie sess responseHeaders =
-          let cookieContent =
-                  renderCookie (sc_cookieName cfg) (sess_id sess) (sess_validUntil sess)
-              cookieC = ("Set-Cookie", BSL.toStrict $ TL.encodeUtf8 cookieContent)
+      addCookie sess now responseHeaders =
+          let cookieContent = makeSessionIdCookie cfg sess now
+              cookieC = ("Set-Cookie", cookieContent)
           in (cookieC : responseHeaders)
       withSess shouldSetCookie sess =
           app (req { Wai.vault = V.insert vK (sess_id sess) v }) $ \unwrappedResp ->
-              respond $
-              if shouldSetCookie
-              then mapReqHeaders (addCookie sess) unwrappedResp
-              else unwrappedResp
+              do now <- getCurrentTime
+                 respond $
+                   if shouldSetCookie
+                   then mapReqHeaders (addCookie sess now) unwrappedResp
+                   else unwrappedResp
       mkNew =
           do newSess <- newSessionImpl pool cfg sessionRef defVal
              withSess True newSess

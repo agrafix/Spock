@@ -9,6 +9,7 @@ module Web.Spock.Internal.CoreAction
     , request, header, rawHeader, cookie, body, jsonBody, jsonBody'
     , reqMethod
     , files, params, param, param', setStatus, setHeader, redirect
+    , setRawMultiHeader
     , CookieSettings(..), CookieEOL(..), defaultCookieSettings
     , setCookie, deleteCookie
     , jumpNext, middlewarePass, modifyVault, queryVault
@@ -370,4 +371,3 @@ deleteCookie name = setCookie name T.empty cs
     cs = defaultCookieSettings { cs_EOL = CookieValidUntil epoch }
     epoch = UTCTime (fromGregorian 1970 1 1) (secondsToDiffTime 0)
 {-# INLINE deleteCookie #-}
-

@@ -114,12 +114,28 @@ sessionSpec =
                Just sessCookie ->
                    Test.request "GET" "/check" [("Cookie", T.encodeUtf8 sessCookie)] ""
                            `Test.shouldRespondWith` "5"
+       it "should regenerate and preserve all content" $
+          do res <- Test.get "/set/5"
+             case getSessCookie res of
+               Nothing ->
+                   Test.liftIO $ expectationFailure "Missing spockcookie"
+               Just sessCookie ->
+                   do res2 <- Test.request "GET" "/regenerate" [("Cookie", T.encodeUtf8 sessCookie)] ""
+                      case getSessCookie res2 of
+                        Nothing ->
+                            Test.liftIO $ expectationFailure "Missing new spockcookie"
+                        Just sessCookie2 ->
+                            do Test.request "GET" "/check" [("Cookie", T.encodeUtf8 sessCookie2)] ""
+                                       `Test.shouldRespondWith` "5"
+                               Test.request "GET" "/check" [("Cookie", T.encodeUtf8 sessCookie)] ""
+                                       `Test.shouldRespondWith` "0"
     where
       sessionApp =
           spockAsApp $
           spock spockCfg $
           do get "test" $ text "text"
              get ("set" <//> var) $ \number -> writeSession number >> text "done"
+             get "regenerate" $ sessionRegenerateId >> text "done"
              get "check" $
                  do val <- readSession
                     text (T.pack $ show val)

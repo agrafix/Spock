@@ -36,7 +36,7 @@ module Web.Spock.Shared
     , defaultSessionHooks, SessionHooks (..)
     , SessionPersistCfg(..), readShowSessionPersist
     , SessionId
-    , getSessionId, readSession, writeSession
+    , sessionRegenerateId, getSessionId, readSession, writeSession
     , modifySession, modifySession', modifyReadSession, mapAllSessions, clearAllSessions
      -- * Internals for extending Spock
     , getSpockHeart, runSpockIO, WebStateM, WebState
@@ -65,6 +65,12 @@ runSpock port mw =
 -- result in a 404 page
 spockAsApp :: IO Wai.Middleware -> IO Wai.Application
 spockAsApp = liftM W.middlewareToApp
+
+-- | Regenerate the users sessionId. This preserves all stored data. Call this prior
+-- to logging in a user to prevent session fixation attacks.
+sessionRegenerateId :: SpockActionCtx ctx conn sess st ()
+sessionRegenerateId =
+    getSessMgr >>= sm_regenerateSessionId
 
 -- | Get the current users sessionId. Note that this ID should only be
 -- shown to it's owner as otherwise sessions can be hijacked.

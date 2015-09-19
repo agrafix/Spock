@@ -218,6 +218,7 @@ instance Show (Session conn sess st) where
 data SessionManager conn sess st
    = SessionManager
    { sm_getSessionId :: forall ctx. SpockActionCtx ctx conn sess st SessionId
+   , sm_regenerateSessionId :: forall ctx. SpockActionCtx ctx conn sess st ()
    , sm_readSession :: forall ctx. SpockActionCtx ctx conn sess st sess
    , sm_writeSession :: forall ctx. sess -> SpockActionCtx ctx conn sess st ()
    , sm_modifySession :: forall a ctx. (sess -> (sess, a)) -> SpockActionCtx ctx conn sess st a
