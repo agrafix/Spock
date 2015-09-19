@@ -12,19 +12,15 @@ everything you need to get a quick start into web hacking with haskell:
 * csrf-protection
 * typesafe contexts
 
-Benchmarks:
-
-* https://github.com/philopon/apiary-benchmark
-* https://github.com/agrafix/Spock-scotty-benchmark
-
 ## Important Links
 
 * [Tutorial](https://www.spock.li/tutorial/)
 * [Type-safe routing in Spock](https://www.spock.li/2015/04/19/type-safe_routing.html) 
-* [Beginning Web Programming in Haskell (using Spock)](https://www.youtube.com/watch?v=GobPiGL9jJ4)
+* [Taking Authentication to the next Level](https://www.spock.li/2015/08/23/taking_authentication_to_the_next_level.html)
 
 ### Talks
 
+* English: [Beginning Web Programming in Haskell (using Spock)](https://www.youtube.com/watch?v=GobPiGL9jJ4) (by Ollie Charles)
 * German: [Moderne typsichere Web-Entwicklung mit Haskell](https://dl.dropboxusercontent.com/u/15078797/talks/typesafe-webdev-2015.pdf) (by Alexander Thiemann)
 * German: [reroute-talk](https://github.com/timjb/reroute-talk) (by Tim Baumann)
 
@@ -44,19 +40,18 @@ The following Spock extensions exist:
 * Blaze bootstrap helpers [blaze-bootstrap](http://hackage.haskell.org/package/blaze-bootstrap)
 * digestive-forms bootstrap helpers [digestive-bootstrap](http://hackage.haskell.org/package/digestive-bootstrap)
 
+### Benchmarks
+
+Please note that these benchmarks might not be up to date anymore.
+
+* https://github.com/philopon/apiary-benchmark
+* https://github.com/agrafix/Spock-scotty-benchmark
+
 ## Example Projects
 
 * [funblog](https://github.com/agrafix/funblog)
 * [makeci](https://github.com/openbrainsrc/makeci)
 * [curry-recipes](https://github.com/timjb/reroute-talk/tree/06574561918b50c1809f1e24ec7faeff731fddcf/curry-recipes)
-
-## Companies / Projects using Spock
-
-* http://cp-med.com
-* http://openbrain.co.uk
-* http://findmelike.com
-* https://www.tramcloud.net
-* http://thitp.de
 
 ## Notes
 
@@ -70,3 +65,8 @@ implementation differs from scotty's.
 
 * Tim Baumann [Github](https://github.com/timjb) (lot's of help with typesafe routing)
 * Tom Nielsen [Github](https://github.com/glutamate)  (much feedback and small improvements)
+* ... and all other awesome [contributors](https://github.com/agrafix/Spock/graphs/contributors)!
+
+## Hacking
+
+Pull requests are welcome! Please consider creating an issue beforehand, so we can discuss what you would like to do. Code should be written in a consistent style throughout the project. Avoid whitespace that is sensible to conflicts. (E.g. alignment of `=` signs in functions definitions) Note that by sending a pull request you agree that your contribution can be released under the BSD3 License as part of the `Spock` package or related packages.
