@@ -1,12 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
-
 module Web.Spock.Internal.CookiesSpec (spec) where
 
+import Web.Spock.Internal.Cookies
+
+import Data.Time
 import Test.Hspec
 import qualified Data.ByteString as BS
-import Data.Time
-
-import Web.Spock.Internal.Cookies
 
 spec :: Spec
 spec =
@@ -83,12 +82,11 @@ spec =
 
               it "should parse urlencoded utf-8 content" $
                  parseCookies "foo=%D0%B1%D0%B8%D1%81%D0%BA%D0%B2%D0%B8%D1%82%D0%BA%D0%B8" `shouldBe` [("foo", "бисквитки")]
-
-  where
+    where
       g n v cs = generateCookieHeaderString n v cs t
-      def      = defaultCookieSettings
-      t        = UTCTime (fromGregorian 2015 9 1) (21*60*60)
-
-      shouldContainOnce haystack needle = snd (BS.breakSubstring needle haystack) `shouldNotBe` BS.empty
-      shouldNotContain' haystack needle = snd (BS.breakSubstring needle haystack) `shouldBe` BS.empty
-
+      def = defaultCookieSettings
+      t = UTCTime (fromGregorian 2015 9 1) (21*60*60)
+      shouldContainOnce haystack needle =
+          snd (BS.breakSubstring needle haystack) `shouldNotBe` BS.empty
+      shouldNotContain' haystack needle =
+          snd (BS.breakSubstring needle haystack) `shouldBe` BS.empty
