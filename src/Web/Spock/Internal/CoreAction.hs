@@ -113,13 +113,13 @@ jsonBody =
        return $ A.decodeStrict b
 {-# INLINE jsonBody #-}
 
--- | Parse the request body as json and fails with 500 status code on error
+-- | Parse the request body as json and fails with 400 status code on error
 jsonBody' :: (MonadIO m, A.FromJSON a) => ActionCtxT ctx m a
 jsonBody' =
     do b <- body
        case A.eitherDecodeStrict' b of
          Left err ->
-             do setStatus status500
+             do setStatus status400
                 text (T.pack $ "Failed to parse json: " ++ err)
          Right val ->
              return val
