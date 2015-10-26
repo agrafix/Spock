@@ -7,7 +7,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Web.Spock.Shared
     (-- * Helpers for running Spock
-      runSpock, spockAsApp
+      runSpock, runSpockNoBanner, spockAsApp
      -- * Action types
     , SpockAction, SpockActionCtx, ActionT, W.ActionCtxT
      -- * Handling requests
@@ -54,11 +54,17 @@ import qualified Web.Spock.Internal.Wire as W
 import qualified Network.Wai as Wai
 import qualified Network.Wai.Handler.Warp as Warp
 
--- | Run a Spock application. Basically just a wrapper aroung @Warp.run@.
+-- | Run a Spock application. Basically just a wrapper aroung 'Warp.run'.
 runSpock :: Warp.Port -> IO Wai.Middleware -> IO ()
 runSpock port mw =
     do putStrLn ("Spock is running on port " ++ show port)
        app <- spockAsApp mw
+       Warp.run port app
+
+-- | Like 'runSpock', but does not display the banner "Spock is running on port XXX" on stdout.
+runSpockNoBanner :: Warp.Port -> IO Wai.Middleware -> IO ()
+runSpockNoBanner port mw =
+    do app <- spockAsApp mw
        Warp.run port app
 
 -- | Convert a middleware to an application. All failing requests will
