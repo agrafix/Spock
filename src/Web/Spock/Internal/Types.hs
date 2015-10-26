@@ -41,7 +41,7 @@ type SpockActionCtx ctx conn sess st = ActionCtxT ctx (WebStateM conn sess st)
 -- | The 'SpockAction' is a specialisation of 'SpockActionCtx' with a '()' context.
 type SpockAction conn sess st = SpockActionCtx () conn sess st
 
--- | Spock configuration
+-- | Spock configuration, use 'defaultSpockCfg' and change single values if needed
 data SpockCfg conn sess st
    = SpockCfg
    { spc_initialState :: st
