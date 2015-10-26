@@ -353,4 +353,5 @@ randomHash :: CR.EntropyPool -> Int -> IO T.Text
 randomHash pool len =
     do let sys :: CR.SystemRNG
            sys = CR.cprgCreate pool
-       return $ T.replace "=" "" $ T.decodeUtf8 $ B64.encode $ fst $ CR.cprgGenerateWithEntropy len sys
+       return $ T.replace "=" "" $ T.replace "/" "_" $ T.replace "+" "-" $
+              T.decodeUtf8 $ B64.encode $ fst $ CR.cprgGenerateWithEntropy len sys
