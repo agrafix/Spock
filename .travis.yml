@@ -7,6 +7,9 @@ env:
 matrix:
   allow_failures:
   - env: GHCVER=head
+cache:
+  directories:
+  - $HOME/.cabal/
 before_install:
 - |
   if [ $GHCVER = `ghc --numeric-version` ]; then
