@@ -11,6 +11,7 @@ import Control.Monad
 import Data.IORef
 import Data.List (find)
 import Data.Monoid
+import Network.HTTP.Types.Status
 import Test.Hspec
 import qualified Data.HashSet as HS
 import qualified Data.Text as T
@@ -56,6 +57,12 @@ app =
             case fmt of
               PrefHTML -> text "html"
               x -> text (T.pack (show x))
+       get ("auth" <//> var <//> var) $ \user pass ->
+           let checker user' pass' =
+                   unless (user == user' && pass == pass') $
+                   do setStatus status401
+                      text "err"
+           in requireBasicAuth "Foo" checker $ \() -> text "ok"
        hookAny GET $ text . T.intercalate "/"
 
 routeRenderingSpec :: Spec

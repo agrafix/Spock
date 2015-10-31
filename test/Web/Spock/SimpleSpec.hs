@@ -5,7 +5,9 @@ module Web.Spock.SimpleSpec (spec) where
 import Web.Spock.Simple
 import Web.Spock.FrameworkSpecHelper
 
+import Control.Monad
 import Data.Monoid
+import Network.HTTP.Types.Status
 import Test.Hspec
 import qualified Data.Text as T
 
@@ -48,6 +50,14 @@ app =
            do setHeader "Content-Language" "de"
               setHeader "Content-Language" "en"
               text "ok"
+       get ("/auth/:user/:pass") $
+           do user <- param' "user"
+              pass <- param' "pass"
+              let checker user' pass' =
+                   unless (user == user' && pass == pass') $
+                   do setStatus status401
+                      text "err"
+              requireBasicAuth "Foo" checker $ \() -> text "ok"
        hookAny GET $ text . T.intercalate "/"
 
 spec :: Spec

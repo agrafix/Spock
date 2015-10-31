@@ -30,7 +30,7 @@ module Web.Spock.Shared
       -- * Accessing Database and State
     , HasSpock (runQuery, getState), SpockConn, SpockState, SpockSession
       -- * Basic HTTP-Auth
-    , requireBasicAuth
+    , requireBasicAuth, withBasicAuthData
      -- * Sessions
     , defaultSessionCfg, SessionCfg (..)
     , defaultSessionHooks, SessionHooks (..)

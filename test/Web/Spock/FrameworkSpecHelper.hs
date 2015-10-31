@@ -6,6 +6,10 @@ import Test.Hspec.Wai
 
 import Data.Monoid
 import Data.Word
+import Network.HTTP.Types.Header
+import Network.HTTP.Types.Method
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Base64 as B64
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
@@ -80,7 +84,17 @@ routingSpec =
 
 actionSpec :: SpecWith Wai.Application
 actionSpec =
-    describe "Action Framework" $ return ()
+    describe "Action Framework" $
+      do it "handles auth correctly" $
+            do request methodGet "/auth/user/pass" [mkAuthHeader "user" "pass"] "" `shouldRespondWith` "ok" { matchStatus = 200 }
+               request methodGet "/auth/user/pass" [mkAuthHeader "user" ""] "" `shouldRespondWith` "err" { matchStatus = 401 }
+               request methodGet "/auth/user/pass" [mkAuthHeader "" ""] "" `shouldRespondWith` "err" { matchStatus = 401 }
+               request methodGet "/auth/user/pass" [mkAuthHeader "asd" "asd"] "" `shouldRespondWith` "err" { matchStatus = 401 }
+               request methodGet "/auth/user/pass" [] "" `shouldRespondWith` "Authentication required. " { matchStatus = 401 }
+    where
+      mkAuthHeader :: BS.ByteString -> BS.ByteString -> Header
+      mkAuthHeader user pass =
+          ("Authorization", "Basic " <> (B64.encode $ user <> ":" <> pass))
 
 cookieTest :: SpecWith Wai.Application
 cookieTest =

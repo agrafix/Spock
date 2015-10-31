@@ -14,7 +14,7 @@ module Web.Spock.Internal.CoreAction
     , setCookie, deleteCookie
     , jumpNext, middlewarePass, modifyVault, queryVault
     , bytes, lazyBytes, text, html, file, json, stream, response
-    , requireBasicAuth
+    , requireBasicAuth, withBasicAuthData
     , getContext, runInContext
     , preferredFormat, ClientPreferredFormat(..)
     )
@@ -35,6 +35,7 @@ import Control.Monad.Reader
 import Control.Monad.RWS.Strict (runRWST)
 import Control.Monad.State hiding (get, put)
 import qualified Control.Monad.State as ST
+import Data.Maybe
 import Data.Monoid
 import Data.Time
 import Network.HTTP.Types.Header (HeaderName, ResponseHeaders)
@@ -302,35 +303,47 @@ stream val =
     response $ \status headers -> Wai.responseStream status headers val
 {-# INLINE stream #-}
 
--- | Basic authentification
+-- | Convenience Basic authentification
 -- provide a title for the prompt and a function to validate
 -- user and password. Usage example:
 --
--- > get "/my-secret-page" $
--- >   requireBasicAuth "Secret Page" (\user pass -> return (user == "admin" && pass == "1234")) $
--- >   do html "This is top secret content. Login using that secret code I provided ;-)"
+-- > get ("auth" <//> var <//> var) $ \user pass ->
+-- >       let checker user' pass' =
+-- >               unless (user == user' && pass == pass') $
+-- >               do setStatus status401
+-- >                  text "err"
+-- >       in requireBasicAuth "Foo" checker $ \() -> text "ok"
 --
-requireBasicAuth :: MonadIO m => T.Text -> (T.Text -> T.Text -> m Bool) -> ActionCtxT ctx m a -> ActionCtxT ctx m a
+requireBasicAuth :: MonadIO m => T.Text -> (T.Text -> T.Text -> ActionCtxT ctx m b) -> (b -> ActionCtxT ctx m a) -> ActionCtxT ctx m a
 requireBasicAuth realmTitle authFun cont =
+    withBasicAuthData $ \mAuthHeader ->
+    case mAuthHeader of
+      Nothing ->
+          authFailed Nothing
+      Just (user, pass) ->
+          authFun user pass >>= cont
+    where
+      authFailed mMore =
+          do setStatus status401
+             setMultiHeader MultiHeaderWWWAuth ("Basic realm=\"" <> realmTitle <> "\"")
+             text $ "Authentication required. " <> fromMaybe "" mMore
+
+-- | "Lower level" basic authentification handeling. Does not set any headers that will promt
+-- browser users, only looks for an "Authorization" header in the request and breaks it into
+-- username and passwort component if present
+withBasicAuthData :: MonadIO m => (Maybe (T.Text, T.Text) -> ActionCtxT ctx m a) -> ActionCtxT ctx m a
+withBasicAuthData handler =
     do mAuthHeader <- header "Authorization"
        case mAuthHeader of
          Nothing ->
-             authFailed
+             handler Nothing
          Just authHeader ->
              let (_, rawValue) =
                      T.breakOn " " authHeader
                  (user, rawPass) =
                      (T.breakOn ":" . T.decodeUtf8 . B64.decodeLenient . T.encodeUtf8 . T.strip) rawValue
                  pass = T.drop 1 rawPass
-             in do isOk <- lift $ authFun user pass
-                   if isOk
-                   then cont
-                   else authFailed
-    where
-      authFailed =
-          do setStatus status401
-             setMultiHeader MultiHeaderWWWAuth ("Basic realm=\"" <> realmTitle <> "\"")
-             html "<h1>Authentication required.</h1>"
+             in handler (Just (user, pass))
 
 -- | Get the context of the current request
 getContext :: MonadIO m => ActionCtxT ctx m ctx
