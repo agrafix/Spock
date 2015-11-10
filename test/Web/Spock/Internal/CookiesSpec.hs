@@ -38,7 +38,7 @@ spec =
             do let generated = g "foo" "bar" def { cs_EOL = CookieValidUntil (UTCTime (fromGregorian 2016 1 1) 0) }
 
                it "should set the correct expires key" $
-                   generated `shouldContainOnce` "expires=Fri, 01 Jan 2016 00:00:00 UTC"
+                   generated `shouldContainOnce` "expires=Fri, 01-Jan-2016 00:00:00 UTC"
 
                it "should set the correct max-age key" $
                    generated `shouldContainOnce` "max-age=10465200"
@@ -47,14 +47,14 @@ spec =
             do let generated = g "foo" "bar" def { cs_EOL = CookieValidUntil (UTCTime (fromGregorian 1970 1 1) 0) }
 
                it "should set the correct expires key" $
-                   generated `shouldContainOnce` "expires=Thu, 01 Jan 1970 00:00:00 UTC"
+                   generated `shouldContainOnce` "expires=Thu, 01-Jan-1970 00:00:00 UTC"
 
                it "should set the max-age key to 0" $
                    generated `shouldContainOnce` "max-age=0"
 
            describe "when setting the path" $
                it "should generate the correct path pair" $
-                   g "foo" "bar" def { cs_path = "/the-path" } `shouldContainOnce` "path=/the-path"
+                   g "foo" "bar" def { cs_path = Just "/the-path" } `shouldContainOnce` "path=/the-path"
 
            describe "when setting the domain" $
                it "should generate the correct domain pair" $
@@ -76,7 +76,8 @@ spec =
        describe "Parsing cookies" $
            do it "should parse urlencoded multiple cookies" $
                   parseCookies "foo=bar;quux=h&m" `shouldBe` [("foo", "bar"), ("quux", "h&m")]
-
+              it "should handle spacing between cookies" $
+                  parseCookies "foo=bar; quux=bim" `shouldBe` [("foo", "bar"), ("quux", "bim")]
               it "should parse urlencoded values" $
                  parseCookies "foo=most%2Bspecial%20chars%3B%25" `shouldBe` [("foo", "most+special chars;%")]
 

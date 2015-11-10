@@ -10,6 +10,7 @@ module Web.Spock.Internal.Cookies
     )
 where
 
+import Data.Maybe
 import Data.Monoid ((<>))
 import Data.Time
 import qualified Data.ByteString.Char8 as BS
@@ -26,7 +27,7 @@ data CookieSettings
    = CookieSettings
    { cs_EOL :: CookieEOL
      -- ^ cookie expiration setting, see 'CookieEOL'
-   , cs_path :: BS.ByteString
+   , cs_path :: Maybe BS.ByteString
      -- ^ a path for the cookie
    , cs_domain :: Maybe BS.ByteString
      -- ^ a domain for the cookie. 'Nothing' means no domain is set
@@ -52,7 +53,7 @@ data CookieEOL
 -- >   , cs_HTTPOnly = False
 -- >   , cs_secure   = False
 -- >   , cs_domain   = Nothing
--- >   , cs_path     = "/"
+-- >   , cs_path     = Just "/"
 -- >   }
 --
 defaultCookieSettings :: CookieSettings
@@ -62,7 +63,7 @@ defaultCookieSettings =
     , cs_HTTPOnly = False
     , cs_secure   = False
     , cs_domain   = Nothing
-    , cs_path     = "/"
+    , cs_path     = Just "/"
     }
 
 generateCookieHeaderString ::
@@ -72,9 +73,10 @@ generateCookieHeaderString ::
     -> UTCTime
     -> BS.ByteString
 generateCookieHeaderString name value CookieSettings{..} now =
-    BS.intercalate "; " $ filter (not . BS.null) fullCookie
+    BS.intercalate "; " fullCookie
     where
       fullCookie =
+          catMaybes
           [ nv
           , domain
           , path
@@ -83,26 +85,25 @@ generateCookieHeaderString name value CookieSettings{..} now =
           , httpOnly
           , secure
           ]
-      nv = BS.concat [T.encodeUtf8 name, "=", urlEncode value]
-      path = BS.concat ["path=", cs_path]
+      nv = Just $ BS.concat [T.encodeUtf8 name, "=", urlEncode value]
+      path = flip fmap cs_path $ \p -> BS.concat ["path=", p]
       domain =
-          case cs_domain of
-            Nothing -> BS.empty
-            Just d  -> BS.concat ["domain=", d]
-      httpOnly = if cs_HTTPOnly then "HttpOnly" else BS.empty
-      secure = if cs_secure then "Secure" else BS.empty
+          flip fmap cs_domain $ \d ->
+          BS.concat ["domain=", d]
+      httpOnly = if cs_HTTPOnly then Just "HttpOnly" else Nothing
+      secure = if cs_secure then Just "Secure" else Nothing
 
       maxAge =
           case cs_EOL of
-            CookieValidForSession -> BS.empty
-            CookieValidFor n -> "max-age=" <> maxAgeValue n
-            CookieValidUntil t -> "max-age=" <> maxAgeValue (diffUTCTime t now)
+            CookieValidForSession -> Nothing
+            CookieValidFor n -> Just $ "max-age=" <> maxAgeValue n
+            CookieValidUntil t -> Just $ "max-age=" <> maxAgeValue (diffUTCTime t now)
 
       expires =
           case cs_EOL of
-            CookieValidForSession -> BS.empty
-            CookieValidFor n -> "expires=" <> expiresValue (addUTCTime n now)
-            CookieValidUntil t -> "expires=" <> expiresValue t
+            CookieValidForSession -> Nothing
+            CookieValidFor n -> Just $ "expires=" <> expiresValue (addUTCTime n now)
+            CookieValidUntil t -> Just $ "expires=" <> expiresValue t
 
       maxAgeValue :: NominalDiffTime -> BS.ByteString
       maxAgeValue nrOfSeconds =
@@ -111,7 +112,7 @@ generateCookieHeaderString name value CookieSettings{..} now =
 
       expiresValue :: UTCTime -> BS.ByteString
       expiresValue t =
-          BS.pack $ formatTime defaultTimeLocale "%a, %d %b %Y %X %Z" t
+          BS.pack $ formatTime defaultTimeLocale "%a, %d-%b-%Y %X %Z" t
 
       urlEncode :: T.Text -> BS.ByteString
       urlEncode = URI.urlEncode True . T.encodeUtf8
@@ -123,4 +124,4 @@ parseCookies =
       parseCookie :: BS.ByteString -> (T.Text, T.Text)
       parseCookie cstr =
           let (name, urlEncValue) = BS.break (== '=') cstr
-          in  (T.decodeUtf8 name, T.decodeUtf8 . URI.urlDecode True . BS.drop 1 $ urlEncValue)
+          in  (T.strip $ T.decodeUtf8 name, T.decodeUtf8 . URI.urlDecode True . BS.drop 1 $ urlEncValue)
