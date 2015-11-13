@@ -90,7 +90,7 @@ preferredFormat =
 {-# INLINE preferredFormat #-}
 
 -- | Returns the current request method, e.g. 'GET'
-reqMethod :: MonadIO m => ActionCtxT ctx m StdMethod
+reqMethod :: MonadIO m => ActionCtxT ctx m SpockMethod
 reqMethod = asks ri_method
 {-# INLINE reqMethod #-}
 

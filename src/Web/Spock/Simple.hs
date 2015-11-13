@@ -17,19 +17,21 @@ module Web.Spock.Simple
     , SpockRoute, (<//>)
      -- * Hooking routes
     , subcomponent
-    , get, post, getpost, head, put, delete, patch, hookRoute, hookAny
+    , get, post, getpost, head, put, delete, patch, hookRoute, hookRouteCustom, hookAny, hookAnyCustom
     , Http.StdMethod (..)
      -- * Adding Wai.Middleware
     , middleware
       -- * Safe actions
     , SafeAction (..)
     , safeActionPath
+    , SpockMethod(..)
     , module Web.Spock.Shared
     )
 where
 
 import Web.Spock.Shared
 import Web.Spock.Internal.Types
+import Web.Spock.Internal.Wire (SpockMethod(..))
 import qualified Web.Spock.Internal.Core as C
 
 import Control.Applicative
@@ -132,12 +134,30 @@ patch = hookRoute PATCH
 
 -- | Specify an action that will be run when a HTTP verb and the given route match
 hookRoute :: Monad m => StdMethod -> SpockRoute -> ActionT m () -> SpockT m ()
-hookRoute m (SpockRoute path) action = SpockT $ C.hookRoute m (TextRouterPath path) (TAction action)
+hookRoute = hookRoute' . Standard
+
+-- | Specify an action that will be run when a HTTP verb and the given route match
+hookRouteCustom :: Monad m => T.Text -> SpockRoute -> ActionT m () -> SpockT m ()
+hookRouteCustom = hookRoute' . Custom
+
+-- | Specify an action that will be run when a HTTP verb and the given route match
+hookRoute' :: Monad m => SpockMethod -> SpockRoute -> ActionT m () -> SpockT m ()
+hookRoute' m (SpockRoute path) action = SpockT $ C.hookRoute m (TextRouterPath path) (TAction action)
+
+-- | Specify an action that will be run when a standard HTTP verb matches but no defined route matches.
+-- The full path is passed as an argument
+hookAny :: Monad m => StdMethod -> ([T.Text] -> ActionT m ()) -> SpockT m ()
+hookAny = hookAny' . Standard
+
+-- | Specify an action that will be run when a custom HTTP verb matches but no defined route matches.
+-- The full path is passed as an argument
+hookAnyCustom :: Monad m => T.Text -> ([T.Text] -> ActionT m ()) -> SpockT m ()
+hookAnyCustom = hookAny' . Custom
 
 -- | Specify an action that will be run when a HTTP verb matches but no defined route matches.
 -- The full path is passed as an argument
-hookAny :: Monad m => StdMethod -> ([T.Text] -> ActionT m ()) -> SpockT m ()
-hookAny m action = SpockT $ C.hookAny m action
+hookAny' :: Monad m => SpockMethod -> ([T.Text] -> ActionT m ()) -> SpockT m ()
+hookAny' m action = SpockT $ C.hookAny m action
 
 -- | Define a subcomponent. Usage example:
 --

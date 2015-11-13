@@ -21,13 +21,14 @@ module Web.Spock.Safe
     , renderRoute
      -- * Hooking routes
     , subcomponent, prehook
-    , get, post, getpost, head, put, delete, patch, hookRoute, hookAny
+    , get, post, getpost, head, put, delete, patch, hookRoute, hookRouteCustom, hookAny, hookAnyCustom
     , Http.StdMethod (..)
       -- * Adding Wai.Middleware
     , middleware
       -- * Safe actions
     , SafeAction (..)
     , safeActionPath
+    , SpockMethod(..)
     , module Web.Spock.Shared
     )
 where
@@ -35,6 +36,7 @@ where
 
 import Web.Spock.Shared
 import Web.Spock.Internal.Types
+import Web.Spock.Internal.Wire (SpockMethod(..))
 import qualified Web.Spock.Internal.Core as C
 
 import Control.Applicative
@@ -150,19 +152,37 @@ prehook hook (SpockCtxT hookBody) =
                lift $ runReaderT a (injectHook prevHook newHook)
        swapMonad hookLift hookBody
 
--- | Specify an action that will be run when a HTTP verb and the given route match
+-- | Specify an action that will be run when a standard HTTP verb and the given route match
 hookRoute :: forall xs ctx m. (HasRep xs, Monad m) => StdMethod -> Path xs -> HVectElim xs (ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
-hookRoute m path action =
+hookRoute = hookRoute' . Standard
+
+-- | Specify an action that will be run when a custom HTTP verb and the given route match
+hookRouteCustom :: forall xs ctx m. (HasRep xs, Monad m) => T.Text -> Path xs -> HVectElim xs (ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
+hookRouteCustom = hookRoute' . Custom
+
+-- | Specify an action that will be run when a HTTP verb and the given route match
+hookRoute' :: forall xs ctx m. (HasRep xs, Monad m) => SpockMethod -> Path xs -> HVectElim xs (ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
+hookRoute' m path action =
     SpockCtxT $
     do hookLift <- lift $ asks unLiftHooked
        let actionPacker :: HVectElim xs (ActionCtxT ctx m ()) -> HVect xs -> ActionCtxT () m ()
            actionPacker act captures = hookLift (uncurry act captures)
        C.hookRoute m (SafeRouterPath path) (HVectElim' $ curry $ actionPacker action)
 
--- | Specify an action that will be run when a HTTP verb matches but no defined route matches.
+-- | Specify an action that will be run when a standard HTTP verb matches but no defined route matches.
 -- The full path is passed as an argument
 hookAny :: Monad m => StdMethod -> ([T.Text] -> ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
-hookAny m action =
+hookAny = hookAny' . Standard
+
+-- | Specify an action that will be run when a custom HTTP verb matches but no defined route matches.
+-- The full path is passed as an argument
+hookAnyCustom :: Monad m => T.Text -> ([T.Text] -> ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
+hookAnyCustom = hookAny' . Custom
+
+-- | Specify an action that will be run when a HTTP verb matches but no defined route matches.
+-- The full path is passed as an argument
+hookAny' :: Monad m => SpockMethod -> ([T.Text] -> ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
+hookAny' m action =
     SpockCtxT $
     do hookLift <- lift $ asks unLiftHooked
        C.hookAny m (hookLift . action)
