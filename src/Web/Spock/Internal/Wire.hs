@@ -54,16 +54,20 @@ import qualified Network.Wai.Parse as P
 instance Hashable StdMethod where
     hashWithSalt = hashUsing fromEnum
 
+-- | The 'SpockMethod' allows safe use of http verbs via the 'MethodStandard' constructor and 'StdMethod',
+-- and custom verbs via the 'MethodCustom' constructor.
 data SpockMethod
-   = Standard StdMethod
-   | Custom T.Text
-     deriving Eq
+   -- | Standard HTTP Verbs from 'StdMethod'
+   = MethodStandard !StdMethod
+   -- | Custom HTTP Verbs using 'T.Text'
+   | MethodCustom !T.Text
+     deriving (Eq, Generic)
 
-instance Hashable SpockMethod where
-    hashWithSalt s (Standard m) =
-        let h = hashWithSalt s m
-        in s `hashWithSalt` (0::Int) `hashWithSalt` h
-    hashWithSalt s (Custom m) = s `hashWithSalt` (1::Int) `hashWithSalt` m
+instance Hashable SpockMethod
+--    hashWithSalt s (MethodStandard m) =
+--        let h = hashWithSalt s m
+--        in s `hashWithSalt` (0::Int) `hashWithSalt` h
+--    hashWithSalt s (MethodCustom m) = s `hashWithSalt` (1::Int) `hashWithSalt` m
 
 data UploadedFile
    = UploadedFile
@@ -412,16 +416,17 @@ buildMiddleware mLimit registryIf registryLift spockActions =
        let spockMiddleware = foldl (.) id middlewares
            app :: Wai.Application -> Wai.Application
            app coreApp req respond =
-            parseSpockMethod (Wai.requestMethod req) $ \method -> do
-                let allActions = getMatchingRoutes method (Wai.pathInfo req)
-                runResourceT $ withInternalState $ \st ->
-                    handleRequest method mLimit registryLift allActions st coreApp req respond
+            withSpockMethod (Wai.requestMethod req) $
+                \method ->
+                do let allActions = getMatchingRoutes method (Wai.pathInfo req)
+                   runResourceT $ withInternalState $ \st ->
+                       handleRequest method mLimit registryLift allActions st coreApp req respond
        return $ spockMiddleware . app
 
-parseSpockMethod :: forall t. Method -> (SpockMethod -> t) -> t
-parseSpockMethod method cnt =
+withSpockMethod :: forall t. Method -> (SpockMethod -> t) -> t
+withSpockMethod method cnt =
     case parseMethod method of
       Left _ ->
-        cnt (Custom $ T.decodeUtf8 method)
+        cnt (MethodCustom $ T.decodeUtf8 method)
       Right stdMethod ->
-        cnt (Standard stdMethod)
+        cnt (MethodStandard stdMethod)

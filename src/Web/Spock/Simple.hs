@@ -134,11 +134,11 @@ patch = hookRoute PATCH
 
 -- | Specify an action that will be run when a HTTP verb and the given route match
 hookRoute :: Monad m => StdMethod -> SpockRoute -> ActionT m () -> SpockT m ()
-hookRoute = hookRoute' . Standard
+hookRoute = hookRoute' . MethodStandard
 
 -- | Specify an action that will be run when a HTTP verb and the given route match
 hookRouteCustom :: Monad m => T.Text -> SpockRoute -> ActionT m () -> SpockT m ()
-hookRouteCustom = hookRoute' . Custom
+hookRouteCustom = hookRoute' . MethodCustom
 
 -- | Specify an action that will be run when a HTTP verb and the given route match
 hookRoute' :: Monad m => SpockMethod -> SpockRoute -> ActionT m () -> SpockT m ()
@@ -147,12 +147,12 @@ hookRoute' m (SpockRoute path) action = SpockT $ C.hookRoute m (TextRouterPath p
 -- | Specify an action that will be run when a standard HTTP verb matches but no defined route matches.
 -- The full path is passed as an argument
 hookAny :: Monad m => StdMethod -> ([T.Text] -> ActionT m ()) -> SpockT m ()
-hookAny = hookAny' . Standard
+hookAny = hookAny' . MethodStandard
 
 -- | Specify an action that will be run when a custom HTTP verb matches but no defined route matches.
 -- The full path is passed as an argument
 hookAnyCustom :: Monad m => T.Text -> ([T.Text] -> ActionT m ()) -> SpockT m ()
-hookAnyCustom = hookAny' . Custom
+hookAnyCustom = hookAny' . MethodCustom
 
 -- | Specify an action that will be run when a HTTP verb matches but no defined route matches.
 -- The full path is passed as an argument

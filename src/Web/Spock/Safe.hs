@@ -154,11 +154,11 @@ prehook hook (SpockCtxT hookBody) =
 
 -- | Specify an action that will be run when a standard HTTP verb and the given route match
 hookRoute :: forall xs ctx m. (HasRep xs, Monad m) => StdMethod -> Path xs -> HVectElim xs (ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
-hookRoute = hookRoute' . Standard
+hookRoute = hookRoute' . MethodStandard
 
 -- | Specify an action that will be run when a custom HTTP verb and the given route match
 hookRouteCustom :: forall xs ctx m. (HasRep xs, Monad m) => T.Text -> Path xs -> HVectElim xs (ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
-hookRouteCustom = hookRoute' . Custom
+hookRouteCustom = hookRoute' . MethodCustom
 
 -- | Specify an action that will be run when a HTTP verb and the given route match
 hookRoute' :: forall xs ctx m. (HasRep xs, Monad m) => SpockMethod -> Path xs -> HVectElim xs (ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
@@ -172,12 +172,12 @@ hookRoute' m path action =
 -- | Specify an action that will be run when a standard HTTP verb matches but no defined route matches.
 -- The full path is passed as an argument
 hookAny :: Monad m => StdMethod -> ([T.Text] -> ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
-hookAny = hookAny' . Standard
+hookAny = hookAny' . MethodStandard
 
 -- | Specify an action that will be run when a custom HTTP verb matches but no defined route matches.
 -- The full path is passed as an argument
 hookAnyCustom :: Monad m => T.Text -> ([T.Text] -> ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
-hookAnyCustom = hookAny' . Custom
+hookAnyCustom = hookAny' . MethodCustom
 
 -- | Specify an action that will be run when a HTTP verb matches but no defined route matches.
 -- The full path is passed as an argument
