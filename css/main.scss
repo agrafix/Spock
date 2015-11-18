@@ -78,17 +78,11 @@ header {
   }
 }
 .logo {
-  margin-bottom: 15px;
-  h1 a {
-    font-size: 40px;
-    line-height: 40px;
-    color: #FFF;
-    font-family: 'Lobster Two', cursive;
-    text-shadow: 1px 1px 1px #777;
-  }
-  h1 a:hover {
-    text-decoration: none;
-  }
+    margin-top: 20px;
+    margin-bottom: 20px;
+    img {
+        height: 40px;
+    }
 }
 .navigation {
   margin-top: 23px;
@@ -244,4 +238,3 @@ footer {
   padding-bottom: 30px;
   color: #AAA;
 }
-
