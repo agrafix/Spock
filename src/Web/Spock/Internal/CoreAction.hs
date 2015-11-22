@@ -39,7 +39,6 @@ import Data.Maybe
 import Data.Monoid
 import Data.Time
 import Network.HTTP.Types.Header (HeaderName, ResponseHeaders)
-import Network.HTTP.Types.Method
 import Network.HTTP.Types.Status
 import Prelude hiding (head)
 import Web.PathPieces
@@ -90,7 +89,7 @@ preferredFormat =
 {-# INLINE preferredFormat #-}
 
 -- | Returns the current request method, e.g. 'GET'
-reqMethod :: MonadIO m => ActionCtxT ctx m StdMethod
+reqMethod :: MonadIO m => ActionCtxT ctx m SpockMethod
 reqMethod = asks ri_method
 {-# INLINE reqMethod #-}
 

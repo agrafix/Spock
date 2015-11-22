@@ -58,7 +58,11 @@ app =
                    do setStatus status401
                       text "err"
               requireBasicAuth "Foo" checker $ \() -> text "ok"
+       hookRouteCustom "NOTIFY" ("notify/:notification") $
+           do notification <- param' "notification"
+              text notification
        hookAny GET $ text . T.intercalate "/"
+       hookAnyCustom "MYVERB" $ text . T.intercalate "/"
 
 spec :: Spec
 spec =

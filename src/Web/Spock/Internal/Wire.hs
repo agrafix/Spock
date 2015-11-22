@@ -54,6 +54,21 @@ import qualified Network.Wai.Parse as P
 instance Hashable StdMethod where
     hashWithSalt = hashUsing fromEnum
 
+-- | The 'SpockMethod' allows safe use of http verbs via the 'MethodStandard' constructor and 'StdMethod',
+-- and custom verbs via the 'MethodCustom' constructor.
+data SpockMethod
+   -- | Standard HTTP Verbs from 'StdMethod'
+   = MethodStandard !StdMethod
+   -- | Custom HTTP Verbs using 'T.Text'
+   | MethodCustom !T.Text
+     deriving (Eq, Generic)
+
+instance Hashable SpockMethod
+--    hashWithSalt s (MethodStandard m) =
+--        let h = hashWithSalt s m
+--        in s `hashWithSalt` (0::Int) `hashWithSalt` h
+--    hashWithSalt s (MethodCustom m) = s `hashWithSalt` (1::Int) `hashWithSalt` m
+
 data UploadedFile
    = UploadedFile
    { uf_name :: !T.Text
@@ -69,7 +84,7 @@ data VaultIf
 
 data RequestInfo ctx
    = RequestInfo
-   { ri_method :: !StdMethod
+   { ri_method :: !SpockMethod
    , ri_request :: !Wai.Request
    , ri_params :: !(HM.HashMap CaptureVar T.Text)
    , ri_queryParams :: [(T.Text, T.Text)]
@@ -236,7 +251,7 @@ sizeError =
     errorResponse status413 "413 - Request body too large!"
 
 type SpockAllT r m a =
-    RegistryT r Wai.Middleware StdMethod m a
+    RegistryT r Wai.Middleware SpockMethod m a
 
 middlewareToApp :: Wai.Middleware
                 -> Wai.Application
@@ -246,7 +261,7 @@ middlewareToApp mw =
       fallbackApp :: Wai.Application
       fallbackApp _ respond = respond notFound
 
-makeActionEnvironment :: InternalState -> StdMethod -> Wai.Request -> IO (ParamMap -> RequestInfo (), TVar V.Vault, IO ())
+makeActionEnvironment :: InternalState -> SpockMethod -> Wai.Request -> IO (ParamMap -> RequestInfo (), TVar V.Vault, IO ())
 makeActionEnvironment st stdMethod req =
     do (bodyParams, bodyFiles) <- P.parseRequestBody (P.tempFileBackEnd st) req
        vaultVar <- liftIO $ newTVarIO (Wai.vault req)
@@ -322,7 +337,7 @@ applyAction req mkEnv ((captures, selectedAction) : xs) =
 
 handleRequest
     :: MonadIO m
-    => StdMethod
+    => SpockMethod
     -> Maybe Word64
     -> (forall a. m a -> IO a)
     -> [(ParamMap, ActionT m ())]
@@ -337,7 +352,7 @@ handleRequest stdMethod mLimit registryLift allActions st coreApp req respond =
 
 handleRequest' ::
     MonadIO m
-    => StdMethod
+    => SpockMethod
     -> (forall a. m a -> IO a)
     -> [(ParamMap, ActionT m ())]
     -> InternalState
@@ -401,11 +416,17 @@ buildMiddleware mLimit registryIf registryLift spockActions =
        let spockMiddleware = foldl (.) id middlewares
            app :: Wai.Application -> Wai.Application
            app coreApp req respond =
-            case parseMethod $ Wai.requestMethod req of
-              Left _ ->
-                  respond invalidReq
-              Right stdMethod ->
-                  do let allActions = getMatchingRoutes stdMethod (Wai.pathInfo req)
-                     runResourceT $ withInternalState $ \st ->
-                         handleRequest stdMethod mLimit registryLift allActions st coreApp req respond
+            withSpockMethod (Wai.requestMethod req) $
+                \method ->
+                do let allActions = getMatchingRoutes method (Wai.pathInfo req)
+                   runResourceT $ withInternalState $ \st ->
+                       handleRequest method mLimit registryLift allActions st coreApp req respond
        return $ spockMiddleware . app
+
+withSpockMethod :: forall t. Method -> (SpockMethod -> t) -> t
+withSpockMethod method cnt =
+    case parseMethod method of
+      Left _ ->
+        cnt (MethodCustom $ T.decodeUtf8 method)
+      Right stdMethod ->
+        cnt (MethodStandard stdMethod)
