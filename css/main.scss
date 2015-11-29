@@ -8,10 +8,9 @@ $blue: #69B8E5;
 $green: #C8E9A0;
 
 /** GENERAL **/
-@media (min-width: 768px) { .container { width: $page_width; } }
-@media (min-width: 992px) { .container { width: $page_width; } }
-@media (min-width: 1200px) { .container { width: $page_width; } }
-
+.container {
+  max-width: $page_width;
+}
 body, html {
   background-color: $footer;
   color: $text-color;
