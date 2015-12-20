@@ -1,4 +1,4 @@
-<img src="https://www.spock.li/img/Spock_fullgrey.png" width="300" />
+Spock
 =====
 
 [![Build Status](https://travis-ci.org/agrafix/Spock.svg)](https://travis-ci.org/agrafix/Spock)
@@ -36,6 +36,10 @@ For more examples check the examples/ directory.
 * From Source (cabal): `git clone https://github.com/agrafix/Spock.git && cd Spock && cabal install`
 * From Source (stack): `git clone https://github.com/agrafix/Spock.git && cd Spock && stack build`
 
+## Mailing list
+
+Please join our mailing list at haskell-spock@googlegroups.com 
+
 ## Features
 
 Another Haskell web framework for rapid development: This toolbox provides
@@ -53,7 +57,7 @@ everything you need to get a quick start into web hacking with haskell:
 ## Important Links
 
 * [Tutorial](https://www.spock.li/tutorial/)
-* [Type-safe routing in Spock](https://www.spock.li/2015/04/19/type-safe_routing.html)
+* [Type-safe routing in Spock](https://www.spock.li/2015/04/19/type-safe_routing.html) 
 * [Taking Authentication to the next Level](https://www.spock.li/2015/08/23/taking_authentication_to_the_next_level.html)
 
 ### Talks

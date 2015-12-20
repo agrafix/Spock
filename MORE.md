@@ -1,3 +1,7 @@
+## Mailing list
+
+Please join our mailing list at haskell-spock@googlegroups.com 
+
 ## Features
 
 Another Haskell web framework for rapid development: This toolbox provides
