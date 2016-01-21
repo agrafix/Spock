@@ -6,7 +6,7 @@
 module Web.Spock.Internal.CoreAction
     ( ActionT
     , UploadedFile (..)
-    , request, header, rawHeader, cookie, body, jsonBody, jsonBody'
+    , request, header, rawHeader, cookie, cookies, body, jsonBody, jsonBody'
     , reqMethod
     , files, params, param, param', setStatus, setHeader, redirect
     , setRawMultiHeader
@@ -71,7 +71,16 @@ rawHeader t =
     liftM (lookup t . Wai.requestHeaders) request
 {-# INLINE rawHeader #-}
 
--- | Read a cookie. The cookie value will already be urldecoded.
+-- | Read all cookies. The cookie value will already be urldecoded.
+cookies :: MonadIO m => ActionCtxT ctx m [(T.Text, T.Text)]
+cookies =
+    do req <- request
+       return $ fromMaybe [] $ fmap parseCookies $ lookup "cookie" (Wai.requestHeaders req)
+{-# INLINE cookies #-}
+
+-- | Read a cookie. The cookie value will already be urldecoded. Note that it is
+-- more efficient to use 'cookies' if you need do access many cookies during a request
+-- handler.
 cookie :: MonadIO m => T.Text -> ActionCtxT ctx m (Maybe T.Text)
 cookie name =
     do req <- request
