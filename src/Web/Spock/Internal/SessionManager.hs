@@ -11,14 +11,12 @@ import Web.Spock.Internal.CoreAction
 import Web.Spock.Internal.Wire
 import Web.Spock.Internal.Util
 import Web.Spock.Internal.Cookies
-import qualified Web.Spock.Internal.SessionVault as SV
 
 #if MIN_VERSION_base(4,8,0)
 #else
 import Control.Applicative
 #endif
 import Control.Concurrent
-import Control.Concurrent.STM
 import Control.Exception
 import Control.Monad
 import Control.Monad.Trans
@@ -36,63 +34,38 @@ import qualified Data.Text.Encoding as T
 import qualified Data.Vault.Lazy as V
 import qualified Network.Wai as Wai
 
-withSessionManager :: SessionCfg sess -> (SessionManager conn sess st -> IO a) -> IO a
+withSessionManager :: SessionCfg conn sess st -> (SessionManager conn sess st -> IO a) -> IO a
 withSessionManager sessCfg =
     bracket (createSessionManager sessCfg) sm_closeSessionManager
 
-createSessionManager :: SessionCfg sess -> IO (SessionManager conn sess st)
+createSessionManager :: SessionCfg conn sess st -> IO (SessionManager conn sess st)
 createSessionManager cfg =
     do pool <- CR.createEntropyPool
-       oldSess <- loadSessions
-       cacheHM <-
-           atomically $
-           do mapV <- SV.newSessionVault
-              forM_ oldSess $ \v -> SV.storeSession v mapV
-              return mapV
        vaultKey <- V.newKey
-       housekeepThread <- forkIO (forever (housekeepSessions cfg cacheHM storeSessions))
+       housekeepThread <- forkIO (forever (housekeepSessions cfg))
        return
           SessionManager
-          { sm_getSessionId = getSessionIdImpl vaultKey cacheHM
-          , sm_regenerateSessionId = regenerateSessionIdImpl vaultKey cacheHM pool cfg
-          , sm_readSession = readSessionImpl vaultKey cacheHM
-          , sm_writeSession = writeSessionImpl vaultKey cacheHM
-          , sm_modifySession = modifySessionImpl vaultKey cacheHM
-          , sm_clearAllSessions = clearAllSessionsImpl cacheHM
-          , sm_mapSessions = mapAllSessionsImpl cacheHM
-          , sm_middleware = sessionMiddleware pool cfg vaultKey cacheHM
-          , sm_addSafeAction = addSafeActionImpl pool vaultKey cacheHM
-          , sm_lookupSafeAction = lookupSafeActionImpl vaultKey cacheHM
-          , sm_removeSafeAction = removeSafeActionImpl vaultKey cacheHM
+          { sm_getSessionId = getSessionIdImpl vaultKey store
+          , sm_regenerateSessionId = regenerateSessionIdImpl vaultKey store pool cfg
+          , sm_readSession = readSessionImpl vaultKey store
+          , sm_writeSession = writeSessionImpl vaultKey store
+          , sm_modifySession = modifySessionImpl vaultKey store
+          , sm_clearAllSessions = clearAllSessionsImpl store
+          , sm_mapSessions = mapAllSessionsImpl store
+          , sm_middleware = sessionMiddleware pool cfg vaultKey
+          , sm_addSafeAction = addSafeActionImpl pool vaultKey store
+          , sm_lookupSafeAction = lookupSafeActionImpl vaultKey store
+          , sm_removeSafeAction = removeSafeActionImpl vaultKey store
           , sm_closeSessionManager = killThread housekeepThread
           }
     where
-      (loadSessions, storeSessions) =
-          case sc_persistCfg cfg of
-            Nothing ->
-                ( return []
-                , const $ return ()
-                )
-            Just spc ->
-                ( do sessions <- spc_load spc
-                     return (map genSession sessions)
-                , spc_store spc . map mkSerializable . HM.elems
-                )
-      mkSerializable sess =
-          (sess_id sess, sess_validUntil sess, sess_data sess)
-      genSession (sid, validUntil, theData) =
-          Session
-          { sess_id = sid
-          , sess_validUntil = validUntil
-          , sess_data = theData
-          , sess_safeActions = SafeActionStore HM.empty HM.empty
-          }
+      store = sc_store cfg
 
 regenerateSessionIdImpl ::
     V.Key SessionId
-    -> SV.SessionVault (Session conn sess st)
+    -> SessionStoreInstance (Session conn sess st)
     -> CR.EntropyPool
-    -> SessionCfg sess
+    -> SessionCfg conn sess st
     -> SpockActionCtx ctx conn sess st ()
 regenerateSessionIdImpl vK sessionRef entropyPool cfg =
     do sess <- readSessionBase vK sessionRef
@@ -103,42 +76,42 @@ regenerateSessionIdImpl vK sessionRef entropyPool cfg =
        modifyVault $ V.insert vK (sess_id newSession)
 
 getSessionIdImpl :: V.Key SessionId
-                 -> SV.SessionVault (Session conn sess st)
+                 -> SessionStoreInstance (Session conn sess st)
                  -> SpockActionCtx ctx conn sess st SessionId
 getSessionIdImpl vK sessionRef =
     do sess <- readSessionBase vK sessionRef
        return $ sess_id sess
 
 modifySessionBase :: V.Key SessionId
-                  -> SV.SessionVault (Session conn sess st)
+                  -> SessionStoreInstance (Session conn sess st)
                   -> (Session conn sess st -> (Session conn sess st, a))
                   -> SpockActionCtx ctx conn sess st a
-modifySessionBase vK sessionRef modFun =
+modifySessionBase vK (SessionStoreInstance sessionRef) modFun =
     do mValue <- queryVault vK
        case mValue of
          Nothing ->
              error "(3) Internal Spock Session Error. Please report this bug!"
          Just sid ->
-             liftIO $ atomically $
-             do mSession <- SV.loadSession sid sessionRef
+             liftIO $ ss_runTx sessionRef $
+             do mSession <- ss_loadSession sessionRef sid
                 case mSession of
                   Nothing ->
                       fail "Internal Spock Session Error: Unknown SessionId"
                   Just session ->
                       do let (sessionNew, result) = modFun session
-                         SV.storeSession sessionNew sessionRef
+                         ss_storeSession sessionRef sessionNew
                          return result
 
 readSessionBase :: V.Key SessionId
-                -> SV.SessionVault (Session conn sess st)
+                -> SessionStoreInstance (Session conn sess st)
                 -> SpockActionCtx ctx conn sess st (Session conn sess st)
-readSessionBase vK sessionRef =
+readSessionBase vK (SessionStoreInstance sessionRef) =
     do mValue <- queryVault vK
        case mValue of
          Nothing ->
              error "(1) Internal Spock Session Error. Please report this bug!"
          Just sid ->
-             do mSession <- liftIO $ atomically $ SV.loadSession sid sessionRef
+             do mSession <- liftIO $ ss_runTx sessionRef $ ss_loadSession sessionRef sid
                 case mSession of
                   Nothing ->
                       error "(2) Internal Spock Session Error. Please report this bug!"
@@ -148,7 +121,7 @@ readSessionBase vK sessionRef =
 addSafeActionImpl ::
     CR.EntropyPool
     -> V.Key SessionId
-    -> SV.SessionVault (Session conn sess st)
+    -> SessionStoreInstance (Session conn sess st)
     -> PackedSafeAction conn sess st
     -> SpockActionCtx ctx conn sess st SafeActionHash
 addSafeActionImpl pool vaultKey sessionMapVar safeAction =
@@ -167,7 +140,7 @@ addSafeActionImpl pool vaultKey sessionMapVar safeAction =
                 return safeActionHash
 
 lookupSafeActionImpl :: V.Key SessionId
-                     -> SV.SessionVault (Session conn sess st)
+                     -> SessionStoreInstance (Session conn sess st)
                      -> SafeActionHash
                      -> SpockActionCtx ctx conn sess st (Maybe (PackedSafeAction conn sess st))
 lookupSafeActionImpl vaultKey sessionMapVar hash =
@@ -176,7 +149,7 @@ lookupSafeActionImpl vaultKey sessionMapVar hash =
 
 removeSafeActionImpl ::
     V.Key SessionId
-    -> SV.SessionVault (Session conn sess st)
+    -> SessionStoreInstance (Session conn sess st)
     -> PackedSafeAction conn sess st
     -> SpockActionCtx ctx conn sess st ()
 removeSafeActionImpl vaultKey sessionMapVar action =
@@ -192,21 +165,21 @@ removeSafeActionImpl vaultKey sessionMapVar action =
           }
 
 readSessionImpl :: V.Key SessionId
-                -> SV.SessionVault (Session conn sess st)
+                -> SessionStoreInstance (Session conn sess st)
                 -> SpockActionCtx ctx conn sess st sess
 readSessionImpl vK sessionRef =
     do base <- readSessionBase vK sessionRef
        return (sess_data base)
 
 writeSessionImpl :: V.Key SessionId
-                 -> SV.SessionVault (Session conn sess st)
+                 -> SessionStoreInstance (Session conn sess st)
                  -> sess
                  -> SpockActionCtx ctx conn sess st ()
 writeSessionImpl vK sessionRef value =
     modifySessionImpl vK sessionRef (const (value, ()))
 
 modifySessionImpl :: V.Key SessionId
-                  -> SV.SessionVault (Session conn sess st)
+                  -> SessionStoreInstance (Session conn sess st)
                   -> (sess -> (sess, a))
                   -> SpockActionCtx ctx conn sess st a
 modifySessionImpl vK sessionRef f =
@@ -215,7 +188,7 @@ modifySessionImpl vK sessionRef f =
                in (session { sess_data = sessData' }, out)
        modifySessionBase vK sessionRef modFun
 
-makeSessionIdCookie :: SessionCfg sess -> Session conn sess st -> UTCTime -> BS.ByteString
+makeSessionIdCookie :: SessionCfg conn sess st -> Session conn sess st -> UTCTime -> BS.ByteString
 makeSessionIdCookie cfg sess now =
     generateCookieHeaderString name value settings now
     where
@@ -229,11 +202,10 @@ makeSessionIdCookie cfg sess now =
 
 sessionMiddleware ::
     CR.EntropyPool
-    -> SessionCfg sess
+    -> SessionCfg conn sess st
     -> V.Key SessionId
-    -> SV.SessionVault (Session conn sess st)
     -> Wai.Middleware
-sessionMiddleware pool cfg vK sessionRef app req respond =
+sessionMiddleware pool cfg vK app req respond =
     case getCookieFromReq (sc_cookieName cfg) of
       Just sid ->
           do mSess <- loadSessionImpl cfg sessionRef sid
@@ -264,24 +236,25 @@ sessionMiddleware pool cfg vK sessionRef app req respond =
       mkNew =
           do newSess <- newSessionImpl pool cfg sessionRef defVal
              withSess True newSess
+      sessionRef = sc_store cfg
 
 newSessionImpl ::
     CR.EntropyPool
-    -> SessionCfg sess
-    -> SV.SessionVault (Session conn sess st)
+    -> SessionCfg conn sess st
+    -> SessionStoreInstance (Session conn sess st)
     -> sess
     -> IO (Session conn sess st)
-newSessionImpl pool sessCfg sessionRef content =
+newSessionImpl pool sessCfg (SessionStoreInstance sessionRef) content =
     do sess <- createSession pool sessCfg content
-       atomically $ SV.storeSession sess sessionRef
+       ss_runTx sessionRef $ ss_storeSession sessionRef sess
        return $! sess
 
-loadSessionImpl :: SessionCfg sess
-                -> SV.SessionVault (Session conn sess st)
+loadSessionImpl :: SessionCfg conn sess st
+                -> SessionStoreInstance (Session conn sess st)
                 -> SessionId
                 -> IO (Maybe (Session conn sess st))
-loadSessionImpl sessCfg sessionRef sid =
-    do mSess <- atomically $ SV.loadSession sid sessionRef
+loadSessionImpl sessCfg sessionRef@(SessionStoreInstance store) sid =
+    do mSess <- ss_runTx store $ ss_loadSession store sid
        now <- getCurrentTime
        case mSess of
          Just sess ->
@@ -292,7 +265,7 @@ loadSessionImpl sessCfg sessionRef sid =
                                     { sess_validUntil =
                                           addUTCTime (sc_sessionTTL sessCfg) now
                                     }
-                            atomically $ SV.storeSession expandedSession sessionRef
+                            ss_runTx store $ ss_storeSession store expandedSession
                             return expandedSession
                     else return sess
                 if sess_validUntil sessWithPossibleExpansion > now
@@ -302,45 +275,43 @@ loadSessionImpl sessCfg sessionRef sid =
          Nothing ->
              return Nothing
 
-deleteSessionImpl :: SV.SessionVault (Session conn sess st)
+deleteSessionImpl :: SessionStoreInstance (Session conn sess st)
                   -> SessionId
                   -> IO ()
-deleteSessionImpl sessionRef sid =
-    atomically $ SV.deleteSession sid sessionRef
+deleteSessionImpl (SessionStoreInstance sessionRef) sid =
+    ss_runTx sessionRef $ ss_deleteSession sessionRef sid
 
-clearAllSessionsImpl :: SV.SessionVault (Session conn sess st)
+clearAllSessionsImpl :: SessionStoreInstance (Session conn sess st)
                      -> SpockActionCtx ctx conn sess st ()
-clearAllSessionsImpl sessionRef =
-    liftIO $ atomically $ SV.filterSessions (const False) sessionRef
+clearAllSessionsImpl (SessionStoreInstance sessionRef) =
+    liftIO $ ss_runTx sessionRef $ ss_filterSessions sessionRef (const False)
 
 mapAllSessionsImpl ::
-    SV.SessionVault (Session conn sess st)
-    -> (sess -> STM sess)
+    SessionStoreInstance (Session conn sess st)
+    -> (forall m. Monad m => sess -> m sess)
     -> SpockActionCtx ctx conn sess st ()
-mapAllSessionsImpl sessionRef f =
-    liftIO $ atomically $ flip SV.mapSessions sessionRef $ \sess ->
+mapAllSessionsImpl (SessionStoreInstance sessionRef) f =
+    liftIO $ ss_runTx sessionRef $ ss_mapSessions sessionRef $ \sess ->
         do newData <- f (sess_data sess)
            return $ sess { sess_data = newData }
 
-housekeepSessions :: SessionCfg sess
-                  -> SV.SessionVault (Session conn sess st)
-                  -> (HM.HashMap SessionId (Session conn sess st) -> IO ())
-                  -> IO ()
-housekeepSessions cfg sessionRef storeSessions =
-    do now <- getCurrentTime
-       (newStatus, oldStatus) <-
-           atomically $
-           do oldSt <- SV.toList sessionRef
-              SV.filterSessions (\sess -> sess_validUntil sess > now) sessionRef
-              (,) <$> SV.toList sessionRef <*> pure oldSt
-       let packSessionHm = HM.fromList . map (\v -> (SV.getSessionKey v, v))
-           oldHm = packSessionHm oldStatus
-           newHm = packSessionHm newStatus
-       storeSessions newHm
-       sh_removed (sc_hooks cfg) (HM.map sess_data $ oldHm `HM.difference` newHm)
-       threadDelay (1000 * 1000 * (round $ sc_housekeepingInterval cfg))
+housekeepSessions :: SessionCfg conn sess st -> IO ()
+housekeepSessions cfg =
+    case sc_store cfg of
+      SessionStoreInstance store ->
+       do now <- getCurrentTime
+          (newStatus, oldStatus) <-
+            ss_runTx store $
+            do oldSt <- ss_toList store
+               ss_filterSessions store (\sess -> sess_validUntil sess > now)
+               (,) <$> ss_toList store <*> pure oldSt
+          let packSessionHm = HM.fromList . map (\v -> (sess_id v, v))
+              oldHm = packSessionHm oldStatus
+              newHm = packSessionHm newStatus
+          sh_removed (sc_hooks cfg) (HM.map sess_data $ oldHm `HM.difference` newHm)
+          threadDelay (1000 * 1000 * (round $ sc_housekeepingInterval cfg))
 
-createSession :: CR.EntropyPool -> SessionCfg sess -> sess -> IO (Session conn sess st)
+createSession :: CR.EntropyPool -> SessionCfg conn sess st -> sess -> IO (Session conn sess st)
 createSession pool sessCfg content =
     do sid <- randomHash pool (sc_sessionIdEntropy sessCfg)
        now <- getCurrentTime

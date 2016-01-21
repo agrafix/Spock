@@ -7,14 +7,25 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Web.Spock
-    ( -- * Spock's route definition monad
-      spock, SpockM, SpockCtxM
+    ( -- * Lauching Spock
+      runSpock, runSpockNoBanner, spockAsApp
+      -- * Spock's route definition monad
+    , spock, SpockM, SpockCtxM
     , spockT, spockLimT, SpockT, SpockCtxT
-     -- * Defining routes
+      -- * Configuration
+    , SpockCfg (..), defaultSpockCfg
+      -- * Database
+    , PoolOrConn (..), ConnBuilder (..), PoolCfg (..)
+      -- * Sessions
+    , defaultSessionCfg, SessionCfg (..)
+    , defaultSessionHooks, SessionHooks (..)
+    , SessionStore(..), SessionStoreInstance(..)
+    , SV.newStmSessionStore
+      -- * Defining routes
     , Path, root, Var, var, static, (<//>)
-     -- * Rendering routes
+      -- * Rendering routes
     , renderRoute
-     -- * Hooking routes
+      -- * Hooking routes
     , subcomponent, prehook
     , get, post, getpost, head, put, delete, patch, hookRoute, hookRouteCustom, hookAny, hookAnyCustom
     , Http.StdMethod (..)
@@ -33,6 +44,7 @@ import Web.Spock.Action
 import Web.Spock.Internal.Types
 import Web.Spock.Internal.Wire (SpockMethod(..))
 import qualified Web.Spock.Internal.Core as C
+import qualified Web.Spock.Internal.SessionVault as SV
 
 import Control.Applicative
 import Control.Monad.Reader
@@ -47,6 +59,8 @@ import qualified Data.Text as T
 import qualified Network.HTTP.Types as Http
 import qualified Network.Wai as Wai
 import qualified Web.Routing.SafeRouting as SR
+import qualified Web.Spock.Internal.Wire as W
+import qualified Network.Wai.Handler.Warp as Warp
 
 type SpockM conn sess st = SpockCtxM () conn sess st
 type SpockCtxM ctx conn sess st = SpockCtxT ctx (WebStateM conn sess st)
@@ -67,6 +81,25 @@ newtype SpockCtxT ctx m a
 
 instance MonadTrans (SpockCtxT ctx) where
     lift = SpockCtxT . lift . lift
+
+
+-- | Run a Spock application. Basically just a wrapper aroung 'Warp.run'.
+runSpock :: Warp.Port -> IO Wai.Middleware -> IO ()
+runSpock port mw =
+    do putStrLn ("Spock is running on port " ++ show port)
+       app <- spockAsApp mw
+       Warp.run port app
+
+-- | Like 'runSpock', but does not display the banner "Spock is running on port XXX" on stdout.
+runSpockNoBanner :: Warp.Port -> IO Wai.Middleware -> IO ()
+runSpockNoBanner port mw =
+    do app <- spockAsApp mw
+       Warp.run port app
+
+-- | Convert a middleware to an application. All failing requests will
+-- result in a 404 page
+spockAsApp :: IO Wai.Middleware -> IO Wai.Application
+spockAsApp = liftM W.middlewareToApp
 
 -- | Create a spock application using a given db storageLayer and an initial state.
 -- Spock works with database libraries that already implement connection pooling and
@@ -255,3 +288,38 @@ hookSafeActions =
 -- | Render a route applying path pieces
 renderRoute :: Path as -> HVectElim as T.Text
 renderRoute route = curryExpl (pathToRep route) (T.cons '/' . SR.renderRoute route)
+
+-- | NOP session hooks
+defaultSessionHooks :: SessionHooks a
+defaultSessionHooks =
+    SessionHooks
+    { sh_removed = const $ return ()
+    }
+
+-- | Session configuration with reasonable defaults
+defaultSessionCfg :: a -> IO (SessionCfg conn a st)
+defaultSessionCfg emptySession =
+  do store <- SV.newStmSessionStore
+     return
+       SessionCfg
+       { sc_cookieName = "spockcookie"
+       , sc_sessionTTL = 3600
+       , sc_sessionIdEntropy = 64
+       , sc_sessionExpandTTL = True
+       , sc_emptySession = emptySession
+       , sc_store = store
+       , sc_housekeepingInterval = 60 * 10
+       , sc_hooks = defaultSessionHooks
+       }
+
+-- | Spock configuration with reasonable defaults
+defaultSpockCfg :: sess -> PoolOrConn conn -> st -> IO (SpockCfg conn sess st)
+defaultSpockCfg sess conn st =
+  do defSess <- defaultSessionCfg sess
+     return
+       SpockCfg
+       { spc_initialState = st
+       , spc_database = conn
+       , spc_sessionCfg = defSess
+       , spc_maxRequestSize = Just (5 * 1024 * 1024)
+       }

@@ -16,7 +16,6 @@ import Web.Spock.Internal.Wire
 #else
 import Control.Applicative
 #endif
-import Control.Concurrent.STM
 import Control.Monad.Base
 import Control.Monad.Reader
 import Control.Monad.Trans.Control
@@ -48,21 +47,11 @@ data SpockCfg conn sess st
      -- ^ initial application global state
    , spc_database :: PoolOrConn conn
      -- ^ See 'PoolOrConn'
-   , spc_sessionCfg :: SessionCfg sess
+   , spc_sessionCfg :: SessionCfg conn sess st
      -- ^ See 'SessionCfg'
    , spc_maxRequestSize :: Maybe Word64
      -- ^ Maximum request size in bytes. 'Nothing' means no limit. Defaults to 5 MB in @defaultSpockCfg@.
    }
-
--- | Spock configuration with reasonable defaults
-defaultSpockCfg :: sess -> PoolOrConn conn -> st -> SpockCfg conn sess st
-defaultSpockCfg sess conn st =
-    SpockCfg
-    { spc_initialState = st
-    , spc_database = conn
-    , spc_sessionCfg = defaultSessionCfg sess
-    , spc_maxRequestSize = Just (5 * 1024 * 1024)
-    }
 
 -- | If Spock should take care of connection pooling, you need to configure
 -- it depending on what you need.
@@ -88,22 +77,8 @@ data PoolOrConn a where
     PCConn :: ConnBuilder a -> PoolOrConn a
     PCNoDatabase :: PoolOrConn ()
 
--- | Session configuration with reasonable defaults
-defaultSessionCfg :: a -> SessionCfg a
-defaultSessionCfg emptySession =
-    SessionCfg
-    { sc_cookieName = "spockcookie"
-    , sc_sessionTTL = 3600
-    , sc_sessionIdEntropy = 64
-    , sc_sessionExpandTTL = True
-    , sc_emptySession = emptySession
-    , sc_persistCfg = Nothing
-    , sc_housekeepingInterval = 60 * 10
-    , sc_hooks = defaultSessionHooks
-    }
-
 -- | Configuration for the session manager
-data SessionCfg a
+data SessionCfg conn a st
    = SessionCfg
    { sc_cookieName :: T.Text
      -- ^ name of the client side cookie
@@ -115,31 +90,18 @@ data SessionCfg a
      -- ^ if this is true, every page reload will renew the session time to live counter
    , sc_emptySession :: a
      -- ^ initial session for visitors
-   , sc_persistCfg :: Maybe (SessionPersistCfg a)
-     -- ^ persistence interface for sessions
+   , sc_store :: SessionStoreInstance (Session conn a st)
+     -- ^ storage interface for sessions
    , sc_housekeepingInterval :: NominalDiffTime
      -- ^ how often should the session manager check for dangeling dead sessions
    , sc_hooks :: SessionHooks a
      -- ^ hooks into the session manager
    }
 
--- | NOP session hooks
-defaultSessionHooks :: SessionHooks a
-defaultSessionHooks =
-    SessionHooks
-    { sh_removed = const $ return ()
-    }
-
 -- | Hook into the session manager to trigger custom behavior
 data SessionHooks a
    = SessionHooks
    { sh_removed :: HM.HashMap SessionId a -> IO ()
-   }
-
-data SessionPersistCfg a
-   = SessionPersistCfg
-   { spc_load :: IO [(SessionId, UTCTime, a)]
-   , spc_store :: [(SessionId, UTCTime, a)] -> IO ()
    }
 
 data WebState conn sess st
@@ -212,6 +174,20 @@ data Session conn sess st
     , sess_safeActions :: !(SafeActionStore conn sess st)
     }
 
+data SessionStoreInstance sess where
+    SessionStoreInstance :: forall sess tx. (Monad tx, Functor tx, Applicative tx) => SessionStore sess tx -> SessionStoreInstance sess
+
+data SessionStore sess tx
+   = SessionStore
+   { ss_runTx :: forall a. tx a -> IO a
+   , ss_loadSession :: SessionId -> tx (Maybe sess)
+   , ss_deleteSession :: SessionId -> tx ()
+   , ss_storeSession :: sess -> tx ()
+   , ss_toList :: tx [sess]
+   , ss_filterSessions :: (sess -> Bool) -> tx ()
+   , ss_mapSessions :: (sess -> tx sess) -> tx ()
+   }
+
 instance Show (Session conn sess st) where
     show = show . sess_id
 
@@ -222,7 +198,7 @@ data SessionManager conn sess st
    , sm_readSession :: forall ctx. SpockActionCtx ctx conn sess st sess
    , sm_writeSession :: forall ctx. sess -> SpockActionCtx ctx conn sess st ()
    , sm_modifySession :: forall a ctx. (sess -> (sess, a)) -> SpockActionCtx ctx conn sess st a
-   , sm_mapSessions :: forall ctx. (sess -> STM sess) -> SpockActionCtx ctx conn sess st ()
+   , sm_mapSessions :: forall ctx. (forall m. Monad m => sess -> m sess) -> SpockActionCtx ctx conn sess st ()
    , sm_clearAllSessions :: forall ctx. SpockActionCtx ctx conn sess st ()
    , sm_middleware :: Middleware
    , sm_addSafeAction :: forall ctx. PackedSafeAction conn sess st -> SpockActionCtx ctx conn sess st SafeActionHash

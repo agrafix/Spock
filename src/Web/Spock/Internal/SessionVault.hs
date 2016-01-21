@@ -9,7 +9,7 @@ import Web.Spock.Internal.Types
 #else
 import Control.Applicative
 #endif
-import Control.Concurrent.STM (STM)
+import Control.Concurrent.STM (STM, atomically)
 import Control.Monad
 import Data.Hashable
 import Focus as F
@@ -63,3 +63,17 @@ mapSessions f sv@(SessionVault smap) =
     do allVals <- toList sv
        forM_ allVals $ \sess ->
            STMMap.focus (F.adjustM f) (getSessionKey sess) smap
+
+newStmSessionStore :: IO (SessionStoreInstance (Session conn sess st))
+newStmSessionStore =
+  do vault <- atomically newSessionVault
+     return $ SessionStoreInstance $
+         SessionStore
+         { ss_runTx = atomically
+         , ss_loadSession = flip loadSession vault
+         , ss_deleteSession = flip deleteSession vault
+         , ss_storeSession = flip storeSession vault
+         , ss_toList = toList vault
+         , ss_filterSessions = flip filterSessions vault
+         , ss_mapSessions = flip mapSessions vault
+         }

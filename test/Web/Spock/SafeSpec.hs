@@ -141,7 +141,8 @@ sessionSpec =
     where
       sessionApp =
           spockAsApp $
-          spock spockCfg $
+          spockCfg >>= \cfg ->
+          spock cfg $
           do get "test" $ text "text"
              get ("set" <//> var) $ \number -> writeSession number >> text "done"
              get "regenerate" $ sessionRegenerateId >> text "done"
