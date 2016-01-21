@@ -24,6 +24,7 @@ everything you need to get a quick start into web hacking with haskell:
 
 ### Talks
 
+* English: [Spock - Powerful Elegent Web Applications using Haskell](https://www.youtube.com/watch?v=kNqsOBrCbLo) (by Alexander Thiemann)
 * English: [Beginning Web Programming in Haskell (using Spock)](https://www.youtube.com/watch?v=GobPiGL9jJ4) (by Ollie Charles)
 * German: [Moderne typsichere Web-Entwicklung mit Haskell](https://dl.dropboxusercontent.com/u/15078797/talks/typesafe-webdev-2015.pdf) (by Alexander Thiemann)
 * German: [reroute-talk](https://github.com/timjb/reroute-talk) (by Tim Baumann)
