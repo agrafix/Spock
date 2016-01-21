@@ -83,6 +83,13 @@ The following Spock extensions exist:
 * Blaze bootstrap helpers [blaze-bootstrap](http://hackage.haskell.org/package/blaze-bootstrap)
 * digestive-forms bootstrap helpers [digestive-bootstrap](http://hackage.haskell.org/package/digestive-bootstrap)
 
+### SSL / HTTPS
+
+If you'd like to use your application via HTTPS, there are two options:
+
+* Use nginx/haproxy/... as reverse proxy in front of the Spock application.
+* Convert the Spock application to a `wai`-application using the `spockAsApp`. Then use the `warp-tls` package to run it.
+
 ### Benchmarks
 
 Please note that these benchmarks might not be up to date anymore.
