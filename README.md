@@ -27,8 +27,6 @@ main =
 
 ```
 
-For more examples check the examples/ directory.
-
 ## Install
 
 * Using cabal: `cabal install Spock`
@@ -45,7 +43,7 @@ Please join our mailing list at haskell-spock@googlegroups.com
 Another Haskell web framework for rapid development: This toolbox provides
 everything you need to get a quick start into web hacking with haskell:
 
-* fast routing (both typesafe and "untyped")
+* fast typesafe routing
 * middleware
 * json
 * sessions
@@ -104,6 +102,8 @@ Please note that these benchmarks might not be up to date anymore.
 * [curry-recipes](https://github.com/timjb/reroute-talk/tree/06574561918b50c1809f1e24ec7faeff731fddcf/curry-recipes)
 
 ## Notes
+
+Since version 0.11.0.0 Spock drops simple routing in favor of typesafe routing.
 
 Since version 0.7.0.0 Spock supports typesafe routing. If you wish to continue using the untyped version of Spock you can Use `Web.Spock.Simple`. The implementation of the routing is implemented in a separate haskell package called `reroute`.
 
