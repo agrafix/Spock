@@ -3,7 +3,7 @@
 {-# LANGUAGE DoAndIfThenElse #-}
 module Web.Spock.SafeSpec (spec) where
 
-import Web.Spock.Safe
+import Web.Spock
 import Web.Spock.FrameworkSpecHelper
 
 import Control.Arrow (second)

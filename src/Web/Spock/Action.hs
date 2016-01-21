@@ -5,7 +5,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-module Web.Spock.Shared
+module Web.Spock.Action
     (-- * Helpers for running Spock
       runSpock, runSpockNoBanner, spockAsApp
      -- * Action types

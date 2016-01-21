@@ -1,5 +1,5 @@
 name:                Spock
-version:             0.10.0.1
+version:             0.11.0.0
 synopsis:            Another Haskell web framework for rapid development
 description:         This toolbox provides everything you need to get a quick start into web hacking with haskell:
                      .
@@ -37,12 +37,10 @@ library
   hs-source-dirs:      src
   exposed-modules:
                        Web.Spock,
+                       Web.Spock.Action,
                        Web.Spock.Internal.Cookies,
                        Web.Spock.Internal.Util,
-                       Web.Spock.Internal.SessionVault,
-                       Web.Spock.Safe,
-                       Web.Spock.Shared,
-                       Web.Spock.Simple
+                       Web.Spock.Internal.SessionVault
   other-modules:
                        Web.Spock.Internal.Core,
                        Web.Spock.Internal.CoreAction,
@@ -94,8 +92,7 @@ test-suite spocktests
                        Web.Spock.Internal.CookiesSpec,
                        Web.Spock.Internal.UtilSpec,
                        Web.Spock.Internal.SessionVaultSpec,
-                       Web.Spock.SafeSpec,
-                       Web.Spock.SimpleSpec
+                       Web.Spock.SafeSpec
   build-depends:
                        base,
                        bytestring,
