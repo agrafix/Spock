@@ -126,11 +126,10 @@ Pull requests are welcome! Please consider creating an issue beforehand, so we c
 
 ### Supported GHC Versions
 
-* 7.6.3
 * 7.8.4
 * 7.10.2
 
 ### License
 
 Released under the BSD3 license.
-(c) 2013 - 2015 Alexander Thiemann
+(c) 2013 - 2016 Alexander Thiemann
