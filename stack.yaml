@@ -1,4 +1,5 @@
 flags: {}
 packages:
-- '.'
+  - Spock/
+  - Spock-core/
 resolver: lts-5.8

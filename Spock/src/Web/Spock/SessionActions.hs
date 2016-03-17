@@ -5,40 +5,16 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-module Web.Spock.Action
-    ( -- * Action types
-      SpockAction, SpockActionCtx, ActionT, W.ActionCtxT
-     -- * Handling requests
-    , request, header, rawHeader, cookies, cookie, reqMethod
-    , preferredFormat, ClientPreferredFormat(..)
-    , body, jsonBody, jsonBody'
-    , files, UploadedFile (..)
-    , params, param, param'
-     -- * Working with context
-    , getContext, runInContext
-     -- * Sending responses
-    , setStatus, setHeader, redirect, jumpNext, CookieSettings(..), defaultCookieSettings, CookieEOL(..), setCookie, deleteCookie, bytes, lazyBytes
-    , text, html, file, json, stream, response
-      -- * Middleware helpers
-    , middlewarePass, modifyVault, queryVault
-      -- * Accessing Database and State
-    , HasSpock (runQuery, getState), SpockConn, SpockState, SpockSession
-      -- * Basic HTTP-Auth
-    , requireBasicAuth, withBasicAuthData
-      -- * Sessions
-    , SessionId
+module Web.Spock.SessionActions
+    ( SessionId
     , sessionRegenerateId, getSessionId, readSession, writeSession
     , modifySession, modifySession', modifyReadSession, mapAllSessions, clearAllSessions
-     -- * Internals for extending Spock
-    , getSpockHeart, runSpockIO, WebStateM, WebState
     )
 where
 
-import Web.Spock.Internal.Monad
+import Web.Spock.Internal.Monad ()
 import Web.Spock.Internal.SessionManager
 import Web.Spock.Internal.Types
-import Web.Spock.Internal.CoreAction
-import qualified Web.Spock.Internal.Wire as W
 
 -- | Regenerate the users sessionId. This preserves all stored data. Call this prior
 -- to logging in a user to prevent session fixation attacks.

@@ -1,4 +1,4 @@
-name:                Spock
+name:                Spock-core
 version:             0.11.0.0
 synopsis:            Another Haskell web framework for rapid development
 description:         This toolbox provides everything you need to get a quick start into web hacking with haskell:
@@ -36,17 +36,13 @@ extra-source-files:
 library
   hs-source-dirs:      src
   exposed-modules:
-                       Web.Spock,
+                       Web.Spock.Core,
                        Web.Spock.Action,
                        Web.Spock.Internal.Cookies,
-                       Web.Spock.Internal.Util,
-                       Web.Spock.Internal.SessionVault
+                       Web.Spock.Internal.Util
   other-modules:
                        Web.Spock.Internal.Core,
                        Web.Spock.Internal.CoreAction,
-                       Web.Spock.Internal.Monad,
-                       Web.Spock.Internal.SessionManager,
-                       Web.Spock.Internal.Types,
                        Web.Spock.Internal.Wire
   build-depends:
                        aeson >= 0.7,
@@ -55,27 +51,18 @@ library
                        bytestring >=0.10,
                        case-insensitive >=1.1,
                        containers >=0.5,
-                       crypto-random >= 0.0.8,
                        directory >=1.2,
-                       focus >=0.1,
                        hashable >=1.2,
                        http-types >=0.8,
                        hvect >= 0.2,
-                       list-t >=0.4,
-                       monad-control >=1.0,
                        mtl >=2.1,
-                       old-locale >=1.0,
                        path-pieces >=0.1.4,
-                       random >=1.0,
                        reroute >=0.3.1,
-                       resource-pool >=0.2,
                        resourcet >= 0.4,
                        stm >=2.4,
-                       stm-containers >=0.2,
                        text >= 0.11.3.1,
                        time >=1.4,
                        transformers >=0.3,
-                       transformers-base >=0.4,
                        unordered-containers >=0.2,
                        vault >=0.3,
                        wai >=3.0,
@@ -83,7 +70,7 @@ library
                        warp >=3.0
   ghc-options: -auto-all -Wall -fno-warn-orphans
 
-test-suite spocktests
+test-suite spockcoretests
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Spec.hs
@@ -91,7 +78,6 @@ test-suite spocktests
                        Web.Spock.FrameworkSpecHelper,
                        Web.Spock.Internal.CookiesSpec,
                        Web.Spock.Internal.UtilSpec,
-                       Web.Spock.Internal.SessionVaultSpec,
                        Web.Spock.SafeSpec
   build-depends:
                        base,
@@ -100,14 +86,12 @@ test-suite spocktests
                        hspec >= 2.0,
                        hspec-wai >= 0.6,
                        http-types,
-                       Spock,
-                       stm,
+                       Spock-core,
                        reroute,
                        text,
                        time,
                        unordered-containers,
-                       wai,
-                       wai-extra
+                       wai
 
   ghc-options: -Wall -fno-warn-orphans
 

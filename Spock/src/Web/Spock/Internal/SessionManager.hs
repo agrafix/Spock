@@ -6,9 +6,8 @@ module Web.Spock.Internal.SessionManager
     )
 where
 
+import Web.Spock.Core
 import Web.Spock.Internal.Types
-import Web.Spock.Internal.CoreAction
-import Web.Spock.Internal.Wire
 import Web.Spock.Internal.Util
 import Web.Spock.Internal.Cookies
 

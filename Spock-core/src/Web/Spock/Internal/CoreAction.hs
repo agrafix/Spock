@@ -9,7 +9,7 @@ module Web.Spock.Internal.CoreAction
     , request, header, rawHeader, cookie, cookies, body, jsonBody, jsonBody'
     , reqMethod
     , files, params, param, param', setStatus, setHeader, redirect
-    , setRawMultiHeader
+    , setRawMultiHeader, MultiHeader(..)
     , CookieSettings(..), CookieEOL(..), defaultCookieSettings
     , setCookie, deleteCookie
     , jumpNext, middlewarePass, modifyVault, queryVault
@@ -199,11 +199,12 @@ setRawHeader k v =
          Nothing ->
              setRawHeaderUnsafe k v
 
--- | INTERNAL: Set a response header that can occur multiple times. (eg: Cache-Control)
+-- | Set a response header that can occur multiple times. (eg: Cache-Control)
 setMultiHeader :: MonadIO m => MultiHeader -> T.Text -> ActionCtxT ctx m ()
 setMultiHeader k v = setRawMultiHeader k (T.encodeUtf8 v)
 {-# INLINE setMultiHeader #-}
 
+-- | Set a response header that can occur multiple times. (eg: Cache-Control)
 setRawMultiHeader :: MonadIO m => MultiHeader -> BS.ByteString -> ActionCtxT ctx m ()
 setRawMultiHeader k v =
     modify $ \rs ->

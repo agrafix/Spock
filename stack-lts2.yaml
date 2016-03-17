@@ -1,6 +1,7 @@
 flags: {}
 packages:
-  - '.'
+  - Spock/
+  - Spock-core/
 resolver: lts-2.22
 extra-deps:
   - hvect-0.3.0.0

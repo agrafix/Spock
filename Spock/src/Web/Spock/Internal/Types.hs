@@ -10,7 +10,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 module Web.Spock.Internal.Types where
 
-import Web.Spock.Internal.Wire
+import Web.Spock.Core
 
 #if MIN_VERSION_base(4,8,0)
 #else
@@ -30,8 +30,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 
 -- | Inside the SpockAllM monad, you may define routes and middleware.
-type SpockAllM r conn sess st a =
-    SpockAllT r (WebStateM conn sess st) a
+type SpockAllM conn sess st a = SpockT (WebStateM conn sess st) a
 
 -- | The 'SpockActionCtx' is the monad of all route-actions. You have access
 -- to the context of the request and database, session and state of your application.

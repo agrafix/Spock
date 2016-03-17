@@ -6,21 +6,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-module Web.Spock
+module Web.Spock.Core
     ( -- * Lauching Spock
       runSpock, runSpockNoBanner, spockAsApp
       -- * Spock's route definition monad
-    , spock, SpockM, SpockCtxM
     , spockT, spockLimT, SpockT, SpockCtxT
-      -- * Configuration
-    , SpockCfg (..), defaultSpockCfg
-      -- * Database
-    , PoolOrConn (..), ConnBuilder (..), PoolCfg (..)
-      -- * Sessions
-    , defaultSessionCfg, SessionCfg (..)
-    , defaultSessionHooks, SessionHooks (..)
-    , SessionStore(..), SessionStoreInstance(..)
-    , SV.newStmSessionStore
       -- * Defining routes
     , Path, root, Var, var, static, (<//>)
       -- * Rendering routes
@@ -31,25 +21,19 @@ module Web.Spock
     , Http.StdMethod (..)
       -- * Adding Wai.Middleware
     , middleware
-      -- * Safe actions
-    , SafeAction (..)
-    , safeActionPath
-    , SpockMethod(..)
+      -- * Actions
     , module Web.Spock.Action
     )
 where
 
 
 import Web.Spock.Action
-import Web.Spock.Internal.Types
 import Web.Spock.Internal.Wire (SpockMethod(..))
 import qualified Web.Spock.Internal.Core as C
-import qualified Web.Spock.Internal.SessionVault as SV
 
 import Control.Applicative
 import Control.Monad.Reader
 import Data.HVect hiding (head)
-import Data.Monoid
 import Data.Word
 import Network.HTTP.Types.Method
 import Prelude hiding (head, uncurry, curry)
@@ -61,9 +45,6 @@ import qualified Network.Wai as Wai
 import qualified Web.Routing.SafeRouting as SR
 import qualified Web.Spock.Internal.Wire as W
 import qualified Network.Wai.Handler.Warp as Warp
-
-type SpockM conn sess st = SpockCtxM () conn sess st
-type SpockCtxM ctx conn sess st = SpockCtxT ctx (WebStateM conn sess st)
 
 type SpockT = SpockCtxT ()
 
@@ -100,18 +81,6 @@ runSpockNoBanner port mw =
 -- result in a 404 page
 spockAsApp :: IO Wai.Middleware -> IO Wai.Application
 spockAsApp = liftM W.middlewareToApp
-
--- | Create a spock application using a given db storageLayer and an initial state.
--- Spock works with database libraries that already implement connection pooling and
--- with those that don't come with it out of the box. For more see the 'PoolOrConn' type.
--- Use @runSpock@ to run the app or @spockAsApp@ to create a @Wai.Application@
-spock :: SpockCfg conn sess st -> SpockM conn sess st () -> IO Wai.Middleware
-spock spockCfg spockAppl =
-    C.spockAll SafeRouter spockCfg (baseAppHook spockAppl')
-    where
-      spockAppl' =
-          do hookSafeActions
-             spockAppl
 
 -- | Create a raw spock application with custom underlying monad
 -- Use @runSpock@ to run the app or @spockAsApp@ to create a @Wai.Application@
@@ -232,55 +201,6 @@ subcomponent p (SpockCtxT subapp) = SpockCtxT $ C.subcomponent (SafeRouterPath p
 middleware :: Monad m => Wai.Middleware -> SpockCtxT ctx m ()
 middleware = SpockCtxT . C.middleware
 
--- | Wire up a safe action: Safe actions are actions that are protected from
--- csrf attacks. Here's a usage example:
---
--- > newtype DeleteUser = DeleteUser Int deriving (Hashable, Typeable, Eq)
--- >
--- > instance SafeAction Connection () () DeleteUser where
--- >    runSafeAction (DeleteUser i) =
--- >       do runQuery $ deleteUserFromDb i
--- >          redirect "/user-list"
--- >
--- > get ("user-details" <//> var) $ \userId ->
--- >   do deleteUrl <- safeActionPath (DeleteUser userId)
--- >      html $ "Click <a href='" <> deleteUrl <> "'>here</a> to delete user!"
---
--- Note that safeActions currently only support GET and POST requests.
---
-safeActionPath :: forall conn sess st a.
-                  ( SafeAction conn sess st a
-                  , HasSpock(SpockAction conn sess st)
-                  , SpockConn (SpockAction conn sess st) ~ conn
-                  , SpockSession (SpockAction conn sess st) ~ sess
-                  , SpockState (SpockAction conn sess st) ~ st)
-               => a
-               -> SpockAction conn sess st T.Text
-safeActionPath safeAction =
-    do mgr <- getSessMgr
-       hash <- sm_addSafeAction mgr (PackedSafeAction safeAction)
-       return $ "/h/" <> hash
-
-hookSafeActions :: forall conn sess st.
-                   ( HasSpock (SpockAction conn sess st)
-                   , SpockConn (SpockAction conn sess st) ~ conn
-                   , SpockSession (SpockAction conn sess st) ~ sess
-                   , SpockState (SpockAction conn sess st) ~ st)
-                => SpockM conn sess st ()
-hookSafeActions =
-    getpost (static "h" </> var) run
-    where
-      run h =
-          do mgr <- getSessMgr
-             mAction <- sm_lookupSafeAction mgr h
-             case mAction of
-               Nothing ->
-                   do setStatus Http.status404
-                      text "File not found"
-               Just p@(PackedSafeAction action) ->
-                   do runSafeAction action
-                      sm_removeSafeAction mgr p
-
 -- | Combine two path components
 (<//>) :: Path as -> Path bs -> Path (Append as bs)
 (<//>) = (</>)
@@ -288,38 +208,3 @@ hookSafeActions =
 -- | Render a route applying path pieces
 renderRoute :: Path as -> HVectElim as T.Text
 renderRoute route = curryExpl (pathToRep route) (T.cons '/' . SR.renderRoute route)
-
--- | NOP session hooks
-defaultSessionHooks :: SessionHooks a
-defaultSessionHooks =
-    SessionHooks
-    { sh_removed = const $ return ()
-    }
-
--- | Session configuration with reasonable defaults
-defaultSessionCfg :: a -> IO (SessionCfg conn a st)
-defaultSessionCfg emptySession =
-  do store <- SV.newStmSessionStore
-     return
-       SessionCfg
-       { sc_cookieName = "spockcookie"
-       , sc_sessionTTL = 3600
-       , sc_sessionIdEntropy = 64
-       , sc_sessionExpandTTL = True
-       , sc_emptySession = emptySession
-       , sc_store = store
-       , sc_housekeepingInterval = 60 * 10
-       , sc_hooks = defaultSessionHooks
-       }
-
--- | Spock configuration with reasonable defaults
-defaultSpockCfg :: sess -> PoolOrConn conn -> st -> IO (SpockCfg conn sess st)
-defaultSpockCfg sess conn st =
-  do defSess <- defaultSessionCfg sess
-     return
-       SpockCfg
-       { spc_initialState = st
-       , spc_database = conn
-       , spc_sessionCfg = defSess
-       , spc_maxRequestSize = Just (5 * 1024 * 1024)
-       }
