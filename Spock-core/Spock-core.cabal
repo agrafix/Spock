@@ -41,7 +41,6 @@ library
                        Web.Spock.Internal.Cookies,
                        Web.Spock.Internal.Util
   other-modules:
-                       Web.Spock.Internal.Core,
                        Web.Spock.Internal.CoreAction,
                        Web.Spock.Internal.Wire
   build-depends:
