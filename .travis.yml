@@ -12,7 +12,7 @@ addons:
 
 env:
   - STACK_ARGS=""
-  - STACK_ARGS="--resolver lts-2"
+  - STACK_ARGS="--resolver lts-2" STACK_YAML=stack-lts2.yaml
   - STACK_ARGS="--resolver lts-3"
   - STACK_ARGS="--resolver nightly"
 
@@ -20,11 +20,10 @@ before_install:
   - mkdir -p ~/.local/bin
   - export PATH=$HOME/.local/bin:$PATH
   - travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
-  - stack --no-terminal setup
 
 install:
   - stack $STACK_ARGS setup --no-terminal
-  - stack $STACK_ARGS build --only-snapshot --no-terminal
+  - stack $STACK_ARGS build --only-snapshot --no-terminal --haddock
 
 script:
   - stack $STACK_ARGS test --pedantic --no-terminal --skip-ghc-check --haddock
