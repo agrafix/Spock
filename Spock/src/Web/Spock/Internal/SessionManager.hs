@@ -20,10 +20,6 @@ import Control.Exception
 import Control.Monad
 import Control.Monad.Trans
 import Data.Time
-#if MIN_VERSION_time(1,5,0)
-#else
-import System.Locale (defaultTimeLocale)
-#endif
 import qualified Crypto.Random as CR
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base64 as B64
