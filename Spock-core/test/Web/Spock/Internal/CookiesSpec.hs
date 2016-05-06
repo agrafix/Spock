@@ -1,8 +1,10 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Web.Spock.Internal.CookiesSpec (spec) where
 
 import Web.Spock.Internal.Cookies
 
+import Control.Monad
 import Data.Time
 import Test.Hspec
 import qualified Data.ByteString as BS
@@ -88,13 +90,9 @@ spec =
       def = defaultCookieSettings
       t = UTCTime (fromGregorian 2015 9 1) (21*60*60)
       shouldContainOnce haystack needle =
-          snd (BS.breakSubstring needle haystack) `shouldNotBe` BS.empty
+          let snb actual notExpected =
+                  unless (actual /= notExpected) $
+                  expectationFailure $ "not expected: " ++ show actual
+          in snd (BS.breakSubstring needle haystack) `snb` BS.empty
       shouldNotContain' haystack needle =
           snd (BS.breakSubstring needle haystack) `shouldBe` BS.empty
-
-#if MIN_VERSION_hspec-expectations(0,7,0)
-#else
-shouldNotBe :: (Show a, Eq a) => a -> a -> Expectation
-actual `shouldNotBe` notExpected =
-    expectTrue ("not expected: " ++ show actual) (actual /= notExpected)
-#endif
