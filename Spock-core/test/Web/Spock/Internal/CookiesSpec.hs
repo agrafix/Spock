@@ -91,3 +91,10 @@ spec =
           snd (BS.breakSubstring needle haystack) `shouldNotBe` BS.empty
       shouldNotContain' haystack needle =
           snd (BS.breakSubstring needle haystack) `shouldBe` BS.empty
+
+#if MIN_VERSION_hspec-expectations(0,7,0)
+#else
+shouldNotBe :: (Show a, Eq a) => a -> a -> Expectation
+actual `shouldNotBe` notExpected =
+    expectTrue ("not expected: " ++ show actual) (actual /= notExpected)
+#endif
