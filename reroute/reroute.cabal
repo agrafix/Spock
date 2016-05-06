@@ -1,0 +1,84 @@
+name:                reroute
+version:             0.3.1.0
+synopsis:            abstract implementation of typed and untyped web routing
+description:         abstraction over how urls with/without parameters are mapped to their corresponding handlers
+homepage:            http://github.com/agrafix/reroute
+license:             MIT
+license-file:        LICENSE
+author:              Alexander Thiemann <mail@athiemann.net>, Tim Baumann <tim@timbaumann.info>
+maintainer:          Alexander Thiemann <mail@athiemann.net>
+copyright:           (c) 2014 - 2015 Alexander Thiemann <mail@athiemann.net>, Tim Baumann <tim@timbaumann.info>
+category:            Web
+build-type:          Simple
+cabal-version:       >=1.10
+
+extra-source-files:
+    README.md
+
+library
+  exposed-modules:
+                       Data.PolyMap,
+                       Web.Routing.AbstractRouter,
+                       Web.Routing.SafeRouting,
+                       Web.Routing.TextRouting
+  build-depends:
+                       base >=4.6 && <5,
+                       deepseq >= 1.1.0.2,
+                       graph-core >=0.2.1,
+                       hashable >=1.2,
+                       mtl >=2.1,
+                       path-pieces >=0.1,
+                       regex-compat >=0.95,
+                       text >= 0.11.3.1,
+                       transformers >=0.3,
+                       unordered-containers >=0.2,
+                       vector >=0.10,
+                       hvect >=0.2
+  hs-source-dirs:      src
+  default-language:    Haskell2010
+  ghc-options: -Wall -fno-warn-orphans
+
+
+test-suite reroute-test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Spec.hs
+  other-modules:
+                       Web.Routing.SafeRoutingSpec,
+                       Web.Routing.TextRoutingSpec
+  build-depends:
+                       base,
+                       hspec,
+                       mtl,
+                       reroute,
+                       text,
+                       unordered-containers,
+                       vector,
+                       hvect
+  default-language:    Haskell2010
+  ghc-options: -Wall -fno-warn-orphans
+
+benchmark reroute-benchmarks
+  type:             exitcode-stdio-1.0
+  ghc-options:      -Wall -O2
+  hs-source-dirs:   src benchmarks
+  default-language: Haskell2010
+  main-is:          Benchmarks.hs
+  build-depends:
+    base,
+    criterion,
+    text,
+    mtl,
+    unordered-containers,
+    vector,
+    hashable,
+    regex-compat,
+    random,
+    deepseq,
+    path-pieces,
+    graph-core,
+    hvect
+
+source-repository head
+  type:     git
+  location: git://github.com/agrafix/reroute.git

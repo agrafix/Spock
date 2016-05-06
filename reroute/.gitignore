@@ -1,0 +1,14 @@
+dist
+cabal-dev
+*.o
+*.hi
+*.chi
+*.chs.h
+.virtualenv
+.hsenv
+.cabal-sandbox/
+cabal.sandbox.config
+cabal.config
+.DS_Store
+reroute-benchmarks.html
+.stack-work/
