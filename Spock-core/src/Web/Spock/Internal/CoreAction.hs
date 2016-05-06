@@ -24,7 +24,6 @@ import Web.Spock.Internal.Cookies
 import Web.Spock.Internal.Util
 import Web.Spock.Internal.Wire
 
-import Control.Arrow (first)
 import Control.Monad
 #if MIN_VERSION_mtl(2,2,0)
 import Control.Monad.Except
@@ -42,7 +41,6 @@ import Network.HTTP.Types.Header (HeaderName, ResponseHeaders)
 import Network.HTTP.Types.Status
 import Prelude hiding (head)
 import Web.PathPieces
-import Web.Routing.AbstractRouter
 import qualified Data.Aeson as A
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base64 as B64
@@ -142,27 +140,14 @@ files =
 
 -- | Get all request params
 params :: MonadIO m => ActionCtxT ctx m [(T.Text, T.Text)]
-params =
-    do p <- asks ri_params
-       qp <- asks ri_queryParams
-       return (qp ++ map (first unCaptureVar) (HM.toList p))
+params = asks ri_queryParams
 {-# INLINE params #-}
 
 -- | Read a request param. Spock looks in route captures first (in simple routing), then in POST variables and at last in GET variables
 param :: (PathPiece p, MonadIO m) => T.Text -> ActionCtxT ctx m (Maybe p)
 param k =
-    do p <- asks ri_params
-       qp <- asks ri_queryParams
-       case HM.lookup (CaptureVar k) p of
-         Just val ->
-             case fromPathPiece val of
-               Nothing ->
-                   do liftIO $ putStrLn ("Cannot parse " ++ show k ++ " with value " ++ show val ++ " as path piece!")
-                      jumpNext
-               Just pathPieceVal ->
-                   return $ Just pathPieceVal
-         Nothing ->
-             return $ join $ fmap fromPathPiece (lookup k qp)
+    do qp <- asks ri_queryParams
+       return $ join $ fmap fromPathPiece (lookup k qp)
 {-# INLINE param #-}
 
 -- | Like 'param', but outputs an error when a param is missing
@@ -193,11 +178,11 @@ setHeader k v = setRawHeader (CI.mk $ T.encodeUtf8 k) (T.encodeUtf8 v)
 
 setRawHeader :: MonadIO m => CI.CI BS.ByteString -> BS.ByteString -> ActionCtxT ctx m ()
 setRawHeader k v =
-    do case HM.lookup k multiHeaderMap of
-         Just mhk ->
-             setRawMultiHeader mhk v
-         Nothing ->
-             setRawHeaderUnsafe k v
+    case HM.lookup k multiHeaderMap of
+      Just mhk ->
+          setRawMultiHeader mhk v
+      Nothing ->
+          setRawHeaderUnsafe k v
 
 -- | Set a response header that can occur multiple times. (eg: Cache-Control)
 setMultiHeader :: MonadIO m => MultiHeader -> T.Text -> ActionCtxT ctx m ()
