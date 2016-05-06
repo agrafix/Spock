@@ -11,7 +11,6 @@ import Control.Monad.Identity
 import Web.Routing.SafeRouting
 import Web.Routing.Router
 #if MIN_VERSION_base(4,8,0)
-import Data.Monoid ((<>))
 #else
 import Control.Applicative (Applicative (..))
 import Data.Monoid (mconcat)
