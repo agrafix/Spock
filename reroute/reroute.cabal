@@ -1,13 +1,13 @@
 name:                reroute
-version:             0.3.1.0
+version:             0.4.0.0
 synopsis:            abstract implementation of typed and untyped web routing
 description:         abstraction over how urls with/without parameters are mapped to their corresponding handlers
-homepage:            http://github.com/agrafix/reroute
+homepage:            http://github.com/agrafix/Spock
 license:             MIT
 license-file:        LICENSE
 author:              Alexander Thiemann <mail@athiemann.net>, Tim Baumann <tim@timbaumann.info>
 maintainer:          Alexander Thiemann <mail@athiemann.net>
-copyright:           (c) 2014 - 2015 Alexander Thiemann <mail@athiemann.net>, Tim Baumann <tim@timbaumann.info>
+copyright:           (c) 2014 - 2016 Alexander Thiemann <mail@athiemann.net>, Tim Baumann <tim@timbaumann.info>
 category:            Web
 build-type:          Simple
 cabal-version:       >=1.10
@@ -18,21 +18,16 @@ extra-source-files:
 library
   exposed-modules:
                        Data.PolyMap,
-                       Web.Routing.AbstractRouter,
-                       Web.Routing.SafeRouting,
-                       Web.Routing.TextRouting
+                       Web.Routing.Router,
+                       Web.Routing.SafeRouting
   build-depends:
                        base >=4.6 && <5,
                        deepseq >= 1.1.0.2,
-                       graph-core >=0.2.1,
                        hashable >=1.2,
                        mtl >=2.1,
                        path-pieces >=0.1,
-                       regex-compat >=0.95,
                        text >= 0.11.3.1,
-                       transformers >=0.3,
                        unordered-containers >=0.2,
-                       vector >=0.10,
                        hvect >=0.2
   hs-source-dirs:      src
   default-language:    Haskell2010
@@ -44,8 +39,7 @@ test-suite reroute-test
   hs-source-dirs:      test
   main-is:             Spec.hs
   other-modules:
-                       Web.Routing.SafeRoutingSpec,
-                       Web.Routing.TextRoutingSpec
+                       Web.Routing.SafeRoutingSpec
   build-depends:
                        base,
                        hspec,
@@ -81,4 +75,4 @@ benchmark reroute-benchmarks
 
 source-repository head
   type:     git
-  location: git://github.com/agrafix/reroute.git
+  location: git://github.com/agrafix/Spock.git

@@ -9,7 +9,7 @@ import Data.HVect hiding (singleton)
 
 import Control.Monad.Identity
 import Web.Routing.SafeRouting
-import Web.Routing.AbstractRouter
+import Web.Routing.Router
 #if MIN_VERSION_base(4,8,0)
 #else
 import Control.Applicative (Applicative (..))
@@ -24,8 +24,8 @@ data ReturnVar
    | ListVar [ReturnVar]
    deriving (Show, Eq, Read)
 
-defR :: (Monad m, m ReturnVar ~ x) => Path ts -> HVectElim ts x -> RegistryT (SafeRouter m ReturnVar) middleware Bool m ()
-defR path action = hookRoute True (SafeRouterPath path) (HVectElim' action)
+defR :: (Monad m, m ReturnVar ~ x) => Path ts -> HVectElim ts x -> RegistryT m ReturnVar middleware Bool m ()
+defR path action = hookRoute True path (HVectElim' action)
 
 spec :: Spec
 spec =
@@ -72,12 +72,11 @@ spec =
       checkRoute :: T.Text -> [ReturnVar] -> Expectation
       checkRoute r x =
           let matches = handleFun (pieces r)
-          in (map (runIdentity . snd) matches) `shouldBe` x
+          in (map runIdentity matches) `shouldBe` x
 
-      handleFun :: [T.Text] -> [(ParamMap, Identity ReturnVar)]
+      handleFun :: [T.Text] -> [Identity ReturnVar]
       handleFun = handleFun' True
-      (_, handleFun', _) =
-          runIdentity (runRegistry SafeRouter handleDefs)
+      (_, handleFun', _) = runIdentity (runRegistry handleDefs)
 
       handleDefs =
           do defR root $ return (StrVar "root")

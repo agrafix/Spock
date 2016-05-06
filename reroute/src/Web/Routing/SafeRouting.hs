@@ -11,7 +11,6 @@ module Web.Routing.SafeRouting where
 import qualified Data.PolyMap as PM
 import Data.HVect hiding (null, length)
 import qualified Data.HVect as HV
-import Web.Routing.AbstractRouter
 
 import Data.Maybe
 import Data.List (foldl')
@@ -33,33 +32,34 @@ data RouteHandle m a
 
 newtype HVectElim' x ts = HVectElim' { flipHVectElim :: HVectElim ts x }
 
-data SafeRouter (m :: * -> *) a = SafeRouter
+type Registry m a = (PathMap (m a), [[T.Text] -> m a])
 
-instance AbstractRouter (SafeRouter m a) where
-    newtype Registry (SafeRouter m a) = SafeRouterReg (PathMap (m a), [[T.Text] -> m a])
-    newtype RoutePath (SafeRouter m a) xs = SafeRouterPath (Path xs)
-    type RouteAction (SafeRouter m a) = HVectElim' (m a)
-    type RouteAppliedAction (SafeRouter m a) = m a
-    subcompCombine (SafeRouterPath p1) (SafeRouterPath p2) =
-        SafeRouterPath $
-        p1 </> p2
-    emptyRegistry = SafeRouterReg (emptyPathMap, [])
-    rootPath = SafeRouterPath Empty
-    defRoute (SafeRouterPath path) action (SafeRouterReg (m, cAll)) =
-        SafeRouterReg
-        ( insertPathMap (RouteHandle path (flipHVectElim action)) m
-        , cAll
-        )
-    fallbackRoute routeDef (SafeRouterReg (m, cAll)) =
-        SafeRouterReg (m, cAll ++ [routeDef])
-    matchRoute (SafeRouterReg (m, cAll)) pathPieces =
-        let matches = match m pathPieces
-            matches' =
-                if null matches
-                then matches ++ (map (\f -> f pathPieces) cAll)
-                else matches
-        in zip (replicate (length matches') HM.empty) matches'
+emptyRegistry :: Registry m a
+emptyRegistry = (emptyPathMap, [])
 
+subcompCombine :: Path '[] -> Path xs -> Path xs
+subcompCombine = (</>)
+
+rootPath :: Path '[]
+rootPath = Empty
+
+defRoute :: Path xs -> HVectElim' (m a) xs -> Registry m a -> Registry m a
+defRoute path action (m, call) =
+    ( insertPathMap (RouteHandle path (flipHVectElim action)) m
+    , call
+    )
+
+fallbackRoute :: ([T.Text] -> m a) -> Registry m a -> Registry m a
+fallbackRoute routeDef (m, call) = (m, call ++ [routeDef])
+
+matchRoute :: Registry m a -> [T.Text] -> [m a]
+matchRoute (m, cAll) pathPieces =
+    let matches = match m pathPieces
+        matches' =
+            if null matches
+            then matches ++ (map (\f -> f pathPieces) cAll)
+            else matches
+    in matches'
 
 data Path (as :: [*]) where
   Empty :: Path '[] -- the empty path
