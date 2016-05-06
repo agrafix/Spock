@@ -40,7 +40,7 @@ import Prelude
 import Prelude hiding (catch)
 #endif
 import System.Directory
-import Web.Routing.AbstractRouter
+import Web.Routing.Router
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.CaseInsensitive as CI
@@ -86,7 +86,6 @@ data RequestInfo ctx
    = RequestInfo
    { ri_method :: !SpockMethod
    , ri_request :: !Wai.Request
-   , ri_params :: !(HM.HashMap CaptureVar T.Text)
    , ri_queryParams :: [(T.Text, T.Text)]
    , ri_files :: !(HM.HashMap T.Text UploadedFile)
    , ri_vaultIf :: !VaultIf
@@ -250,8 +249,7 @@ sizeError :: ResponseState
 sizeError =
     errorResponse status413 "413 - Request body too large!"
 
-type SpockAllT r m a =
-    RegistryT r Wai.Middleware SpockMethod m a
+type SpockAllT n m a = RegistryT (ActionT n) () Wai.Middleware SpockMethod m a
 
 middlewareToApp :: Wai.Middleware
                 -> Wai.Application
@@ -261,7 +259,7 @@ middlewareToApp mw =
       fallbackApp :: Wai.Application
       fallbackApp _ respond = respond notFound
 
-makeActionEnvironment :: InternalState -> SpockMethod -> Wai.Request -> IO (ParamMap -> RequestInfo (), TVar V.Vault, IO ())
+makeActionEnvironment :: InternalState -> SpockMethod -> Wai.Request -> IO (RequestInfo (), TVar V.Vault, IO ())
 makeActionEnvironment st stdMethod req =
     do (bodyParams, bodyFiles) <- P.parseRequestBody (P.tempFileBackEnd st) req
        vaultVar <- liftIO $ newTVarIO (Wai.vault req)
@@ -282,16 +280,14 @@ makeActionEnvironment st stdMethod req =
            getParams =
                map (\(k, mV) -> (T.decodeUtf8 k, T.decodeUtf8 $ fromMaybe BS.empty mV)) $ Wai.queryString req
            queryParams = postParams ++ getParams
-       return ( \params ->
-                    RequestInfo
-                    { ri_method = stdMethod
-                    , ri_request = req
-                    , ri_params = params
-                    , ri_queryParams = queryParams
-                    , ri_files = uploadedFiles
-                    , ri_vaultIf = vaultIf
-                    , ri_context = ()
-                    }
+       return ( RequestInfo
+                { ri_method = stdMethod
+                , ri_request = req
+                , ri_queryParams = queryParams
+                , ri_files = uploadedFiles
+                , ri_vaultIf = vaultIf
+                , ri_context = ()
+                }
               , vaultVar
               , removeUploadedFiles uploadedFiles
               )
@@ -304,14 +300,13 @@ removeUploadedFiles uploadedFiles =
 
 applyAction :: MonadIO m
             => Wai.Request
-            -> (ParamMap -> RequestInfo ())
-            -> [(ParamMap, ActionT m ())]
+            -> RequestInfo ()
+            -> [ActionT m ()]
             -> m (Maybe ResponseState)
 applyAction _ _ [] =
     return $ Just $ errorResponse status404 "404 - File not found"
-applyAction req mkEnv ((captures, selectedAction) : xs) =
-    do let env = mkEnv captures
-       (r, respState, _) <-
+applyAction req env (selectedAction : xs) =
+    do (r, respState, _) <-
            runRWST (runErrorT $ runActionCtxT selectedAction) env defResponse
        case r of
          Left (ActionRedirect loc) ->
@@ -323,7 +318,7 @@ applyAction req mkEnv ((captures, selectedAction) : xs) =
                             Wai.responseLBS status (("Location", T.encodeUtf8 loc) : headers) BSL.empty
                     }
          Left ActionTryNext ->
-             applyAction req mkEnv xs
+             applyAction req env xs
          Left (ActionError errorMsg) ->
              do liftIO $ putStrLn $ "Spock Error while handling "
                              ++ show (Wai.pathInfo req) ++ ": " ++ errorMsg
@@ -340,7 +335,7 @@ handleRequest
     => SpockMethod
     -> Maybe Word64
     -> (forall a. m a -> IO a)
-    -> [(ParamMap, ActionT m ())]
+    -> [ActionT m ()]
     -> InternalState
     -> Wai.Application -> Wai.Application
 handleRequest stdMethod mLimit registryLift allActions st coreApp req respond =
@@ -354,7 +349,7 @@ handleRequest' ::
     MonadIO m
     => SpockMethod
     -> (forall a. m a -> IO a)
-    -> [(ParamMap, ActionT m ())]
+    -> [ActionT m ()]
     -> InternalState
     -> Wai.Application -> Wai.Application
 handleRequest' stdMethod registryLift allActions st coreApp req respond =
@@ -404,15 +399,14 @@ requestSizeCheck maxSize req =
                   }
 
 
-buildMiddleware :: forall m r. (MonadIO m, AbstractRouter r, RouteAppliedAction r ~ ActionT m ())
+buildMiddleware :: forall m. (MonadIO m)
          => Maybe Word64
-         -> r
          -> (forall a. m a -> IO a)
-         -> SpockAllT r m ()
+         -> SpockAllT m m ()
          -> IO Wai.Middleware
-buildMiddleware mLimit registryIf registryLift spockActions =
+buildMiddleware mLimit registryLift spockActions =
     do (_, getMatchingRoutes, middlewares) <-
-           registryLift $ runRegistry registryIf spockActions
+           registryLift $ runRegistry spockActions
        let spockMiddleware = foldl (.) id middlewares
            app :: Wai.Application -> Wai.Application
            app coreApp req respond =

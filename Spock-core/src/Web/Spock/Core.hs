@@ -36,12 +36,12 @@ import Data.HVect hiding (head)
 import Data.Word
 import Network.HTTP.Types.Method
 import Prelude hiding (head, uncurry, curry)
-import Web.Routing.AbstractRouter (swapMonad)
+import Web.Routing.Router (swapMonad)
 import Web.Routing.SafeRouting hiding (renderRoute)
 import qualified Data.Text as T
 import qualified Network.HTTP.Types as Http
 import qualified Network.Wai as Wai
-import qualified Web.Routing.AbstractRouter as AR
+import qualified Web.Routing.Router as AR
 import qualified Web.Routing.SafeRouting as SR
 import qualified Web.Spock.Internal.Wire as W
 import qualified Network.Wai.Handler.Warp as Warp
@@ -57,7 +57,7 @@ injectHook (LiftHooked baseHook) nextHook =
 
 newtype SpockCtxT ctx m a
     = SpockCtxT
-    { runSpockT :: W.SpockAllT (SafeRouter (ActionT m) ()) (ReaderT (LiftHooked ctx m) m) a
+    { runSpockT :: W.SpockAllT m (ReaderT (LiftHooked ctx m) m) a
     } deriving (Monad, Functor, Applicative, MonadIO)
 
 instance MonadTrans (SpockCtxT ctx) where
@@ -98,9 +98,9 @@ spockLimT :: forall m .MonadIO m
        -> SpockT m ()
        -> IO Wai.Middleware
 spockLimT mSizeLimit liftFun app =
-    W.buildMiddleware mSizeLimit SafeRouter liftFun (baseAppHook app)
+    W.buildMiddleware mSizeLimit liftFun (baseAppHook app)
 
-baseAppHook :: forall m. MonadIO m => SpockT m () -> W.SpockAllT (SafeRouter (ActionT m) ()) m ()
+baseAppHook :: forall m. MonadIO m => SpockT m () -> W.SpockAllT m m ()
 baseAppHook app =
     swapMonad lifter (runSpockT app)
     where
@@ -164,7 +164,7 @@ hookRoute' m path action =
     do hookLift <- lift $ asks unLiftHooked
        let actionPacker :: HVectElim xs (ActionCtxT ctx m ()) -> HVect xs -> ActionCtxT () m ()
            actionPacker act captures = hookLift (uncurry act captures)
-       AR.hookRoute m (SafeRouterPath path) (HVectElim' $ curry $ actionPacker action)
+       AR.hookRoute m path (HVectElim' $ curry $ actionPacker action)
 
 -- | Specify an action that will be run when a standard HTTP verb matches but no defined route matches.
 -- The full path is passed as an argument
@@ -195,7 +195,7 @@ hookAny' m action =
 -- The request \/site\/home will be routed to homeHandler and the
 -- request \/admin\/home will be routed to adminHomeHandler
 subcomponent :: Monad m => Path '[] -> SpockCtxT ctx m () -> SpockCtxT ctx m ()
-subcomponent p (SpockCtxT subapp) = SpockCtxT $ AR.subcomponent (SafeRouterPath p) subapp
+subcomponent p (SpockCtxT subapp) = SpockCtxT $ AR.subcomponent p subapp
 
 -- | Hook wai middleware into Spock
 middleware :: Monad m => Wai.Middleware -> SpockCtxT ctx m ()
