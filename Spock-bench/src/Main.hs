@@ -78,6 +78,8 @@ benchApp str app =
        deepNested <- runWrk deepEP
        logPerf "deeply nested route" deepNested
        cancel webServer
+       logStr "Cooldown of 2 seconds"
+       threadDelay 2000000
     where
         helloEP = "http://127.0.0.1:4000/hello"
         plusEP = "http://127.0.0.1:4000/plus/1"
