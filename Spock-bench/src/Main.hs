@@ -3,6 +3,7 @@ module Main where
 
 import qualified Spock
 import qualified Scotty
+import qualified Snap
 
 import System.Process
 import System.Exit
@@ -84,4 +85,5 @@ main =
         benchmarks =
             [ ("Spock", Spock.runApp)
             , ("Scotty", Scotty.runApp)
+            , ("Snap", Snap.runApp)
             ]

@@ -3,40 +3,31 @@
 module Snap where
 
 import Snap.Http.Server
-import Snap.Http.Server.Config
 import Snap.Core
-import Data.String
-import Control.Monad
+import Data.Maybe
+import qualified Data.ByteString.Char8 as BSC
 import qualified Data.Text.Lazy as TL
 
 runApp :: Int -> IO ()
 runApp port =
-    simpleHttpServe (setPort port mempty) $
+    httpServe (setErrorLog ConfigNoLog $ setAccessLog ConfigNoLog $ setPort port mempty) $
     route
     ( ( "hello"
       , writeText "Hello world"
       )
-    : ( "echo/:param"
-      , do (t :: Int) <- fromJust <$> getParam "param"
-           writeLazyText (TL.pack $ show t)
+    : ( "plus/:param"
+      , do t <- fromJust <$> getParam "param"
+           let i :: Int
+               i = read (BSC.unpack t)
+           writeLazyText (TL.pack $ show (i + 1))
       )
     : map mkRoute complexDeep
     )
     where
+      mkRoute (a, b, c) =
+          ( BSC.pack $ "deep/" ++ show a ++ "/" ++ show b ++ "/" ++ show c
+          , writeText "Found me!"
+          )
       complexDeep :: [(Int, Int, Int)]
       complexDeep =
           [(x, y, z) | x <- [0..10], y <- [0..10], z <- [0..10]]
-{-
-    scotty port $
-    do get "hello" $ text "Hello world"
-       get "plus/:param" $
-          do (t :: Int) <- param "param"
-             text (TL.pack $ show (t + 1))
-       forM_ complexDeep $ \(a, b, c) ->
-           get (fromString $ "deep/" ++ show a ++ "/" ++ show b ++ "/" ++ show c) $
-           text "Found me!"
-    where
-        complexDeep :: [(Int, Int, Int)]
-        complexDeep =
-            [(x, y, z) | x <- [0..10], y <- [0..10], z <- [0..10]]
--}
