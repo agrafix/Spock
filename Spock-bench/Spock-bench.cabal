@@ -22,7 +22,7 @@ executable Spock-bench
               , Fn
               , Shared
               , Servant
-  ghc-options: -fcontext-stack=500 -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -O2 -fcontext-stack=500 -threaded -rtsopts -with-rtsopts=-N
   build-depends:
                 base
               , Spock
