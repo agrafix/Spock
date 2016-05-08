@@ -6,6 +6,9 @@ import qualified Scotty
 import qualified Snap
 import qualified Fn
 
+import Control.Monad
+import Network.Wreq
+import Control.Lens
 import System.Process
 import System.Exit
 import System.Environment
@@ -13,7 +16,9 @@ import Data.Char
 import Safe
 import Control.Concurrent
 import Control.Concurrent.Async
+import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 
 type URL = T.Text
 
@@ -45,19 +50,38 @@ parseWrkReqPerSec stdout =
 
 type WebApp = Int -> IO ()
 
+validateEndpoint :: URL -> T.Text -> IO ()
+validateEndpoint url expected =
+    do r <- get $ T.unpack url
+       let status = r ^. responseStatus . statusCode
+       when (status /= 200) $
+          fail ("Failed to GET " ++ T.unpack url ++ ". Status: " ++ show status)
+       let rbody = T.decodeUtf8 $ BSL.toStrict $ r ^. responseBody
+       when (rbody /= expected) $
+          fail ("Endpoint " ++ T.unpack url ++ " was expected to return "
+                ++ show expected ++ " but gave " ++ show rbody)
+
 benchApp :: String -> WebApp -> IO ()
 benchApp str app =
-    do logStr "Starting benchmark"
+    do logStr "Starting application"
        webServer <- async $ app 4000
        threadDelay 1000000 -- 1sec
-       simplePrint <- runWrk "http://127.0.0.1:4000/hello"
+       logStr "Validating endpoints"
+       validateEndpoint helloEP "Hello world"
+       validateEndpoint plusEP "2"
+       validateEndpoint deepEP "Found me!"
+       logStr "Benchmarking"
+       simplePrint <- runWrk helloEP
        logPerf "simple print" simplePrint
-       singleParam <- runWrk "http://127.0.0.1:4000/plus/1"
+       singleParam <- runWrk plusEP
        logPerf "single param" singleParam
-       deepNested <- runWrk "http://127.0.0.1:4000/deep/10/10/10"
+       deepNested <- runWrk deepEP
        logPerf "deeply nested route" deepNested
        cancel webServer
     where
+        helloEP = "http://127.0.0.1:4000/hello"
+        plusEP = "http://127.0.0.1:4000/plus/1"
+        deepEP = "http://127.0.0.1:4000/deep/5/5/5"
         logStr what =
             putStrLn $ "[" ++ str ++ "] " ++ what
         logPerf what dbl =

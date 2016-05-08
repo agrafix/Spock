@@ -3,7 +3,6 @@ module Fn (runApp) where
 
 import Shared
 
-import Data.Monoid ((<>))
 import Network.Wai (Response)
 import Network.Wai.Handler.Warp (run)
 import Web.Fn
@@ -25,8 +24,8 @@ runApp port =
 site :: Ctxt -> IO Response
 site ctxt =
     route ctxt
-    ( path "hello" ==> indexH
-    : path "plus" // param "number" ==> plusH
+    ( (path "hello" ==> indexH)
+    : (path "plus" // segment ==> plusH)
     : map mkRoute complexDeep
     )
     `fallthrough` notFoundText "Page not found."
@@ -35,7 +34,7 @@ indexH :: Ctxt -> IO (Maybe Response)
 indexH _ = okText "Hello world"
 
 plusH :: Ctxt -> Int -> IO (Maybe Response)
-plusH _ t = okText $ "Echoing '" <> T.pack (show (t + 1)) <> "'."
+plusH _ t = okText $ T.pack (show (t + 1))
 
 mkRoute :: (Int, Int, Int) -> Ctxt -> Req -> Maybe (IO (Maybe Response))
 mkRoute (a, b, c) =
