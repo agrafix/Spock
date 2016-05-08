@@ -1,0 +1,48 @@
+name:                Spock-bench
+version:             0.1.0.0
+synopsis:            Benchmarking utility for Spock
+description:         Benchmarking utility for Spock vs outher web framworks
+homepage:            http://github.com/agrafix/Spock
+license:             MIT
+license-file:        LICENSE
+author:              Alexander Thiemann <mail@athiemann.net>
+maintainer:          Alexander Thiemann <mail@athiemann.net>
+copyright:           (c) 2016 Alexander Thiemann <mail@athiemann.net>
+category:            Web
+build-type:          Simple
+cabal-version:       >=1.10
+
+executable Spock-bench
+  hs-source-dirs:      src
+  main-is:             Main.hs
+  other-modules:
+                Spock
+              , Scotty
+              , Snap
+              , Fn
+              , Shared
+              , Servant
+  ghc-options: -O2 -fcontext-stack=500 -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+                base
+              , Spock
+              , scotty
+              , snap-core
+              , snap-server
+              , fn
+              , servant
+              , servant-server
+              , safe
+              , process
+              , async
+              , text >=1.2
+              , bytestring
+              , wai
+              , warp
+              , wreq
+              , lens
+  default-language:    Haskell2010
+
+source-repository head
+  type:     git
+  location: git://github.com/agrafix/Spock.git

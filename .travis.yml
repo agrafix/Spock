@@ -11,10 +11,9 @@ addons:
     - libgmp-dev
 
 env:
-  - STACK_ARGS=""
+  - STACK_ARGS="" STACK_YAML=stack-travis.yaml
   - STACK_ARGS="--resolver lts-2" STACK_YAML=stack-lts2.yaml
-  - STACK_ARGS="--resolver lts-3"
-  - STACK_ARGS="--resolver nightly"
+  - STACK_ARGS="--resolver nightly" STACK_YAML=stack-travis.yaml
 
 before_install:
   - mkdir -p ~/.local/bin

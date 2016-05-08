@@ -1,10 +1,6 @@
 flags: {}
 packages:
   - Spock/
-  - Spock-bench/
   - Spock-core/
   - reroute/
 resolver: lts-5.8
-extra-deps:
-  - servant-0.7
-  - servant-server-0.7

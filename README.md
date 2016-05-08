@@ -36,7 +36,7 @@ main =
 
 ## Mailing list
 
-Please join our mailing list at haskell-spock@googlegroups.com 
+Please join our mailing list at haskell-spock@googlegroups.com
 
 ## Features
 
@@ -55,7 +55,7 @@ everything you need to get a quick start into web hacking with haskell:
 ## Important Links
 
 * [Tutorial](https://www.spock.li/tutorial/)
-* [Type-safe routing in Spock](https://www.spock.li/2015/04/19/type-safe_routing.html) 
+* [Type-safe routing in Spock](https://www.spock.li/2015/04/19/type-safe_routing.html)
 * [Taking Authentication to the next Level](https://www.spock.li/2015/08/23/taking_authentication_to_the_next_level.html)
 
 ### Talks
@@ -90,10 +90,15 @@ If you'd like to use your application via HTTPS, there are two options:
 
 ### Benchmarks
 
-Please note that these benchmarks might not be up to date anymore.
+See the Spock-bench directory to reproduce.
 
-* https://github.com/philopon/apiary-benchmark
-* https://github.com/agrafix/Spock-scotty-benchmark
+| Framework | GHC    | Version  | simple route              | route with one param      | deeply nested route |
+|-----------|--------|----------|---------------------------|---------------------------|---------------------|
+| Spock     | 7.10.2 | 0.11.0.0 | **69243**                 | **65835**                 | **64763**           |
+| scotty    | 7.10.2 | 0.10.2   | 66441                     | 65357                     | 9542                |
+| snap      | 7.10.2 | 0.9.8.0  | 39964                     | 35566                     | 38356               |
+| fn        | 7.10.2 | 0.2.0.2  | 63083                     | 63183                     | 22346               |
+| servant   | 7.10.2 | 0.7      | 66041                     | 65590                     | 64606               |
 
 ## Example Projects
 
