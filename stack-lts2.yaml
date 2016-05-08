@@ -6,3 +6,5 @@ packages:
 resolver: lts-2.22
 extra-deps:
   - hvect-0.3.0.0
+  - servant-0.7
+  - servant-server-0.7

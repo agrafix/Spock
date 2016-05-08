@@ -5,6 +5,7 @@ import qualified Spock
 import qualified Scotty
 import qualified Snap
 import qualified Fn
+import qualified Servant
 
 import Control.Monad
 import Network.Wreq
@@ -114,4 +115,5 @@ main =
             , ("Scotty", Scotty.runApp)
             , ("Snap", Snap.runApp)
             , ("Fn", Fn.runApp)
+            , ("Servant", Servant.runApp)
             ]
