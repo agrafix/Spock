@@ -4,6 +4,7 @@ module Main where
 import qualified Spock
 import qualified Scotty
 import qualified Snap
+import qualified Fn
 
 import System.Process
 import System.Exit
@@ -86,4 +87,5 @@ main =
             [ ("Spock", Spock.runApp)
             , ("Scotty", Scotty.runApp)
             , ("Snap", Snap.runApp)
+            , ("Fn", Fn.runApp)
             ]

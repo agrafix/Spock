@@ -19,6 +19,7 @@ executable Spock-bench
                 Spock
               , Scotty
               , Snap
+              , Fn
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:
                 base
@@ -33,6 +34,8 @@ executable Spock-bench
               , async
               , text >=1.2
               , bytestring
+              , wai
+              , warp
   default-language:    Haskell2010
 
 source-repository head
