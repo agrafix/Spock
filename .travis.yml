@@ -13,7 +13,6 @@ addons:
 env:
   - STACK_ARGS=""
   - STACK_ARGS="--resolver lts-2" STACK_YAML=stack-lts2.yaml
-  - STACK_ARGS="--resolver lts-3"
   - STACK_ARGS="--resolver nightly"
 
 before_install:
