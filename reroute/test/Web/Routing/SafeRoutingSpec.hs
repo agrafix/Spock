@@ -10,11 +10,6 @@ import Data.HVect hiding (singleton)
 import Control.Monad.Identity
 import Web.Routing.SafeRouting
 import Web.Routing.Router
-#if MIN_VERSION_base(4,8,0)
-#else
-import Control.Applicative (Applicative (..))
-import Data.Monoid (mconcat)
-#endif
 import qualified Data.Text as T
 import Control.Monad.RWS.Strict
 import Data.Maybe
