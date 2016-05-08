@@ -2,6 +2,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Scotty where
 
+import Shared
+
 import Web.Scotty
 import Data.String
 import Control.Monad
@@ -17,7 +19,3 @@ runApp port =
        forM_ complexDeep $ \(a, b, c) ->
            get (fromString $ "deep/" ++ show a ++ "/" ++ show b ++ "/" ++ show c) $
            text "Found me!"
-    where
-        complexDeep :: [(Int, Int, Int)]
-        complexDeep =
-            [(x, y, z) | x <- [0..10], y <- [0..10], z <- [0..10]]

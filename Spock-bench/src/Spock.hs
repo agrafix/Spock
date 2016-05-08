@@ -2,6 +2,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Spock where
 
+import Shared
+
 import Web.Spock
 import Control.Monad
 import qualified Data.Text as T
@@ -15,7 +17,3 @@ runApp port =
            get ("deep" <//> static (show a)
                 <//> static (show b)
                 <//> static (show c)) $ text "Found me!"
-    where
-        complexDeep :: [(Int, Int, Int)]
-        complexDeep =
-            [(x, y, z) | x <- [0..10], y <- [0..10], z <- [0..10]]

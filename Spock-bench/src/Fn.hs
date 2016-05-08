@@ -1,6 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Fn (runApp) where
 
+import Shared
+
 import Data.Monoid ((<>))
 import Network.Wai (Response)
 import Network.Wai.Handler.Warp (run)
@@ -38,10 +40,6 @@ plusH _ t = okText $ "Echoing '" <> T.pack (show (t + 1)) <> "'."
 mkRoute :: (Int, Int, Int) -> Ctxt -> Req -> Maybe (IO (Maybe Response))
 mkRoute (a, b, c) =
     path "deep" // path (showt a) // path (showt b) // path (showt c) ==> (\_ -> okText "Found me!")
-
-complexDeep :: [(Int, Int, Int)]
-complexDeep =
-    [(x, y, z) | x <- [0..10], y <- [0..10], z <- [0..10]]
 
 showt :: Show a => a -> T.Text
 showt = T.pack . show

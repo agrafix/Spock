@@ -2,6 +2,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Snap where
 
+import Shared
+
 import Snap.Http.Server
 import Snap.Core
 import Data.Maybe
@@ -28,6 +30,3 @@ runApp port =
           ( BSC.pack $ "deep/" ++ show a ++ "/" ++ show b ++ "/" ++ show c
           , writeText "Found me!"
           )
-      complexDeep :: [(Int, Int, Int)]
-      complexDeep =
-          [(x, y, z) | x <- [0..10], y <- [0..10], z <- [0..10]]
