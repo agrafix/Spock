@@ -3,6 +3,4 @@ packages:
   - Spock/
   - Spock-core/
   - reroute/
-resolver: lts-2.22
-extra-deps:
-  - hvect-0.3.0.0
+resolver: lts-5.8
