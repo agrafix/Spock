@@ -1,6 +1,0 @@
-flags: {}
-packages:
-  - Spock/
-  - Spock-core/
-  - reroute/
-resolver: lts-5.8
