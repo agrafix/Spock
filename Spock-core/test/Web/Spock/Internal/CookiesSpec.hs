@@ -19,16 +19,16 @@ spec =
                    generated `shouldContainOnce` "foo=bar"
 
                it "should not generate a max-age key" $
-                   generated `shouldNotContain'` "max-age="
+                   generated `shouldNotContain'` "Max-Age="
 
                it "should not generate an expires key" $
-                   generated `shouldNotContain'` "expires="
+                   generated `shouldNotContain'` "Expires="
 
                it "should generate a root path" $
-                   generated `shouldContainOnce` "path=/"
+                   generated `shouldContainOnce` "Path=/"
 
                it "should not generate a domain pair" $
-                   generated `shouldNotContain'` "domain="
+                   generated `shouldNotContain'` "Domain="
 
                it "should not generate a httponly key" $
                    generated `shouldNotContain'` "HttpOnly"
@@ -40,27 +40,27 @@ spec =
             do let generated = g "foo" "bar" def { cs_EOL = CookieValidUntil (UTCTime (fromGregorian 2016 1 1) 0) }
 
                it "should set the correct expires key" $
-                   generated `shouldContainOnce` "expires=Fri, 01-Jan-2016 00:00:00 UTC"
+                   generated `shouldContainOnce` "Expires=Fri, 01-Jan-2016 00:00:00 GMT"
 
                it "should set the correct max-age key" $
-                   generated `shouldContainOnce` "max-age=10465200"
+                   generated `shouldContainOnce` "Max-Age=10465200"
 
            describe "when setting an expiration time in the past" $
             do let generated = g "foo" "bar" def { cs_EOL = CookieValidUntil (UTCTime (fromGregorian 1970 1 1) 0) }
 
                it "should set the correct expires key" $
-                   generated `shouldContainOnce` "expires=Thu, 01-Jan-1970 00:00:00 UTC"
+                   generated `shouldContainOnce` "Expires=Thu, 01-Jan-1970 00:00:00 GMT"
 
                it "should set the max-age key to 0" $
-                   generated `shouldContainOnce` "max-age=0"
+                   generated `shouldContainOnce` "Max-Age=0"
 
            describe "when setting the path" $
                it "should generate the correct path pair" $
-                   g "foo" "bar" def { cs_path = Just "/the-path" } `shouldContainOnce` "path=/the-path"
+                   g "foo" "bar" def { cs_path = Just "/the-path" } `shouldContainOnce` "Path=/the-path"
 
            describe "when setting the domain" $
                it "should generate the correct domain pair" $
-                   g "foo" "bar" def { cs_domain = Just "example.org" } `shouldContainOnce` "domain=example.org"
+                   g "foo" "bar" def { cs_domain = Just "example.org" } `shouldContainOnce` "Domain=example.org"
 
            describe "when setting the httponly option" $
                it "should generate the httponly key" $
@@ -92,7 +92,8 @@ spec =
       shouldContainOnce haystack needle =
           let snb actual notExpected =
                   unless (actual /= notExpected) $
-                  expectationFailure $ "not expected: " ++ show actual
+                  expectationFailure $
+                  "Failed to find " ++ show needle ++ " in " ++ show haystack
           in snd (BS.breakSubstring needle haystack) `snb` BS.empty
       shouldNotContain' haystack needle =
           snd (BS.breakSubstring needle haystack) `shouldBe` BS.empty

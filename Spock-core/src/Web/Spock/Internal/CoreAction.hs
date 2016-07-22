@@ -69,22 +69,6 @@ rawHeader t =
     liftM (lookup t . Wai.requestHeaders) request
 {-# INLINE rawHeader #-}
 
--- | Read all cookies. The cookie value will already be urldecoded.
-cookies :: MonadIO m => ActionCtxT ctx m [(T.Text, T.Text)]
-cookies =
-    do req <- request
-       return $ fromMaybe [] $ fmap parseCookies $ lookup "cookie" (Wai.requestHeaders req)
-{-# INLINE cookies #-}
-
--- | Read a cookie. The cookie value will already be urldecoded. Note that it is
--- more efficient to use 'cookies' if you need do access many cookies during a request
--- handler.
-cookie :: MonadIO m => T.Text -> ActionCtxT ctx m (Maybe T.Text)
-cookie name =
-    do req <- request
-       return $ lookup "cookie" (Wai.requestHeaders req) >>= lookup name . parseCookies
-{-# INLINE cookie #-}
-
 -- | Tries to dected the preferred format of the response using the Accept header
 preferredFormat :: MonadIO m => ActionCtxT ctx m ClientPreferredFormat
 preferredFormat =
@@ -367,14 +351,34 @@ runInContext newCtx action =
 setCookie :: MonadIO m => T.Text -> T.Text -> CookieSettings -> ActionCtxT ctx m ()
 setCookie name value cs =
     do now <- liftIO getCurrentTime
-       let cookieHeaderString = generateCookieHeaderString name value cs now
-       setRawMultiHeader MultiHeaderSetCookie cookieHeaderString
+       setRawMultiHeader MultiHeaderSetCookie $
+           generateCookieHeaderString name value cs now
 {-# INLINE setCookie #-}
 
 -- | Delete a cookie
 deleteCookie :: MonadIO m => T.Text -> ActionCtxT ctx m ()
-deleteCookie name = setCookie name T.empty cs
-  where
-    cs = defaultCookieSettings { cs_EOL = CookieValidUntil epoch }
-    epoch = UTCTime (fromGregorian 1970 1 1) (secondsToDiffTime 0)
+deleteCookie name =
+    setCookie name T.empty cs
+    where
+      cs = defaultCookieSettings { cs_EOL = CookieValidUntil epoch }
+      epoch = UTCTime (fromGregorian 1970 1 1) (secondsToDiffTime 0)
 {-# INLINE deleteCookie #-}
+
+-- | Read all cookies. The cookie value will already be urldecoded.
+cookies :: MonadIO m => ActionCtxT ctx m [(T.Text, T.Text)]
+cookies =
+    do req <- request
+       pure $
+           fromMaybe [] $
+           fmap parseCookies $
+           lookup "cookie" (Wai.requestHeaders req)
+{-# INLINE cookies #-}
+
+-- | Read a cookie. The cookie value will already be urldecoded. Note that it is
+-- more efficient to use 'cookies' if you need do access many cookies during a request
+-- handler.
+cookie :: MonadIO m => T.Text -> ActionCtxT ctx m (Maybe T.Text)
+cookie name =
+    do allCookies <- cookies
+       return $ lookup name allCookies
+{-# INLINE cookie #-}
