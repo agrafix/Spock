@@ -4,6 +4,7 @@
 module Web.Spock.SafeSpec (spec) where
 
 import Web.Spock
+import Web.Spock.Config
 
 import Control.Arrow (second)
 import Control.Monad
