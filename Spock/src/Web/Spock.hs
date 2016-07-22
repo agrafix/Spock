@@ -93,9 +93,7 @@ spock spockCfg spockAppl =
 safeActionPath :: forall conn sess st a.
                   ( SafeAction conn sess st a
                   , HasSpock(SpockAction conn sess st)
-                  , SpockConn (SpockAction conn sess st) ~ conn
-                  , SpockSession (SpockAction conn sess st) ~ sess
-                  , SpockState (SpockAction conn sess st) ~ st)
+                  )
                => a
                -> SpockAction conn sess st T.Text
 safeActionPath safeAction =
@@ -103,12 +101,7 @@ safeActionPath safeAction =
        hash <- sm_addSafeAction mgr (PackedSafeAction safeAction)
        return $ "/h/" <> hash
 
-hookSafeActions :: forall conn sess st.
-                   ( HasSpock (SpockAction conn sess st)
-                   , SpockConn (SpockAction conn sess st) ~ conn
-                   , SpockSession (SpockAction conn sess st) ~ sess
-                   , SpockState (SpockAction conn sess st) ~ st)
-                => SpockM conn sess st ()
+hookSafeActions :: SpockM conn sess st ()
 hookSafeActions =
     getpost (static "h" </> var) run
     where

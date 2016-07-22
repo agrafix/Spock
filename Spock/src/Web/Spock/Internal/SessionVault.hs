@@ -29,7 +29,7 @@ newtype SessionVault s
     = SessionVault { unSessionVault :: STMMap.Map (SessionKey s) s }
 
 -- | Create a new session vault
-newSessionVault :: IsSession s => STM (SessionVault s)
+newSessionVault :: STM (SessionVault s)
 newSessionVault = SessionVault <$> STMMap.new
 
 -- | Load a session
@@ -45,7 +45,7 @@ deleteSession :: IsSession s => SessionKey s -> SessionVault s -> STM ()
 deleteSession k (SessionVault smap) = STMMap.delete k smap
 
 -- | Get all sessions as list
-toList :: IsSession s => SessionVault s -> STM [s]
+toList :: SessionVault s -> STM [s]
 toList =  liftM (map snd) . L.toList . STMMap.stream . unSessionVault
 
 -- | Remove all sessions that do not match the predicate

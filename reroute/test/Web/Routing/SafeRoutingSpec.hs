@@ -26,7 +26,7 @@ defR :: (Monad m, m ReturnVar ~ x) => Path ts -> HVectElim ts x -> RegistryT m R
 defR path action = hookRoute True path (HVectElim' action)
 
 -- TODO: abstract this code, move into AbstractRouter
-defSubComponent :: (Monad m, Functor m, m ([T.Text] -> ReturnVar) ~ x)
+defSubComponent :: (Monad m, m ([T.Text] -> ReturnVar) ~ x)
                  => Path ts
                  -> HVectElim ts x
                  -> RegistryT m ReturnVar middleware Bool m ()

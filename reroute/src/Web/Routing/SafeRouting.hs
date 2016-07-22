@@ -177,8 +177,10 @@ renderRoute' (StaticCons pathPiece pathXs) paramXs =
     ( pathPiece : renderRoute' pathXs paramXs )
 renderRoute' (VarCons pathXs) (val :&: paramXs) =
     ( toPathPiece val : renderRoute' pathXs paramXs)
+#if __GLASGOW_HASKELL__ < 800
 renderRoute' _ _ =
     error "This will never happen."
+#endif
 
 parse :: Path as -> [T.Text] -> Maybe (HVect as)
 parse Empty [] = Just HNil

@@ -81,7 +81,7 @@ subcomponent basePath (RegistryT subReg) =
        return a
 
 swapMonad ::
-    (Monad n, Monad m)
+    Monad m
     => (forall b. n b -> m b)
     -> RegistryT x y middleware reqTypes n a
     -> RegistryT x y middleware reqTypes m a
