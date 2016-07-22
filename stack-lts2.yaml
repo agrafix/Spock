@@ -6,4 +6,4 @@ packages:
 resolver: lts-2.22
 extra-deps:
   - hvect-0.3.0.0
-  - cryptonite-0.10
+  - cryptonite-0.6

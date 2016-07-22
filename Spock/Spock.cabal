@@ -50,7 +50,7 @@ library
                        base64-bytestring >=1.0,
                        bytestring >=0.10,
                        containers >=0.5,
-                       cryptonite >= 0.10,
+                       cryptonite >= 0.6,
                        focus >=0.1,
                        hashable >=1.2,
                        http-types >=0.8,
