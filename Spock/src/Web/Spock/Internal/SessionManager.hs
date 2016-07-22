@@ -188,7 +188,7 @@ makeSessionIdCookie cfg sess now =
       value = sess_id sess
       settings =
           defaultCookieSettings
-          { cs_EOL = CookieValidUntil (sess_validUntil sess)
+          { cs_EOL = CookieValidForever
           , cs_HTTPOnly = True
           }
 
