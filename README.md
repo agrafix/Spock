@@ -90,7 +90,7 @@ If you'd like to use your application via HTTPS, there are two options:
 
 ### Benchmarks
 
-See the Spock-bench directory to reproduce.
+See the [Spock-bench repository](https://github.com/agrafix/Spock-bench) to reproduce.
 
 | Framework | GHC    | Version  | simple route              | route with one param      | deeply nested route |
 |-----------|--------|----------|---------------------------|---------------------------|---------------------|
