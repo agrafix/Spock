@@ -8,29 +8,16 @@
 module Web.Spock
     ( -- * Spock's route definition monad
       spock, SpockM, SpockCtxM
-      -- * Configuration
-    , SpockCfg (..), defaultSpockCfg
-    , getState
-      -- * Database
-    , PoolOrConn (..), ConnBuilder (..), PoolCfg (..)
-    , runQuery
-      -- * Sessions
-    , defaultSessionCfg, SessionCfg (..)
-    , defaultSessionHooks, SessionHooks (..)
-    , SessionStore(..), SessionStoreInstance(..)
-    , SV.newStmSessionStore
-    , SessionManager
-    , getSessMgr
       -- * Safe actions
     , SafeAction (..)
     , safeActionPath
       -- * Core functionality
     , module Web.Spock.Core
     , SpockAction, SpockActionCtx
-      -- * Session actions
+    , HasSpock(..), SessionManager
     , module Web.Spock.SessionActions
       -- * Accessing internals
-    , HasSpock(..), WebStateM, WebStateT, WebState
+    , WebStateM, WebStateT, WebState
     , getSpockHeart, runSpockIO, getSpockPool
     )
 where
@@ -41,13 +28,11 @@ import Web.Spock.Internal.Monad
 import Web.Spock.Internal.SessionManager
 import Web.Spock.Internal.Types
 import Web.Spock.SessionActions
-import qualified Web.Spock.Internal.SessionVault as SV
 
 import Control.Monad.Reader
 import Control.Monad.Trans.Resource
 import Data.Pool
 import Data.Monoid
-import Prelude
 import Web.Routing.SafeRouting hiding (renderRoute)
 import qualified Data.Text as T
 import qualified Network.HTTP.Types as Http
@@ -137,39 +122,3 @@ hookSafeActions =
                Just p@(PackedSafeAction action) ->
                    do runSafeAction action
                       sm_removeSafeAction mgr p
-
--- | NOP session hooks
-defaultSessionHooks :: SessionHooks a
-defaultSessionHooks =
-    SessionHooks
-    { sh_removed = const $ return ()
-    }
-
--- | Session configuration with reasonable defaults and an
--- stm based session store
-defaultSessionCfg :: a -> IO (SessionCfg conn a st)
-defaultSessionCfg emptySession =
-  do store <- SV.newStmSessionStore
-     return
-       SessionCfg
-       { sc_cookieName = "spockcookie"
-       , sc_sessionTTL = 3600
-       , sc_sessionIdEntropy = 64
-       , sc_sessionExpandTTL = True
-       , sc_emptySession = emptySession
-       , sc_store = store
-       , sc_housekeepingInterval = 60 * 10
-       , sc_hooks = defaultSessionHooks
-       }
-
--- | Spock configuration with reasonable defaults
-defaultSpockCfg :: sess -> PoolOrConn conn -> st -> IO (SpockCfg conn sess st)
-defaultSpockCfg sess conn st =
-  do defSess <- defaultSessionCfg sess
-     return
-       SpockCfg
-       { spc_initialState = st
-       , spc_database = conn
-       , spc_sessionCfg = defSess
-       , spc_maxRequestSize = Just (5 * 1024 * 1024)
-       }

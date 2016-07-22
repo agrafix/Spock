@@ -37,6 +37,7 @@ library
   hs-source-dirs:      src
   exposed-modules:
                   Web.Spock,
+                  Web.Spock.Config,
                   Web.Spock.SessionActions,
                   Web.Spock.Internal.SessionVault
   other-modules:
