@@ -2,7 +2,6 @@
 {-# LANGUAGE DoAndIfThenElse #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -11,29 +10,38 @@ module Web.Spock
       spock, SpockM, SpockCtxM
       -- * Configuration
     , SpockCfg (..), defaultSpockCfg
+    , getState
       -- * Database
     , PoolOrConn (..), ConnBuilder (..), PoolCfg (..)
+    , runQuery
       -- * Sessions
     , defaultSessionCfg, SessionCfg (..)
     , defaultSessionHooks, SessionHooks (..)
     , SessionStore(..), SessionStoreInstance(..)
     , SV.newStmSessionStore
+    , SessionManager
+    , getSessMgr
       -- * Safe actions
     , SafeAction (..)
     , safeActionPath
-      -- * core functionality
+      -- * Core functionality
     , module Web.Spock.Core
-      -- * session actions
+    , SpockAction, SpockActionCtx
+      -- * Session actions
     , module Web.Spock.SessionActions
+      -- * Accessing internals
+    , HasSpock(..), WebStateM, WebStateT, WebState
+    , getSpockHeart, runSpockIO, getSpockPool
     )
 where
 
 
 import Web.Spock.Core
-import Web.Spock.SessionActions
-import Web.Spock.Internal.Types
-import qualified Web.Spock.Internal.SessionVault as SV
+import Web.Spock.Internal.Monad
 import Web.Spock.Internal.SessionManager
+import Web.Spock.Internal.Types
+import Web.Spock.SessionActions
+import qualified Web.Spock.Internal.SessionVault as SV
 
 import Control.Monad.Reader
 import Control.Monad.Trans.Resource
@@ -137,7 +145,8 @@ defaultSessionHooks =
     { sh_removed = const $ return ()
     }
 
--- | Session configuration with reasonable defaults
+-- | Session configuration with reasonable defaults and an
+-- stm based session store
 defaultSessionCfg :: a -> IO (SessionCfg conn a st)
 defaultSessionCfg emptySession =
   do store <- SV.newStmSessionStore

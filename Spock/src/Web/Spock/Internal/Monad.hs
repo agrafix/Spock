@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE RankNTypes #-}
 module Web.Spock.Internal.Monad where
 
 import Web.Spock.Internal.Types
@@ -38,11 +39,12 @@ getStateImpl :: WebStateM conn sess st st
 getStateImpl = asks web_state
 
 -- | Read the heart of Spock. This is useful if you want to construct your own
--- monads that work with runQuery and getState using "runSpockIO"
+-- monads that work with 'runQuery' and 'getState' using 'runSpockIO'
 getSpockHeart :: MonadTrans t => t (WebStateM conn sess st) (WebState conn sess st)
 getSpockHeart = webM ask
 
--- | Run an action inside of Spocks core monad. This allows you to use runQuery and getState
+-- | Run an action inside of Spocks core monad. This allows
+-- you to use 'runQuery' and 'getState'
 runSpockIO :: WebState conn sess st -> WebStateM conn sess st a -> IO a
 runSpockIO st (WebStateT action) =
     runResourceT $
@@ -50,3 +52,8 @@ runSpockIO st (WebStateT action) =
 
 getSessMgrImpl :: (WebStateM conn sess st) (SessionManager conn sess st)
 getSessMgrImpl = asks web_sessionMgr
+
+-- | Read the connection pool of Spock. This is useful if you want to construct your own
+-- monads that work with 'runQuery' and 'getState' using 'runSpockIO'
+getSpockPool :: MonadTrans t => t (WebStateM conn sess st) (Pool conn)
+getSpockPool = webM $ asks web_dbConn
