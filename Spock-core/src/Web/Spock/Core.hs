@@ -10,7 +10,7 @@ module Web.Spock.Core
     ( -- * Lauching Spock
       runSpock, runSpockNoBanner, spockAsApp
       -- * Spock's route definition monad
-    , spockT, spockLimT, SpockT, SpockCtxT
+    , spockT, spockLimT, spockConfigT, SpockT, SpockCtxT
       -- * Defining routes
     , Path, root, Var, var, static, (<//>)
       -- * Rendering routes
@@ -23,6 +23,8 @@ module Web.Spock.Core
     , middleware
       -- * Actions
     , module Web.Spock.Action
+      -- * Config
+    , SpockConfig (..), defaultSpockConfig
     )
 where
 
@@ -38,6 +40,7 @@ import Network.HTTP.Types.Method
 import Prelude hiding (head, uncurry, curry)
 import Web.Routing.Router (swapMonad)
 import Web.Routing.SafeRouting hiding (renderRoute)
+import Web.Spock.Internal.Config
 import qualified Data.Text as T
 import qualified Network.HTTP.Types as Http
 import qualified Network.Wai as Wai
@@ -62,7 +65,6 @@ newtype SpockCtxT ctx m a
 
 instance MonadTrans (SpockCtxT ctx) where
     lift = SpockCtxT . lift . lift
-
 
 -- | Run a Spock application. Basically just a wrapper aroung 'Warp.run'.
 runSpock :: Warp.Port -> IO Wai.Middleware -> IO ()
@@ -89,16 +91,33 @@ spockT :: (MonadIO m)
        => (forall a. m a -> IO a)
        -> SpockT m ()
        -> IO Wai.Middleware
-spockT = spockLimT Nothing
+spockT = spockConfigT defaultSpockConfig
 
 -- | Like @spockT@, but first argument is request size limit in bytes. Set to 'Nothing' to disable.
+{-# DEPRECATED spockLimT "Consider using spockConfigT instead" #-}
 spockLimT :: forall m .MonadIO m
        => Maybe Word64
        -> (forall a. m a -> IO a)
        -> SpockT m ()
        -> IO Wai.Middleware
-spockLimT mSizeLimit liftFun app =
-    W.buildMiddleware mSizeLimit liftFun (baseAppHook app)
+spockLimT mSizeLimit  =
+    let spockConfigWithLimit = defaultSpockConfig { sc_maxRequestSize = mSizeLimit } in
+    spockConfigT spockConfigWithLimit
+
+-- | Like @spockT@, but with additional configuration for request size and error
+-- handlers passed as first parameter.
+spockConfigT :: forall m .MonadIO m
+        => SpockConfig
+        -> (forall a. m a -> IO a)
+        -> SpockT m ()
+        -> IO Wai.Middleware
+spockConfigT (SpockConfig maxRequestSize errorAction) liftFun app =
+    W.buildMiddleware internalConfig liftFun (baseAppHook app)
+  where
+    internalConfig = W.SpockConfigInternal maxRequestSize errorHandler
+    errorHandler status = spockAsApp $ W.buildMiddleware W.defaultSpockConfigInternal id $ baseAppHook $ errorApp status
+    errorApp status = mapM_ (\method -> hookAny method $ \_ -> errorAction' status) [minBound .. maxBound]
+    errorAction' status = setStatus status >> errorAction status
 
 baseAppHook :: forall m. MonadIO m => SpockT m () -> W.SpockAllT m m ()
 baseAppHook app =

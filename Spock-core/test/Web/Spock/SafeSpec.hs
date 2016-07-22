@@ -6,6 +6,7 @@ module Web.Spock.SafeSpec (spec) where
 import Web.Spock.Core
 import Web.Spock.FrameworkSpecHelper
 
+import Control.Exception.Base
 import Control.Monad
 import Data.Monoid
 import Network.HTTP.Types.Status
@@ -106,3 +107,16 @@ spec =
        routeRenderingSpec
        sizeLimitSpec $ \lim -> spockAsApp $ spockLimT (Just lim) id $
           post "size" $ body >>= bytes
+       errorHandlerSpec $ spockAsApp $ spockConfigT specConfig id $ do
+          get ("failing" <//> "route") $
+            throw Overflow
+          get ("user" <//> "error") $
+            do setStatus status403
+               text "UNAUTHORIZED"
+  where
+    specConfig = defaultSpockConfig { sc_errorHandler = errorHandler }
+    errorHandler status = case statusCode status of
+      500 -> text "SERVER ERROR"
+      404 -> text "NOT FOUND"
+      _ -> text "OTHER ERROR"
+
