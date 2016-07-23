@@ -70,6 +70,9 @@ spec =
              checkRoute "/zuiasf/zuiasf" [StrVar "zuiasf/zuiasf"]
        it "should hand over remaining path pieces to subcomponents" $
           do checkRoute "/subcomponent/blog/foo/bar/nanana" [StrVar "blog:foo?bar?nanana"]
+       it "should handle wildcard routes" $
+          do checkRoute "/wildcard/" [StrVar ""]
+             checkRoute "/wildcard/some/additional/data" [StrVar "some/additional/data"]
     where
       pieces :: T.Text -> [T.Text]
       pieces = filter (not . T.null) . T.splitOn "/"
@@ -103,4 +106,6 @@ spec =
              defR ("entry" </> var </> "audit") (return . IntVar)
              defSubComponent ("subcomponent" </> var) $ \name ->
                return $ \ps -> StrVar $ name <> ":" <> T.intercalate "?" ps
+             defR ("wildcard" </> theRest) $ \rest ->
+               return $ StrVar rest
              hookAny True (return . StrVar . T.intercalate "/")
