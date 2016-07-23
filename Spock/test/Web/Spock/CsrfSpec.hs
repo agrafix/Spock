@@ -56,6 +56,6 @@ testApp =
 spockCfg :: IO (SpockCfg () Int Bool)
 spockCfg =
     do cfg <- defaultSpockCfg (0 :: Int) PCNoDatabase True
-       pure cfg
+       return cfg
              { spc_csrfProtection = True
              }
