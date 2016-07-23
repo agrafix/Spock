@@ -26,7 +26,7 @@ module Web.Spock.Core
       -- * Config
     , SpockConfig (..), defaultSpockConfig
       -- * Internals
-    , hookRoute', hookAny', SpockMethod(..)
+    , hookRoute', hookAny', SpockMethod(..), W.HttpMethod(..)
     )
 where
 
@@ -172,7 +172,7 @@ prehook hook (SpockCtxT hookBody) =
 
 -- | Specify an action that will be run when a standard HTTP verb and the given route match
 hookRoute :: forall xs ctx m. (HasRep xs, Monad m) => StdMethod -> Path xs -> HVectElim xs (ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
-hookRoute = hookRoute' . MethodStandard
+hookRoute = hookRoute' . MethodStandard . W.HttpMethod
 
 -- | Specify an action that will be run when a custom HTTP verb and the given route match
 hookRouteCustom :: forall xs ctx m. (HasRep xs, Monad m) => T.Text -> Path xs -> HVectElim xs (ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
@@ -190,7 +190,7 @@ hookRoute' m path action =
 -- | Specify an action that will be run when a standard HTTP verb matches but no defined route matches.
 -- The full path is passed as an argument
 hookAny :: Monad m => StdMethod -> ([T.Text] -> ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
-hookAny = hookAny' . MethodStandard
+hookAny = hookAny' . MethodStandard . W.HttpMethod
 
 -- | Specify an action that will be run when a custom HTTP verb matches but no defined route matches.
 -- The full path is passed as an argument

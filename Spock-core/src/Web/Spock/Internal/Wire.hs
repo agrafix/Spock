@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveDataTypeable #-}
@@ -52,23 +51,23 @@ import qualified Data.Vault.Lazy as V
 import qualified Network.Wai as Wai
 import qualified Network.Wai.Parse as P
 
-instance Hashable StdMethod where
-    hashWithSalt = hashUsing fromEnum
+newtype HttpMethod
+    = HttpMethod { unHttpMethod :: StdMethod }
+    deriving (Show, Eq, Generic)
+
+instance Hashable HttpMethod where
+    hashWithSalt = hashUsing (fromEnum . unHttpMethod)
 
 -- | The 'SpockMethod' allows safe use of http verbs via the 'MethodStandard' constructor and 'StdMethod',
 -- and custom verbs via the 'MethodCustom' constructor.
 data SpockMethod
    -- | Standard HTTP Verbs from 'StdMethod'
-   = MethodStandard !StdMethod
+   = MethodStandard !HttpMethod
    -- | Custom HTTP Verbs using 'T.Text'
    | MethodCustom !T.Text
      deriving (Eq, Generic)
 
 instance Hashable SpockMethod
---    hashWithSalt s (MethodStandard m) =
---        let h = hashWithSalt s m
---        in s `hashWithSalt` (0::Int) `hashWithSalt` h
---    hashWithSalt s (MethodCustom m) = s `hashWithSalt` (1::Int) `hashWithSalt` m
 
 data UploadedFile
    = UploadedFile
@@ -441,4 +440,4 @@ withSpockMethod method cnt =
       Left _ ->
         cnt (MethodCustom $ T.decodeUtf8 method)
       Right stdMethod ->
-        cnt (MethodStandard stdMethod)
+        cnt (MethodStandard $ HttpMethod stdMethod)

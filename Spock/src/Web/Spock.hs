@@ -140,7 +140,7 @@ type RouteSpec xs ctx conn sess st =
 
 -- | Specify an action that will be run when a standard HTTP verb and the given route match
 hookRoute :: HV.HasRep xs => StdMethod -> RouteSpec xs ctx conn sess st
-hookRoute = hookRoute' . MethodStandard
+hookRoute = hookRoute' . MethodStandard . HttpMethod
 
 -- | Specify an action that will be run when the HTTP verb 'GET' and the given route match
 get :: HV.HasRep xs => RouteSpec xs ctx conn sess st
@@ -178,7 +178,7 @@ hookRouteCustom = hookRoute' . MethodCustom
 -- The full path is passed as an argument
 hookAny :: StdMethod -> ([T.Text] -> SpockActionCtx ctx conn sess st ()) -> SpockCtxM ctx conn sess st ()
 
-hookAny = hookAny' . MethodStandard
+hookAny = hookAny' . MethodStandard . HttpMethod
 
 -- | Specify an action that will be run when a custom HTTP verb matches but no defined route matches.
 -- The full path is passed as an argument
@@ -192,7 +192,7 @@ hookAny' :: SpockMethod -> ([T.Text] -> SpockActionCtx ctx conn sess st ()) -> S
 hookAny' m action =
     C.hookAny' m $ \t ->
     case m of
-      MethodStandard stdMethod
+      MethodStandard (HttpMethod stdMethod)
           | shouldCheckCsrf stdMethod -> csrfCheck >> action t
       _ -> action t
 
@@ -205,7 +205,7 @@ hookRoute' ::
 hookRoute' m path action =
     do checkedAction <-
            case m of
-               MethodStandard stdMethod
+               MethodStandard (HttpMethod stdMethod)
                    | shouldCheckCsrf stdMethod ->
                          do let unpackedAction :: HV.HVect xs -> SpockActionCtx ctx conn sess st ()
                                 unpackedAction args =
