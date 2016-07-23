@@ -89,7 +89,7 @@ sessionSpec =
                       if HS.member sessionId set
                           then fail $ "Reused " ++ show sessionId ++ " (" ++ show set ++ ")"
                           else do writeIORef setRef $ HS.insert sessionId set
-                                  pure True
+                                  return True
 
 spec :: Spec
 spec =

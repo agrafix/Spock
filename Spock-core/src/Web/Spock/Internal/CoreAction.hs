@@ -368,7 +368,7 @@ deleteCookie name =
 cookies :: MonadIO m => ActionCtxT ctx m [(T.Text, T.Text)]
 cookies =
     do req <- request
-       pure $
+       return $
            fromMaybe [] $
            fmap parseCookies $
            lookup "cookie" (Wai.requestHeaders req)

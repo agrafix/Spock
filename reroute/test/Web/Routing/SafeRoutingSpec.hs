@@ -8,12 +8,12 @@ import Test.Hspec
 import Data.HVect hiding (singleton)
 
 import Control.Monad.Identity
-import Web.Routing.SafeRouting
-import Web.Routing.Router
-import qualified Data.Text as T
 import Control.Monad.RWS.Strict
 import Data.Maybe
+import Web.Routing.Router
+import Web.Routing.SafeRouting
 import qualified Data.HashMap.Strict as HM
+import qualified Data.Text as T
 
 data ReturnVar
    = IntVar Int
@@ -26,10 +26,16 @@ defR :: (Monad m, m ReturnVar ~ x) => Path ts -> HVectElim ts x -> RegistryT m R
 defR path action = hookRoute True path (HVectElim' action)
 
 -- TODO: abstract this code, move into AbstractRouter
-defSubComponent :: (Monad m, m ([T.Text] -> ReturnVar) ~ x)
-                 => Path ts
-                 -> HVectElim ts x
-                 -> RegistryT m ReturnVar middleware Bool m ()
+defSubComponent ::
+    ( Monad m
+#if __GLASGOW_HASKELL__ <= 708
+    , Functor m
+#endif
+    , m ([T.Text] -> ReturnVar) ~ x
+    )
+    => Path ts
+    -> HVectElim ts x
+    -> RegistryT m ReturnVar middleware Bool m ()
 defSubComponent path comp =
     do let reqType = True
        basePath <- ask
@@ -39,7 +45,6 @@ defSubComponent path comp =
                         reg' = insertSubComponent (RouteHandle (basePath </> path) comp) reg
                     in HM.insert reqType (reg', fb) (rs_registry rs)
               }
-
 
 spec :: Spec
 spec =

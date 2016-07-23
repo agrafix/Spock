@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Web.Spock.Internal.Cookies where
 
@@ -9,6 +10,11 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Web.Cookie as C
 import qualified Network.HTTP.Types.URI as URI (urlEncode, urlDecode)
+#if MIN_VERSION_base(4,8,0)
+#else
+import Control.Applicative
+#endif
+
 
 -- | Cookie settings
 data CookieSettings
