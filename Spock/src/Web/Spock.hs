@@ -6,37 +6,56 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Web.Spock
-    ( -- * Spock's route definition monad
-      spock, SpockM, SpockCtxM
-      -- * Safe actions
-    , SafeAction (..)
-    , safeActionPath
-      -- * Core functionality
-    , module Web.Spock.Core
+    ( -- * Lauching Spock
+      runSpock, runSpockNoBanner, spockAsApp
+      -- * Spock's route definition monad
+    , spock, SpockM, SpockCtxM
+      -- * Defining routes
+    , Path, root, Var, var, static, (<//>)
+      -- * Rendering routes
+    , renderRoute
+      -- * Hooking routes
+    , subcomponent, prehook
+    , RouteSpec
+    , get, post, getpost, head, put, delete, patch, hookRoute
+    , hookRouteCustom, hookAny, hookAnyCustom
+    , C.StdMethod (..)
+      -- * Adding Wai.Middleware
+    , middleware
+      -- * Actions
     , SpockAction, SpockActionCtx
+    , module Web.Spock.Action
     , HasSpock(..), SessionManager
     , module Web.Spock.SessionActions
+    , getCsrfToken, getClientCsrfToken, csrfCheck
       -- * Accessing internals
     , WebStateM, WebStateT, WebState
     , getSpockHeart, runSpockIO, getSpockPool
     )
 where
 
-
-import Web.Spock.Core
+import Web.Spock.Action
+import Web.Spock.Core hiding
+       ( hookRoute', hookAny'
+       , get, post, getpost, head, put, delete, patch, hookRoute
+       , hookRouteCustom, hookAny, hookAnyCustom
+       )
 import Web.Spock.Internal.Monad
 import Web.Spock.Internal.SessionManager
 import Web.Spock.Internal.Types
 import Web.Spock.SessionActions
+import qualified Web.Spock.Core as C
 
+import Control.Applicative
 import Control.Monad.Reader
 import Control.Monad.Trans.Resource
+import Network.HTTP.Types.Status (status403)
 import Data.Pool
-import Data.Monoid
-import Web.Routing.SafeRouting hiding (renderRoute)
+import Prelude hiding (head)
+import qualified Data.HVect as HV
 import qualified Data.Text as T
-import qualified Network.HTTP.Types as Http
 import qualified Network.Wai as Wai
+
 
 type SpockM conn sess st = SpockCtxM () conn sess st
 type SpockCtxM ctx conn sess st = SpockCtxT ctx (WebStateM conn sess st)
@@ -64,6 +83,7 @@ spock spockCfg spockAppl =
                { web_dbConn = connectionPool
                , web_sessionMgr = sessionMgr
                , web_state = initialState
+               , web_config = spockCfg
                }
            coreConfig =
                defaultSpockConfig
@@ -72,51 +92,132 @@ spock spockCfg spockAppl =
                }
        spockConfigT coreConfig (\m -> runResourceT $ runReaderT (runWebStateT m) internalState)  $
            do middleware (sm_middleware sessionMgr)
-              hookSafeActions
               spockAppl
     where
       sessionCfg = spc_sessionCfg spockCfg
       poolOrConn = spc_database spockCfg
       initialState = spc_initialState spockCfg
 
--- | Wire up a safe action: Safe actions are actions that are protected from
--- csrf attacks. Here's a usage example:
---
--- > newtype DeleteUser = DeleteUser Int deriving (Hashable, Typeable, Eq)
--- >
--- > instance SafeAction Connection () () DeleteUser where
--- >    runSafeAction (DeleteUser i) =
--- >       do runQuery $ deleteUserFromDb i
--- >          redirect "/user-list"
--- >
--- > get ("user-details" <//> var) $ \userId ->
--- >   do deleteUrl <- safeActionPath (DeleteUser userId)
--- >      html $ "Click <a href='" <> deleteUrl <> "'>here</a> to delete user!"
---
--- Note that safeActions currently only support GET and POST requests.
---
-safeActionPath :: forall conn sess st a.
-                  ( SafeAction conn sess st a
-                  , HasSpock(SpockAction conn sess st)
-                  )
-               => a
-               -> SpockAction conn sess st T.Text
-safeActionPath safeAction =
-    do mgr <- getSessMgr
-       hash <- sm_addSafeAction mgr (PackedSafeAction safeAction)
-       return $ "/h/" <> hash
+-- | Get the CSRF token for the current user. This token must be sent on all non
+-- GET requests via a post parameter or HTTP-Header if 'spc_csrfProtection' is turned on.
+-- See configuration 'SpockCfg' documentation for more information
+getCsrfToken ::
+    ( HasSpock (SpockActionCtx ctx conn sess st)
+    )
+    => SpockActionCtx ctx conn sess st T.Text
+getCsrfToken = sm_getCsrfToken =<< getSessMgr
+{-# INLINE getCsrfToken #-}
 
-hookSafeActions :: SpockM conn sess st ()
-hookSafeActions =
-    getpost (static "h" </> var) run
-    where
-      run h =
-          do mgr <- getSessMgr
-             mAction <- sm_lookupSafeAction mgr h
-             case mAction of
-               Nothing ->
-                   do setStatus Http.status404
-                      text "File not found"
-               Just p@(PackedSafeAction action) ->
-                   do runSafeAction action
-                      sm_removeSafeAction mgr p
+-- | Get the CSRF token sent by the client. You should not need to call this
+-- manually if 'spc_csrfProtection' is turned on.
+getClientCsrfToken :: SpockActionCtx ctx conn sess st (Maybe T.Text)
+getClientCsrfToken =
+    do cfg <- getSpockCfg
+       mHeader <- header (spc_csrfHeaderName cfg)
+       mParam <- param (spc_csrfPostName cfg)
+       pure (mHeader <|> mParam)
+{-# INLINE getClientCsrfToken #-}
+
+-- | Check that the client sent a valid CSRF token. You should not need to call this
+-- manually if 'spc_csrfProtection' is turned on.
+csrfCheck :: SpockActionCtx ctx conn sess st ()
+csrfCheck =
+    do csrf <- getCsrfToken
+       clientCsrf <- getClientCsrfToken
+       case clientCsrf of
+         Nothing -> abort
+         Just csrfVal
+           | csrfVal == csrf -> pure ()
+           | otherwise -> abort
+   where
+       abort =
+         do setStatus status403
+            text "Broken/Missing CSRF Token"
+{-# INLINE csrfCheck #-}
+
+type RouteSpec xs ctx conn sess st =
+    Path xs -> HV.HVectElim xs (SpockActionCtx ctx conn sess st ()) -> SpockCtxM ctx conn sess st ()
+
+-- | Specify an action that will be run when a standard HTTP verb and the given route match
+hookRoute :: HV.HasRep xs => StdMethod -> RouteSpec xs ctx conn sess st
+hookRoute = hookRoute' . MethodStandard
+
+-- | Specify an action that will be run when the HTTP verb 'GET' and the given route match
+get :: HV.HasRep xs => RouteSpec xs ctx conn sess st
+get = hookRoute GET
+
+-- | Specify an action that will be run when the HTTP verb 'POST' and the given route match
+post :: HV.HasRep xs => RouteSpec xs ctx conn sess st
+post = hookRoute POST
+
+-- | Specify an action that will be run when the HTTP verb 'GET'/'POST' and the given route match
+getpost :: HV.HasRep xs => RouteSpec xs ctx conn sess st
+getpost r a = hookRoute POST r a >> hookRoute GET r a
+
+-- | Specify an action that will be run when the HTTP verb 'HEAD' and the given route match
+head :: HV.HasRep xs => RouteSpec xs ctx conn sess st
+head = hookRoute HEAD
+
+-- | Specify an action that will be run when the HTTP verb 'PUT' and the given route match
+put :: HV.HasRep xs => RouteSpec xs ctx conn sess st
+put = hookRoute PUT
+
+-- | Specify an action that will be run when the HTTP verb 'DELETE' and the given route match
+delete :: HV.HasRep xs => RouteSpec xs ctx conn sess st
+delete = hookRoute DELETE
+
+-- | Specify an action that will be run when the HTTP verb 'PATCH' and the given route match
+patch :: HV.HasRep xs => RouteSpec xs ctx conn sess st
+patch = hookRoute PATCH
+
+-- | Specify an action that will be run when a custom HTTP verb and the given route match
+hookRouteCustom :: HV.HasRep xs => T.Text -> RouteSpec xs ctx conn sess st
+hookRouteCustom = hookRoute' . MethodCustom
+
+-- | Specify an action that will be run when a standard HTTP verb matches but no defined route matches.
+-- The full path is passed as an argument
+hookAny :: StdMethod -> ([T.Text] -> SpockActionCtx ctx conn sess st ()) -> SpockCtxM ctx conn sess st ()
+
+hookAny = hookAny' . MethodStandard
+
+-- | Specify an action that will be run when a custom HTTP verb matches but no defined route matches.
+-- The full path is passed as an argument
+hookAnyCustom :: T.Text -> ([T.Text] -> SpockActionCtx ctx conn sess st ()) -> SpockCtxM ctx conn sess st ()
+
+hookAnyCustom = hookAny' . MethodCustom
+
+-- | Specify an action that will be run when a HTTP verb matches but no defined route matches.
+-- The full path is passed as an argument
+hookAny' :: SpockMethod -> ([T.Text] -> SpockActionCtx ctx conn sess st ()) -> SpockCtxM ctx conn sess st ()
+hookAny' m action =
+    C.hookAny' m $ \t ->
+    case m of
+      MethodStandard stdMethod
+          | shouldCheckCsrf stdMethod -> csrfCheck >> action t
+      _ -> action t
+
+-- | Specify an action that will be run when a HTTP verb and the given route match
+hookRoute' ::
+    forall xs ctx conn sess st.
+    (HV.HasRep xs)
+    => SpockMethod
+    -> RouteSpec xs ctx conn sess st
+hookRoute' m path action =
+    do checkedAction <-
+           case m of
+               MethodStandard stdMethod
+                   | shouldCheckCsrf stdMethod ->
+                         do let unpackedAction :: HV.HVect xs -> SpockActionCtx ctx conn sess st ()
+                                unpackedAction args =
+                                    csrfCheck >> HV.uncurry action args
+                            pure $ HV.curry unpackedAction
+               _ -> pure action
+       C.hookRoute' m path checkedAction
+
+shouldCheckCsrf :: StdMethod -> Bool
+shouldCheckCsrf m =
+    case m of
+      GET -> False
+      HEAD -> False
+      OPTIONS -> False
+      _ -> True

@@ -45,7 +45,9 @@ defaultSessionCfg emptySession =
        }
 
 -- | Spock configuration with reasonable defaults such as a basic error page
--- and 5MB request body limit
+-- and 5MB request body limit. IMPORTANT: CSRF Protection is turned off by
+-- default for now to not break any existing Spock applications. Consider
+-- turning it on manually as it will become the default in the future.
 defaultSpockCfg :: sess -> PoolOrConn conn -> st -> IO (SpockCfg conn sess st)
 defaultSpockCfg sess conn st =
   do defSess <- defaultSessionCfg sess
@@ -56,6 +58,9 @@ defaultSpockCfg sess conn st =
        , spc_sessionCfg = defSess
        , spc_maxRequestSize = Just (5 * 1024 * 1024)
        , spc_errorHandler = errorHandler
+       , spc_csrfProtection = False
+       , spc_csrfHeaderName = "X-Csrf-Token"
+       , spc_csrfPostName = "__csrf_token"
        }
 
 errorHandler :: Status -> ActionCtxT () IO ()

@@ -21,6 +21,7 @@ instance MonadTrans t => HasSpock (t (WebStateM conn sess st)) where
     runQuery a = webM $ runQueryImpl a
     getState = webM getStateImpl
     getSessMgr = webM getSessMgrImpl
+    getSpockCfg = webM getSpockCfgImpl
 
 instance HasSpock (WebStateM conn sess st) where
     type SpockConn (WebStateM conn sess st) = conn
@@ -29,6 +30,10 @@ instance HasSpock (WebStateM conn sess st) where
     runQuery = runQueryImpl
     getState = getStateImpl
     getSessMgr = getSessMgrImpl
+    getSpockCfg = getSpockCfgImpl
+
+getSpockCfgImpl :: WebStateM conn sess st (SpockCfg conn sess st)
+getSpockCfgImpl = asks web_config
 
 runQueryImpl :: (conn -> IO a) -> WebStateM conn sess st a
 runQueryImpl query =

@@ -40,6 +40,7 @@ createSessionManager cfg =
        return
           SessionManager
           { sm_getSessionId = getSessionIdImpl vaultKey store
+          , sm_getCsrfToken = getCsrfTokenImpl vaultKey store
           , sm_regenerateSessionId = regenerateSessionIdImpl vaultKey store cfg
           , sm_readSession = readSessionImpl vaultKey store
           , sm_writeSession = writeSessionImpl vaultKey store
@@ -47,9 +48,6 @@ createSessionManager cfg =
           , sm_clearAllSessions = clearAllSessionsImpl store
           , sm_mapSessions = mapAllSessionsImpl store
           , sm_middleware = sessionMiddleware cfg vaultKey
-          , sm_addSafeAction = addSafeActionImpl vaultKey store
-          , sm_lookupSafeAction = lookupSafeActionImpl vaultKey store
-          , sm_removeSafeAction = removeSafeActionImpl vaultKey store
           , sm_closeSessionManager = killThread housekeepThread
           }
     where
@@ -74,6 +72,11 @@ getSessionIdImpl :: V.Key SessionId
 getSessionIdImpl vK sessionRef =
     do sess <- readSessionBase vK sessionRef
        return $ sess_id sess
+
+getCsrfTokenImpl :: V.Key SessionId
+                 -> SessionStoreInstance (Session conn sess st)
+                 -> SpockActionCtx ctx conn sess st T.Text
+getCsrfTokenImpl vK sessionRef = sess_csrfToken <$> readSessionBase vK sessionRef
 
 modifySessionBase :: V.Key SessionId
                   -> SessionStoreInstance (Session conn sess st)
@@ -110,51 +113,6 @@ readSessionBase vK (SessionStoreInstance sessionRef) =
                       error "(2) Internal Spock Session Error. Please report this bug!"
                   Just session ->
                       return session
-
-addSafeActionImpl ::
-    V.Key SessionId
-    -> SessionStoreInstance (Session conn sess st)
-    -> PackedSafeAction conn sess st
-    -> SpockActionCtx ctx conn sess st SafeActionHash
-addSafeActionImpl vaultKey sessionMapVar safeAction =
-    do base <- readSessionBase vaultKey sessionMapVar
-       case HM.lookup safeAction (sas_reverse (sess_safeActions base)) of
-         Just safeActionHash ->
-             return safeActionHash
-         Nothing ->
-             do safeActionHash <- liftIO (randomHash 40)
-                let f sas =
-                        sas
-                        { sas_forward = HM.insert safeActionHash safeAction (sas_forward sas)
-                        , sas_reverse = HM.insert safeAction safeActionHash (sas_reverse sas)
-                        }
-                modifySessionBase vaultKey sessionMapVar (\s -> (s { sess_safeActions = f (sess_safeActions s) }, ()))
-                return safeActionHash
-
-lookupSafeActionImpl :: V.Key SessionId
-                     -> SessionStoreInstance (Session conn sess st)
-                     -> SafeActionHash
-                     -> SpockActionCtx ctx conn sess st (Maybe (PackedSafeAction conn sess st))
-lookupSafeActionImpl vaultKey sessionMapVar hash =
-    do base <- readSessionBase vaultKey sessionMapVar
-       return $ HM.lookup hash (sas_forward (sess_safeActions base))
-
-removeSafeActionImpl ::
-    V.Key SessionId
-    -> SessionStoreInstance (Session conn sess st)
-    -> PackedSafeAction conn sess st
-    -> SpockActionCtx ctx conn sess st ()
-removeSafeActionImpl vaultKey sessionMapVar action =
-    modifySessionBase vaultKey sessionMapVar (\s -> (s { sess_safeActions = f (sess_safeActions s ) }, ()))
-    where
-      f sas =
-          sas
-          { sas_forward =
-              case HM.lookup action (sas_reverse sas) of
-                Just h -> HM.delete h (sas_forward sas)
-                Nothing -> sas_forward sas
-          , sas_reverse = HM.delete action (sas_reverse sas)
-          }
 
 readSessionImpl :: V.Key SessionId
                 -> SessionStoreInstance (Session conn sess st)
@@ -300,11 +258,10 @@ housekeepSessions cfg =
 createSession :: SessionCfg conn sess st -> sess -> IO (Session conn sess st)
 createSession sessCfg content =
     do sid <- randomHash (sc_sessionIdEntropy sessCfg)
+       csrfToken <- randomHash 12
        now <- getCurrentTime
        let validUntil = addUTCTime (sc_sessionTTL sessCfg) now
-           emptySafeActions =
-               SafeActionStore HM.empty HM.empty
-       return (Session sid validUntil content emptySafeActions)
+       return (Session sid csrfToken validUntil content)
 
 randomHash :: Int -> IO T.Text
 randomHash len =

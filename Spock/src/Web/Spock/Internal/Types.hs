@@ -54,6 +54,14 @@ data SpockCfg conn sess st
    , spc_errorHandler :: Status -> ActionCtxT () IO ()
      -- ^ Custom error handlers for implicit errors such as not matching routes or
      -- exceptions during a request handler run.
+   , spc_csrfProtection :: Bool
+     -- ^ When set to true, all non GET request will require
+     -- either an HTTP-Header 'spc_csrfHeaderName' or a
+     -- POST-Parameter 'spc_csrfPostName' to be set to the value aquired by 'getCsrfToken'
+   , spc_csrfHeaderName :: T.Text
+     -- ^ see 'spc_csrfHeaderName'
+   , spc_csrfPostName :: T.Text
+     -- ^ see 'spc_csrfPostName'
    }
 
 -- | If Spock should take care of connection pooling, you need to configure
@@ -112,6 +120,7 @@ data WebState conn sess st
    { web_dbConn :: Pool conn
    , web_sessionMgr :: SessionManager conn sess st
    , web_state :: st
+   , web_config :: SpockCfg conn sess st
    }
 
 class HasSpock m where
@@ -126,6 +135,8 @@ class HasSpock m where
     getState :: m (SpockState m)
     -- | Get the session manager
     getSessMgr :: m (SessionManager (SpockConn m) (SpockSession m) (SpockState m))
+    -- | Get the Spock configuration
+    getSpockCfg :: m (SpockCfg (SpockConn m) (SpockSession m) (SpockState m))
 
 -- | SafeActions are actions that need to be protected from csrf attacks
 class (Hashable a, Eq a, Typeable a) => SafeAction conn sess st a where
@@ -172,9 +183,9 @@ type SessionId = T.Text
 data Session conn sess st
     = Session
     { sess_id :: !SessionId
+    , sess_csrfToken :: !T.Text
     , sess_validUntil :: !UTCTime
     , sess_data :: !sess
-    , sess_safeActions :: !(SafeActionStore conn sess st)
     }
 
 data SessionStoreInstance sess where
@@ -197,6 +208,7 @@ instance Show (Session conn sess st) where
 data SessionManager conn sess st
    = SessionManager
    { sm_getSessionId :: forall ctx. SpockActionCtx ctx conn sess st SessionId
+   , sm_getCsrfToken :: forall ctx. SpockActionCtx ctx conn sess st T.Text
    , sm_regenerateSessionId :: forall ctx. SpockActionCtx ctx conn sess st ()
    , sm_readSession :: forall ctx. SpockActionCtx ctx conn sess st sess
    , sm_writeSession :: forall ctx. sess -> SpockActionCtx ctx conn sess st ()
@@ -204,8 +216,5 @@ data SessionManager conn sess st
    , sm_mapSessions :: forall ctx. (forall m. Monad m => sess -> m sess) -> SpockActionCtx ctx conn sess st ()
    , sm_clearAllSessions :: forall ctx. SpockActionCtx ctx conn sess st ()
    , sm_middleware :: Middleware
-   , sm_addSafeAction :: forall ctx. PackedSafeAction conn sess st -> SpockActionCtx ctx conn sess st SafeActionHash
-   , sm_lookupSafeAction :: forall ctx. SafeActionHash -> SpockActionCtx ctx conn sess st (Maybe (PackedSafeAction conn sess st))
-   , sm_removeSafeAction :: forall ctx. PackedSafeAction conn sess st -> SpockActionCtx ctx conn sess st ()
    , sm_closeSessionManager :: IO ()
    }

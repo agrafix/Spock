@@ -25,6 +25,8 @@ module Web.Spock.Core
     , module Web.Spock.Action
       -- * Config
     , SpockConfig (..), defaultSpockConfig
+      -- * Internals
+    , hookRoute', hookAny', SpockMethod(..)
     )
 where
 
