@@ -101,8 +101,8 @@ spockLimT :: forall m .MonadIO m
        -> SpockT m ()
        -> IO Wai.Middleware
 spockLimT mSizeLimit  =
-    let spockConfigWithLimit = defaultSpockConfig { sc_maxRequestSize = mSizeLimit } in
-    spockConfigT spockConfigWithLimit
+    let spockConfigWithLimit = defaultSpockConfig { sc_maxRequestSize = mSizeLimit }
+    in spockConfigT spockConfigWithLimit
 
 -- | Like @spockT@, but with additional configuration for request size and error
 -- handlers passed as first parameter.
