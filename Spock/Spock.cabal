@@ -77,8 +77,10 @@ test-suite spocktests
   hs-source-dirs:      test
   main-is:             Spec.hs
   other-modules:
-                       Web.Spock.Internal.SessionVaultSpec,
-                       Web.Spock.SafeSpec
+                Web.Spock.Internal.SessionVaultSpec,
+                Web.Spock.SafeSpec,
+                Web.Spock.CsrfSpec,
+                Web.Spock.TestUtils
   build-depends:
                        base,
                        bytestring,

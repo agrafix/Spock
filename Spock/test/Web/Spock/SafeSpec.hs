@@ -3,13 +3,13 @@
 {-# LANGUAGE DoAndIfThenElse #-}
 module Web.Spock.SafeSpec (spec) where
 
+import Web.Spock.TestUtils
+
 import Web.Spock
 import Web.Spock.Config
-import Web.Spock.Internal.Cookies
 
 import Control.Monad
 import Data.IORef
-import Data.List (find)
 import Data.Monoid
 import Test.Hspec
 import qualified Data.HashSet as HS
@@ -69,13 +69,6 @@ sessionSpec =
                     text (T.pack $ show val)
       spockCfg =
           defaultSpockCfg (0 :: Int) PCNoDatabase True
-
-      getSessCookie :: Wai.SResponse -> Maybe T.Text
-      getSessCookie resp =
-          let headers = Wai.simpleHeaders resp
-          in lookup "spockcookie" $
-             maybe [] (parseCookies . snd) $
-             find (\h -> fst h == "Set-Cookie") headers
 
       checkCookie :: IORef (HS.HashSet T.Text) -> Wai.SResponse -> IO Bool
       checkCookie setRef resp =
