@@ -20,7 +20,6 @@ import Data.Monoid ((<>))
 import Data.Monoid (Monoid (..), (<>))
 import Control.Applicative ((<$>))
 #endif
-import Data.String
 import Data.Typeable (Typeable)
 import Control.DeepSeq (NFData (..))
 import Web.PathPieces
@@ -36,12 +35,6 @@ type Registry m a = (PathMap (m a), [[T.Text] -> m a])
 
 emptyRegistry :: Registry m a
 emptyRegistry = (emptyPathMap, [])
-
-subcompCombine :: Path '[] -> Path xs -> Path xs
-subcompCombine = (</>)
-
-rootPath :: Path '[]
-rootPath = Empty
 
 defRoute :: Path xs -> HVectElim' (m a) xs -> Registry m a -> Registry m a
 defRoute path action (m, call) =
@@ -151,35 +144,6 @@ match (PathMap c h s p w) pieces =
           routeRest = combineRoutePieces pieces
           wildcardMatches = fmap ($ routeRest) w
       in staticMatches ++ varMatches ++ wildcardMatches
-
--- | A route parameter
-var :: (Typeable a, PathPiece a) => Path (a ': '[])
-var = VarCons Empty
-
-type Var a = Path (a ': '[])
-
--- | A static route piece
-static :: String -> Path '[]
-static s =
-  let pieces = filter (not . T.null) $ T.splitOn "/" $ T.pack s
-  in foldr StaticCons Empty pieces
-
-instance (a ~ '[]) => IsString (Path a) where
-    fromString = static
-
--- | The root of a path piece. Use to define a handler for "/"
-root :: Path '[]
-root = Empty
-
--- | Matches the rest of the route. Should be the last part of the path.
-theRest :: Path '[T.Text]
-theRest = Wildcard Empty
-
-(</>) :: Path as -> Path bs -> Path (Append as bs)
-(</>) Empty xs = xs
-(</>) (StaticCons pathPiece xs) ys = (StaticCons pathPiece (xs </> ys))
-(</>) (VarCons xs) ys = (VarCons (xs </> ys))
-(</>) (Wildcard _) _ = error "Wildcard should be the last part of the path"
 
 renderRoute :: Path as -> HVect as -> T.Text
 renderRoute p = combineRoutePieces . renderRoute' p

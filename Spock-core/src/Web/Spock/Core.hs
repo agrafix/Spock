@@ -40,6 +40,7 @@ import Data.HVect hiding (head)
 import Data.Word
 import Network.HTTP.Types.Method
 import Prelude hiding (head, uncurry, curry)
+import Web.Routing.Combinators
 import Web.Routing.Router (swapMonad)
 import Web.Routing.SafeRouting hiding (renderRoute)
 import Web.Spock.Internal.Config

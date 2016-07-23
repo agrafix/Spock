@@ -7,6 +7,7 @@
 module Web.Routing.Router where
 
 import Web.Routing.SafeRouting
+import Web.Routing.Combinators
 
 #if MIN_VERSION_base(4,8,0)
 #else
@@ -56,7 +57,7 @@ hookRoute reqType path action =
        modify $ \rs ->
            rs { rs_registry =
                     let reg = fromMaybe emptyRegistry (HM.lookup reqType (rs_registry rs))
-                        reg' = defRoute (basePath `subcompCombine` path) action reg
+                        reg' = defRoute (basePath </> path) action reg
                     in HM.insert reqType reg' (rs_registry rs)
               }
 
@@ -72,7 +73,7 @@ subcomponent :: (Monad m)
 subcomponent basePath (RegistryT subReg) =
     do parentSt <- get
        parentBasePath <- ask
-       let childBasePath = parentBasePath `subcompCombine` basePath
+       let childBasePath = parentBasePath </> basePath
            childSt = parentSt
        (a, parentSt', middleware') <-
            lift $ runRWST subReg childBasePath childSt
@@ -98,7 +99,7 @@ runRegistry :: (Monad m, Hashable reqTypes, Eq reqTypes)
             => RegistryT n b middleware reqTypes m a
             -> m (a, reqTypes -> [T.Text] -> [n b], [middleware])
 runRegistry (RegistryT rwst) =
-    do (val, st, w) <- runRWST rwst rootPath initSt
+    do (val, st, w) <- runRWST rwst root initSt
        return (val, handleF (rs_registry st), w)
     where
       handleF hm ty route =

@@ -49,13 +49,15 @@ import qualified Web.Spock.Core as C
 import Control.Applicative
 import Control.Monad.Reader
 import Control.Monad.Trans.Resource
-import Network.HTTP.Types.Status (status403)
 import Data.Pool
+import Network.HTTP.Types.Status (status403)
 import Prelude hiding (head)
-import qualified Data.HVect as HV
+import Web.Routing.Combinators
+import Web.Routing.SafeRouting hiding (renderRoute)
 import qualified Data.Text as T
 import qualified Data.Vault.Lazy as V
 import qualified Network.Wai as Wai
+import qualified Data.HVect as HV
 
 
 type SpockM conn sess st = SpockCtxM () conn sess st

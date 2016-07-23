@@ -10,6 +10,7 @@ import Data.HVect hiding (singleton)
 import Control.Monad.Identity
 import Control.Monad.RWS.Strict
 import Data.Maybe
+import Web.Routing.Combinators
 import Web.Routing.Router
 import Web.Routing.SafeRouting
 import qualified Data.HashMap.Strict as HM
