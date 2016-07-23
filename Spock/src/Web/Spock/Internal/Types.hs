@@ -20,10 +20,8 @@ import Control.Monad.Base
 import Control.Monad.Reader
 import Control.Monad.Trans.Control
 import Control.Monad.Trans.Resource
-import Data.Hashable
 import Data.Pool
 import Data.Time.Clock ( UTCTime(..), NominalDiffTime )
-import Data.Typeable
 import Data.Word
 import Network.HTTP.Types.Status
 import Network.Wai
@@ -137,29 +135,6 @@ class HasSpock m where
     getSessMgr :: m (SessionManager (SpockConn m) (SpockSession m) (SpockState m))
     -- | Get the Spock configuration
     getSpockCfg :: m (SpockCfg (SpockConn m) (SpockSession m) (SpockState m))
-
--- | SafeActions are actions that need to be protected from csrf attacks
-class (Hashable a, Eq a, Typeable a) => SafeAction conn sess st a where
-    -- | The body of the safe action. Either GET or POST
-    runSafeAction :: a -> SpockAction conn sess st ()
-
-data PackedSafeAction conn sess st
-    = forall a. (SafeAction conn sess st a) => PackedSafeAction { unpackSafeAction :: a }
-
-instance Hashable (PackedSafeAction conn sess st) where
-    hashWithSalt i (PackedSafeAction a) = hashWithSalt i a
-
-instance Eq (PackedSafeAction conn sess st) where
-   (PackedSafeAction a) == (PackedSafeAction b) =
-       cast a == Just b
-
-data SafeActionStore conn sess st
-   = SafeActionStore
-   { sas_forward :: !(HM.HashMap SafeActionHash (PackedSafeAction conn sess st))
-   , sas_reverse :: !(HM.HashMap (PackedSafeAction conn sess st) SafeActionHash)
-   }
-
-type SafeActionHash = T.Text
 
 newtype WebStateT conn sess st m a = WebStateT { runWebStateT :: ReaderT (WebState conn sess st) m a }
     deriving (Monad, Functor, Applicative, MonadIO, MonadReader (WebState conn sess st), MonadTrans)
