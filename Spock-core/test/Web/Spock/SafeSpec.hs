@@ -105,7 +105,7 @@ spec =
     do frameworkSpec (spockAsApp $ spockT id app)
        ctxSpec
        routeRenderingSpec
-       sizeLimitSpec $ \lim -> spockAsApp $ spockLimT (Just lim) id $
+       sizeLimitSpec $ \lim -> spockAsApp $ spockConfigT (defaultSpockConfig { sc_maxRequestSize = Just lim }) id $
           post "size" $ body >>= bytes
        errorHandlerSpec $ spockAsApp $ spockConfigT specConfig id $ do
           get ("failing" <//> "route") $

@@ -65,7 +65,9 @@ spock spockCfg spockAppl =
                , web_sessionMgr = sessionMgr
                , web_state = initialState
                }
-       spockLimT (spc_maxRequestSize spockCfg) (\m -> runResourceT $ runReaderT (runWebStateT m) internalState)  $
+           maxRequestSize = spc_maxRequestSize spockCfg
+           coreConfig = defaultSpockConfig { sc_maxRequestSize = maxRequestSize }
+       spockConfigT coreConfig (\m -> runResourceT $ runReaderT (runWebStateT m) internalState)  $
            do middleware (sm_middleware sessionMgr)
               hookSafeActions
               spockAppl
