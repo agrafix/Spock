@@ -154,6 +154,10 @@ multiHeaderMap =
           , MultiHeaderSetCookie
           ]
 
+data ResponseVal
+    = ResponseValState !ResponseState
+    | ResponseHandler !(IO Wai.Application)
+
 data ResponseState
    = ResponseState
    { rs_responseHeaders :: !(HM.HashMap (CI.CI BS.ByteString) BS.ByteString)
@@ -161,7 +165,6 @@ data ResponseState
    , rs_status :: !Status
    , rs_responseBody :: !ResponseBody
    }
-   | ResponseHandler (IO Wai.Application)
 
 data ActionInterupt
     = ActionRedirect !T.Text
@@ -188,8 +191,12 @@ instance Error ActionInterupt where
 type ActionT = ActionCtxT ()
 
 newtype ActionCtxT ctx m a
-    = ActionCtxT { runActionCtxT :: ErrorT ActionInterupt (RWST (RequestInfo ctx) () ResponseState m) a }
-      deriving (Monad, Functor, Applicative, Alternative, MonadIO, MonadReader (RequestInfo ctx), MonadState ResponseState, MonadError ActionInterupt)
+    = ActionCtxT
+    { runActionCtxT :: ErrorT ActionInterupt (RWST (RequestInfo ctx) () ResponseState m) a }
+      deriving ( Monad, Functor, Applicative, Alternative, MonadIO
+               , MonadReader (RequestInfo ctx), MonadState ResponseState
+               , MonadError ActionInterupt
+               )
 
 instance MonadTrans (ActionCtxT ctx) where
     lift = ActionCtxT . lift . lift
@@ -207,8 +214,8 @@ defaultSpockConfigInternal = SpockConfigInternal Nothing defaultErrorHandler
       let errorMessage = "Error handler failed with status code " ++ (show $ statusCode status)
       respond $ Wai.responseLBS status500 [] $ BSLC.pack errorMessage
 
-respStateToResponse :: ResponseState -> Wai.Response
-respStateToResponse (ResponseState headers multiHeaders status (ResponseBody body)) =
+respStateToResponse :: ResponseVal -> Wai.Response
+respStateToResponse (ResponseValState (ResponseState headers multiHeaders status (ResponseBody body))) =
     let mkMultiHeader (k, vals) =
             let kCi = multiHeaderCI k
             in map (\v -> (kCi, v)) vals
@@ -218,8 +225,9 @@ respStateToResponse (ResponseState headers multiHeaders status (ResponseBody bod
     in body status outHeaders
 respStateToResponse _ = error "ResponseState expected"
 
-errorResponse :: Status -> BSL.ByteString -> ResponseState
+errorResponse :: Status -> BSL.ByteString -> ResponseVal
 errorResponse s e =
+    ResponseValState $
     ResponseState
     { rs_responseHeaders =
           HM.singleton "Content-Type" "text/html"
@@ -304,7 +312,7 @@ applyAction :: MonadIO m
             -> Wai.Request
             -> RequestInfo ()
             -> [ActionT m ()]
-            -> m (Maybe ResponseState)
+            -> m (Maybe ResponseVal)
 applyAction config _ _ [] =
     return $ Just $ getErrorHandler config status404
 applyAction config req env (selectedAction : xs) =
@@ -313,12 +321,13 @@ applyAction config req env (selectedAction : xs) =
        case r of
          Left (ActionRedirect loc) ->
              return $ Just $
-                    respState
-                    { rs_status = status302
-                    , rs_responseBody =
-                        ResponseBody $ \status headers ->
-                            Wai.responseLBS status (("Location", T.encodeUtf8 loc) : headers) BSL.empty
-                    }
+             ResponseValState $
+             respState
+             { rs_status = status302
+             , rs_responseBody =
+                     ResponseBody $ \status headers ->
+                     Wai.responseLBS status (("Location", T.encodeUtf8 loc) : headers) BSL.empty
+             }
          Left ActionTryNext ->
              applyAction config req env xs
          Left (ActionError errorMsg) ->
@@ -326,11 +335,11 @@ applyAction config req env (selectedAction : xs) =
                              ++ show (Wai.pathInfo req) ++ ": " ++ errorMsg
                 return $ Just $ getErrorHandler config status500
          Left ActionDone ->
-             return $ Just respState
+             return $ Just (ResponseValState respState)
          Left ActionMiddlewarePass ->
              return Nothing
          Right () ->
-             return $ Just respState
+             return $ Just (ResponseValState respState)
 
 handleRequest
     :: MonadIO m
@@ -383,7 +392,7 @@ handleRequest' config stdMethod registryLift allActions st coreApp req respond =
          Right respState ->
              respond $ respStateToResponse respState
 
-getErrorHandler :: SpockConfigInternal -> Status -> ResponseState
+getErrorHandler :: SpockConfigInternal -> Status -> ResponseVal
 getErrorHandler config = ResponseHandler . sci_errorHandler config
 
 data SizeException
