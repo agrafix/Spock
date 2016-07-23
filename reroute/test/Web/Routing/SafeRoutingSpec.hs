@@ -23,8 +23,8 @@ data ReturnVar
    | ListVar [ReturnVar]
    deriving (Show, Eq, Read)
 
-defR :: (Monad m, m ReturnVar ~ x) => Path ts -> HVectElim ts x -> RegistryT m ReturnVar middleware Bool m ()
-defR path action = hookRoute True path (HVectElim' action)
+defR :: (Monad m, m ReturnVar ~ x) => Path ts ps -> HVectElim ts x -> RegistryT m ReturnVar middleware Bool m ()
+defR path action = hookRoute True (toInternalPath path) (HVectElim' action)
 
 -- TODO: abstract this code, move into AbstractRouter
 defSubComponent ::
@@ -34,7 +34,7 @@ defSubComponent ::
 #endif
     , m ([T.Text] -> ReturnVar) ~ x
     )
-    => Path ts
+    => Path ts ps
     -> HVectElim ts x
     -> RegistryT m ReturnVar middleware Bool m ()
 defSubComponent path comp =
@@ -43,7 +43,7 @@ defSubComponent path comp =
        modify $ \rs ->
            rs { rs_registry =
                     let (reg, fb) = fromMaybe emptyRegistry (HM.lookup reqType (rs_registry rs))
-                        reg' = insertSubComponent (RouteHandle (basePath </> path) comp) reg
+                        reg' = insertSubComponent (RouteHandle (basePath </!> toInternalPath path) comp) reg
                     in HM.insert reqType (reg', fb) (rs_registry rs)
               }
 
