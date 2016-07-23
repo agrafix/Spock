@@ -108,7 +108,7 @@ See the [Spock-bench repository](https://github.com/agrafix/Spock-bench) to repr
 
 ## Notes
 
-Since version 0.11.0.0 Spock drops simple routing in favor of typesafe routing.
+Since version 0.11.0.0 Spock drops simple routing in favor of typesafe routing and drops safe actions in favor of the "usual" way of csrf protection with a token.
 
 Since version 0.7.0.0 Spock supports typesafe routing. If you wish to continue using the untyped version of Spock you can Use `Web.Spock.Simple`. The implementation of the routing is implemented in a separate haskell package called `reroute`.
 
@@ -133,6 +133,7 @@ Pull requests are welcome! Please consider creating an issue beforehand, so we c
 
 * 7.8.4
 * 7.10.2
+* 8.0
 
 ### License
 
