@@ -86,6 +86,20 @@ routingSpec =
       verbTest verb verbVerbose =
           verb "/verb-test" `shouldRespondWith` (verbVerbose { matchStatus = 200 })
 
+errorHandlerSpec :: IO Wai.Application -> Spec
+errorHandlerSpec app =
+    with app $ describe "Error Handler" $
+        do it "handles non-existing routes correctly" $
+            do get "/non/existing/route" `shouldRespondWith` "NOT FOUND" { matchStatus = 404 }
+               post "/non/existing/route" "" `shouldRespondWith` "NOT FOUND" { matchStatus = 404 }
+               put "/non/existing/route" "" `shouldRespondWith` "NOT FOUND" { matchStatus = 404 }
+               patch "/non/existing/route" "" `shouldRespondWith` "NOT FOUND" { matchStatus = 404 }
+           it "handles server errors correctly" $
+               get "/failing/route" `shouldRespondWith` "SERVER ERROR" { matchStatus = 500 }
+           it "does not interfere with user emitted errors" $
+               get "/user/error" `shouldRespondWith` "UNAUTHORIZED" { matchStatus = 403 }
+
+
 actionSpec :: SpecWith Wai.Application
 actionSpec =
     describe "Action Framework" $

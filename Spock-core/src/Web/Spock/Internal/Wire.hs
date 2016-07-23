@@ -43,6 +43,7 @@ import System.Directory
 import Web.Routing.Router
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString.Lazy.Char8 as BSLC
 import qualified Data.CaseInsensitive as CI
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
@@ -160,6 +161,7 @@ data ResponseState
    , rs_status :: !Status
    , rs_responseBody :: !ResponseBody
    }
+   | ResponseHandler (IO Wai.Application)
 
 data ActionInterupt
     = ActionRedirect !T.Text
@@ -192,6 +194,19 @@ newtype ActionCtxT ctx m a
 instance MonadTrans (ActionCtxT ctx) where
     lift = ActionCtxT . lift . lift
 
+data SpockConfigInternal
+    = SpockConfigInternal
+    { sci_maxRequestSize :: Maybe Word64
+    , sci_errorHandler :: Status -> IO Wai.Application
+    }
+
+defaultSpockConfigInternal :: SpockConfigInternal
+defaultSpockConfigInternal = SpockConfigInternal Nothing defaultErrorHandler
+  where
+    defaultErrorHandler status = return $ \_ respond -> do
+      let errorMessage = "Error handler failed with status code " ++ (show $ statusCode status)
+      respond $ Wai.responseLBS status500 [] $ BSLC.pack errorMessage
+
 respStateToResponse :: ResponseState -> Wai.Response
 respStateToResponse (ResponseState headers multiHeaders status (ResponseBody body)) =
     let mkMultiHeader (k, vals) =
@@ -201,6 +216,7 @@ respStateToResponse (ResponseState headers multiHeaders status (ResponseBody bod
             HM.toList headers
             ++ (concatMap mkMultiHeader $ HM.toList multiHeaders)
     in body status outHeaders
+respStateToResponse _ = error "ResponseState expected"
 
 errorResponse :: Status -> BSL.ByteString -> ResponseState
 errorResponse s e =
@@ -233,22 +249,6 @@ defResponse =
         BSL.empty
     }
 
-notFound :: Wai.Response
-notFound =
-    respStateToResponse $ errorResponse status404 "404 - File not found"
-
-invalidReq :: Wai.Response
-invalidReq =
-    respStateToResponse $ errorResponse status400 "400 - Bad request"
-
-serverError :: ResponseState
-serverError =
-    errorResponse status500 "500 - Internal Server Error!"
-
-sizeError :: ResponseState
-sizeError =
-    errorResponse status413 "413 - Request body too large!"
-
 type SpockAllT n m a = RegistryT (ActionT n) () Wai.Middleware SpockMethod m a
 
 middlewareToApp :: Wai.Middleware
@@ -258,6 +258,7 @@ middlewareToApp mw =
     where
       fallbackApp :: Wai.Application
       fallbackApp _ respond = respond notFound
+      notFound = respStateToResponse $ errorResponse status404 "404 - File not found"
 
 makeActionEnvironment :: InternalState -> SpockMethod -> Wai.Request -> IO (RequestInfo (), TVar V.Vault, IO ())
 makeActionEnvironment st stdMethod req =
@@ -299,13 +300,14 @@ removeUploadedFiles uploadedFiles =
        when stillThere $ liftIO $ removeFile (uf_tempLocation uploadedFile)
 
 applyAction :: MonadIO m
-            => Wai.Request
+            => SpockConfigInternal
+            -> Wai.Request
             -> RequestInfo ()
             -> [ActionT m ()]
             -> m (Maybe ResponseState)
-applyAction _ _ [] =
-    return $ Just $ errorResponse status404 "404 - File not found"
-applyAction req env (selectedAction : xs) =
+applyAction config _ _ [] =
+    return $ Just $ getErrorHandler config status404
+applyAction config req env (selectedAction : xs) =
     do (r, respState, _) <-
            runRWST (runErrorT $ runActionCtxT selectedAction) env defResponse
        case r of
@@ -318,11 +320,11 @@ applyAction req env (selectedAction : xs) =
                             Wai.responseLBS status (("Location", T.encodeUtf8 loc) : headers) BSL.empty
                     }
          Left ActionTryNext ->
-             applyAction req env xs
+             applyAction config req env xs
          Left (ActionError errorMsg) ->
              do liftIO $ putStrLn $ "Spock Error while handling "
                              ++ show (Wai.pathInfo req) ++ ": " ++ errorMsg
-                return $ Just serverError
+                return $ Just $ getErrorHandler config status500
          Left ActionDone ->
              return $ Just respState
          Left ActionMiddlewarePass ->
@@ -332,42 +334,46 @@ applyAction req env (selectedAction : xs) =
 
 handleRequest
     :: MonadIO m
-    => SpockMethod
-    -> Maybe Word64
+    => SpockConfigInternal
+    -> SpockMethod
     -> (forall a. m a -> IO a)
     -> [ActionT m ()]
     -> InternalState
     -> Wai.Application -> Wai.Application
-handleRequest stdMethod mLimit registryLift allActions st coreApp req respond =
+handleRequest config stdMethod registryLift allActions st coreApp req respond =
     do reqGo <-
-           case mLimit of
+           case sci_maxRequestSize config of
              Nothing -> return req
              Just lim -> requestSizeCheck lim req
-       handleRequest' stdMethod registryLift allActions st coreApp reqGo respond
+       handleRequest' config stdMethod registryLift allActions st coreApp reqGo respond
 
 handleRequest' ::
     MonadIO m
-    => SpockMethod
+    => SpockConfigInternal
+    -> SpockMethod
     -> (forall a. m a -> IO a)
     -> [ActionT m ()]
     -> InternalState
     -> Wai.Application -> Wai.Application
-handleRequest' stdMethod registryLift allActions st coreApp req respond =
+handleRequest' config stdMethod registryLift allActions st coreApp req respond =
     do actEnv <-
            (Left <$> makeActionEnvironment st stdMethod req)
            `catch` \(_ :: SizeException) ->
-               return (Right sizeError)
+               return (Right $ getErrorHandler config status413)
        case actEnv of
          Left (mkEnv, vaultVar, cleanUp) ->
              do mRespState <-
-                    registryLift (applyAction req mkEnv allActions)
-                    `catch` \(_ :: SizeException) ->
-                        return (Just sizeError)
-                    `catch` \(e :: SomeException) ->
+                    registryLift (applyAction config req mkEnv allActions) `catches`
+                      [ Handler $ \(_ :: SizeException) ->
+                          return (Just $ getErrorHandler config status413)
+                      , Handler $ \(e :: SomeException) ->
                         do putStrLn $ "Spock Error while handling " ++ show (Wai.pathInfo req) ++ ": " ++ show e
-                           return $ Just serverError
+                           return $ Just $ getErrorHandler config status500
+                      ]
                 cleanUp
                 case mRespState of
+                  Just (ResponseHandler responseHandler) ->
+                      responseHandler >>= \app -> app req respond
                   Just respState ->
                       respond $ respStateToResponse respState
                   Nothing ->
@@ -376,6 +382,9 @@ handleRequest' stdMethod registryLift allActions st coreApp req respond =
                          coreApp req' respond
          Right respState ->
              respond $ respStateToResponse respState
+
+getErrorHandler :: SpockConfigInternal -> Status -> ResponseState
+getErrorHandler config = ResponseHandler . sci_errorHandler config
 
 data SizeException
     = SizeException
@@ -400,11 +409,11 @@ requestSizeCheck maxSize req =
 
 
 buildMiddleware :: forall m. (MonadIO m)
-         => Maybe Word64
+         => SpockConfigInternal
          -> (forall a. m a -> IO a)
          -> SpockAllT m m ()
          -> IO Wai.Middleware
-buildMiddleware mLimit registryLift spockActions =
+buildMiddleware config registryLift spockActions =
     do (_, getMatchingRoutes, middlewares) <-
            registryLift $ runRegistry spockActions
        let spockMiddleware = foldl (.) id middlewares
@@ -414,7 +423,7 @@ buildMiddleware mLimit registryLift spockActions =
                 \method ->
                 do let allActions = getMatchingRoutes method (Wai.pathInfo req)
                    runResourceT $ withInternalState $ \st ->
-                       handleRequest method mLimit registryLift allActions st coreApp req respond
+                       handleRequest config method registryLift allActions st coreApp req respond
        return $ spockMiddleware . app
 
 withSpockMethod :: forall t. Method -> (SpockMethod -> t) -> t

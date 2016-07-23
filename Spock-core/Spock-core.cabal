@@ -25,6 +25,7 @@ library
                        Web.Spock.Internal.Cookies,
                        Web.Spock.Internal.Util
   other-modules:
+                       Web.Spock.Internal.Config,
                        Web.Spock.Internal.CoreAction,
                        Web.Spock.Internal.Wire
   build-depends:
@@ -75,6 +76,7 @@ test-suite spockcoretests
                        reroute,
                        text,
                        time,
+                       transformers >=0.3,
                        unordered-containers,
                        wai
 
