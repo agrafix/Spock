@@ -11,8 +11,14 @@ module Web.Spock.Config
     )
 where
 
+import Web.Spock.Action
 import Web.Spock.Internal.Types
 import qualified Web.Spock.Internal.SessionVault as SV
+
+import Data.Monoid
+import Network.HTTP.Types.Status
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 
 -- | NOP session hooks
 defaultSessionHooks :: SessionHooks a
@@ -38,7 +44,8 @@ defaultSessionCfg emptySession =
        , sc_hooks = defaultSessionHooks
        }
 
--- | Spock configuration with reasonable defaults
+-- | Spock configuration with reasonable defaults such as a basic error page
+-- and 5MB request body limit
 defaultSpockCfg :: sess -> PoolOrConn conn -> st -> IO (SpockCfg conn sess st)
 defaultSpockCfg sess conn st =
   do defSess <- defaultSessionCfg sess
@@ -48,4 +55,24 @@ defaultSpockCfg sess conn st =
        , spc_database = conn
        , spc_sessionCfg = defSess
        , spc_maxRequestSize = Just (5 * 1024 * 1024)
+       , spc_errorHandler = errorHandler
        }
+
+errorHandler :: Status -> ActionCtxT () IO ()
+errorHandler status = html $ errorTemplate status
+
+-- Danger! This should better be done using combinators, but we do not
+-- want Spock depending on a specific html combinator framework
+errorTemplate :: Status -> T.Text
+errorTemplate s =
+    "<html><head>"
+    <> "<title>" <> message <> "</title>"
+    <> "</head>"
+    <> "<body>"
+    <> "<h1>" <> message <> "</h1>"
+    <> "<a href='https://www.spock.li'>powered by Spock</a>"
+    <> "</body>"
+    where
+      message =
+          showT (statusCode s) <> " - " <> T.decodeUtf8 (statusMessage s)
+      showT = T.pack . show

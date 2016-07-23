@@ -25,6 +25,7 @@ import Data.Pool
 import Data.Time.Clock ( UTCTime(..), NominalDiffTime )
 import Data.Typeable
 import Data.Word
+import Network.HTTP.Types.Status
 import Network.Wai
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
@@ -50,6 +51,9 @@ data SpockCfg conn sess st
      -- ^ See 'SessionCfg'
    , spc_maxRequestSize :: Maybe Word64
      -- ^ Maximum request size in bytes. 'Nothing' means no limit. Defaults to 5 MB in @defaultSpockCfg@.
+   , spc_errorHandler :: Status -> ActionCtxT () IO ()
+     -- ^ Custom error handlers for implicit errors such as not matching routes or
+     -- exceptions during a request handler run.
    }
 
 -- | If Spock should take care of connection pooling, you need to configure
