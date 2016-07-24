@@ -20,7 +20,6 @@ import Data.Monoid ((<>))
 import Data.Monoid (Monoid (..), (<>))
 import Control.Applicative ((<$>))
 #endif
-import Data.String
 import Data.Typeable (Typeable)
 import Control.DeepSeq (NFData (..))
 import Web.PathPieces
@@ -28,7 +27,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 
 data RouteHandle m a
-   = forall as. RouteHandle (Path as) (HVectElim as (m a))
+   = forall as. RouteHandle (PathInternal as) (HVectElim as (m a))
 
 newtype HVectElim' x ts = HVectElim' { flipHVectElim :: HVectElim ts x }
 
@@ -37,13 +36,7 @@ type Registry m a = (PathMap (m a), [[T.Text] -> m a])
 emptyRegistry :: Registry m a
 emptyRegistry = (emptyPathMap, [])
 
-subcompCombine :: Path '[] -> Path xs -> Path xs
-subcompCombine = (</>)
-
-rootPath :: Path '[]
-rootPath = Empty
-
-defRoute :: Path xs -> HVectElim' (m a) xs -> Registry m a -> Registry m a
+defRoute :: PathInternal xs -> HVectElim' (m a) xs -> Registry m a -> Registry m a
 defRoute path action (m, call) =
     ( insertPathMap (RouteHandle path (flipHVectElim action)) m
     , call
@@ -61,15 +54,11 @@ matchRoute (m, cAll) pathPieces =
             else matches
     in matches'
 
-data Path (as :: [*]) where
-  Empty :: Path '[] -- the empty path
-  StaticCons :: T.Text -> Path as -> Path as -- append a static path piece to path
-  VarCons :: (PathPiece a, Typeable a) => Path as -> Path (a ': as) -- append a param to path
-
-pathToRep :: Path as -> Rep as
-pathToRep Empty = RNil
-pathToRep (StaticCons _ p) = pathToRep p
-pathToRep (VarCons p) = RCons (pathToRep p)
+data PathInternal (as :: [*]) where
+  PI_Empty :: PathInternal '[] -- the empty path
+  PI_StaticCons :: T.Text -> PathInternal as -> PathInternal as -- append a static path piece to path
+  PI_VarCons :: (PathPiece a, Typeable a) => PathInternal as -> PathInternal (a ': as) -- append a param to path
+  PI_Wildcard :: PathInternal as -> PathInternal (T.Text ': as) -- append the rest of the route
 
 data PathMap x =
   PathMap
@@ -77,55 +66,60 @@ data PathMap x =
   , pm_here :: [x]
   , pm_staticMap :: HM.HashMap T.Text (PathMap x)
   , pm_polyMap :: PM.PolyMap PathPiece PathMap x
+  , pm_wildcards :: [T.Text -> x]
   }
 
 instance Functor PathMap where
-  fmap f (PathMap c h s p) =
-      PathMap (fmap f <$> c) (f <$> h) (fmap f <$> s) (f <$> p)
+  fmap f (PathMap c h s p w) =
+      PathMap (fmap f <$> c) (f <$> h) (fmap f <$> s) (f <$> p) (fmap f <$> w)
 
 instance NFData x => NFData (PathMap x) where
-  rnf (PathMap c h s p) =
-      rnf c `seq` rnf h `seq` rnf s `seq` PM.rnfHelper rnf p
+  rnf (PathMap c h s p w) =
+      rnf c `seq` rnf h `seq` rnf s `seq` PM.rnfHelper rnf p `seq` rnf w
 
 emptyPathMap :: PathMap x
-emptyPathMap = PathMap mempty mempty mempty PM.empty
+emptyPathMap = PathMap mempty mempty mempty PM.empty mempty
 
 instance Monoid (PathMap x) where
   mempty = emptyPathMap
-  mappend (PathMap c1 h1 s1 p1) (PathMap c2 h2 s2 p2) =
-    PathMap (c1 <> c2) (h1 <> h2) (HM.unionWith (<>) s1 s2) (PM.unionWith (<>) p1 p2)
+  mappend (PathMap c1 h1 s1 p1 w1) (PathMap c2 h2 s2 p2 w2) =
+    PathMap (c1 <> c2) (h1 <> h2) (HM.unionWith (<>) s1 s2) (PM.unionWith (<>) p1 p2) (w1 <> w2)
 
 updatePathMap
   :: (forall y. (ctx -> y) -> PathMap y -> PathMap y)
-  -> Path ts
+  -> PathInternal ts
   -> (HVect ts -> ctx -> x)
   -> PathMap x
   -> PathMap x
-updatePathMap updateFn path action pm@(PathMap c h s p) =
+updatePathMap updateFn path action pm@(PathMap c h s p w) =
   case path of
-    Empty -> updateFn (action HNil) pm
-    StaticCons pathPiece path' ->
+    PI_Empty -> updateFn (action HNil) pm
+    PI_StaticCons pathPiece path' ->
       let subPathMap = fromMaybe emptyPathMap (HM.lookup pathPiece s)
-      in PathMap c h (HM.insert pathPiece (updatePathMap updateFn path' action subPathMap) s) p
-    VarCons path' ->
+      in PathMap c h (HM.insert pathPiece (updatePathMap updateFn path' action subPathMap) s) p w
+    PI_VarCons path' ->
       let alterFn = Just . updatePathMap updateFn path' (\vs ctx v -> action (v :&: vs) ctx)
                          . fromMaybe emptyPathMap
-      in PathMap c h s (PM.alter alterFn p)
+      in PathMap c h s (PM.alter alterFn p) w
+    PI_Wildcard PI_Empty ->
+      let (PathMap _ (action' : _) _ _ _) = updateFn (\ctx rest -> action (rest :&: HNil) ctx) emptyPathMap
+      in PathMap c h s p $ action' : w
+    PI_Wildcard _ -> error "Shouldn't happen"
 
-insertPathMap' :: Path ts -> (HVect ts -> x) -> PathMap x -> PathMap x
+insertPathMap' :: PathInternal ts -> (HVect ts -> x) -> PathMap x -> PathMap x
 insertPathMap' path action =
-  let updateHeres y (PathMap c h s p) = PathMap c (y () : h) s p
+  let updateHeres y (PathMap c h s p w) = PathMap c (y () : h) s p w
   in updatePathMap updateHeres path (const <$> action)
 
-singleton :: Path ts -> HVectElim ts x -> PathMap x
+singleton :: PathInternal ts -> HVectElim ts x -> PathMap x
 singleton path action = insertPathMap' path (HV.uncurry action) mempty
 
 insertPathMap :: RouteHandle m a -> PathMap (m a) -> PathMap (m a)
 insertPathMap (RouteHandle path action) = insertPathMap' path (HV.uncurry action)
 
-insertSubComponent' :: Path ts -> (HVect ts -> [T.Text] -> x) -> PathMap x -> PathMap x
+insertSubComponent' :: PathInternal ts -> (HVect ts -> [T.Text] -> x) -> PathMap x -> PathMap x
 insertSubComponent' path subComponent =
-  let updateSubComponents y (PathMap c h s p) = PathMap (y : c) h s p
+  let updateSubComponents y (PathMap c h s p w) = PathMap (y : c) h s p w
   in updatePathMap updateSubComponents path subComponent
 
 insertSubComponent :: Functor m => RouteHandle m ([T.Text] -> a) -> PathMap (m a) -> PathMap (m a)
@@ -133,68 +127,45 @@ insertSubComponent (RouteHandle path comp) =
   insertSubComponent' path (fmap (\m ps -> fmap ($ ps) m) (HV.uncurry comp))
 
 match :: PathMap x -> [T.Text] -> [x]
-match (PathMap c h s p) pieces =
+match (PathMap c h s p w) pieces =
   map ($ pieces) c ++
   case pieces of
-    [] -> h
+    [] -> h ++ fmap ($ "") w
     (pp:pps) ->
       let staticMatches = maybeToList (HM.lookup pp s) >>= flip match pps
           varMatches = PM.lookupConcat (fromPathPiece pp)
                          (\piece pathMap' -> fmap ($ piece) (match pathMap' pps)) p
-      in staticMatches ++ varMatches
+          routeRest = combineRoutePieces pieces
+          wildcardMatches = fmap ($ routeRest) w
+      in staticMatches ++ varMatches ++ wildcardMatches
 
--- | A route parameter
-var :: (Typeable a, PathPiece a) => Path (a ': '[])
-var = VarCons Empty
 
-type Var a = Path (a ': '[])
+(</!>) :: PathInternal as -> PathInternal bs -> PathInternal (Append as bs)
+(</!>) PI_Empty xs = xs
+(</!>) (PI_StaticCons pathPiece xs) ys = PI_StaticCons pathPiece (xs </!> ys)
+(</!>) (PI_VarCons xs) ys = PI_VarCons (xs </!> ys)
+(</!>) (PI_Wildcard _) _ = error "Shouldn't happen"
 
--- | A static route piece
-static :: String -> Path '[]
-static s =
-  let pieces = filter (not . T.null) $ T.splitOn "/" $ T.pack s
-  in foldr StaticCons Empty pieces
+combineRoutePieces :: [T.Text] -> T.Text
+combineRoutePieces = T.intercalate "/"
 
-instance (a ~ '[]) => IsString (Path a) where
-    fromString = static
-
--- | The root of a path piece. Use to define a handler for "/"
-root :: Path '[]
-root = Empty
-
-(</>) :: Path as -> Path bs -> Path (Append as bs)
-(</>) Empty xs = xs
-(</>) (StaticCons pathPiece xs) ys = (StaticCons pathPiece (xs </> ys))
-(</>) (VarCons xs) ys = (VarCons (xs </> ys))
-
-renderRoute :: Path as -> HVect as -> T.Text
-renderRoute p h =
-    T.intercalate "/" $ renderRoute' p h
-
-renderRoute' :: Path as -> HVect as -> [T.Text]
-renderRoute' Empty _ = []
-renderRoute' (StaticCons pathPiece pathXs) paramXs =
-    ( pathPiece : renderRoute' pathXs paramXs )
-renderRoute' (VarCons pathXs) (val :&: paramXs) =
-    ( toPathPiece val : renderRoute' pathXs paramXs)
-#if __GLASGOW_HASKELL__ < 800
-renderRoute' _ _ =
-    error "This will never happen."
-#endif
-
-parse :: Path as -> [T.Text] -> Maybe (HVect as)
-parse Empty [] = Just HNil
+parse :: PathInternal as -> [T.Text] -> Maybe (HVect as)
+parse PI_Empty [] = Just HNil
 parse _ [] = Nothing
-parse path (pathComp : xs) =
+parse path pathComps@(pathComp : xs) =
     case path of
-      Empty -> Nothing
-      StaticCons pathPiece pathXs ->
+      PI_Empty -> Nothing
+      PI_StaticCons pathPiece pathXs ->
           if pathPiece == pathComp
           then parse pathXs xs
           else Nothing
-      VarCons pathXs ->
+      PI_VarCons pathXs ->
           case fromPathPiece pathComp of
             Nothing -> Nothing
             Just val ->
                 let finish = parse pathXs xs
                 in fmap (\parsedXs -> val :&: parsedXs) finish
+      PI_Wildcard PI_Empty ->
+        Just $ (combineRoutePieces pathComps) :&: HNil
+      PI_Wildcard _ ->
+        error "Shouldn't happen"

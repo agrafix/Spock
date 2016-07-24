@@ -20,10 +20,10 @@ import qualified Data.Text as T
 
 newtype RegistryT n b middleware reqTypes (m :: * -> *) a
     = RegistryT
-    { runRegistryT :: RWST (Path '[]) [middleware] (RegistryState n b reqTypes) m a
+    { runRegistryT :: RWST (PathInternal '[]) [middleware] (RegistryState n b reqTypes) m a
     }
     deriving (Monad, Functor, Applicative, MonadIO
-               , MonadReader (Path '[])
+               , MonadReader (PathInternal '[])
                , MonadWriter [middleware]
                , MonadState (RegistryState n b reqTypes)
                , MonadTrans
@@ -48,7 +48,7 @@ hookAny reqType action =
 
 hookRoute :: (Monad m, Eq reqTypes, Hashable reqTypes)
           => reqTypes
-          -> Path as
+          -> PathInternal as
           -> HVectElim' (n b) as
           -> RegistryT n b middleware reqTypes m ()
 hookRoute reqType path action =
@@ -56,7 +56,7 @@ hookRoute reqType path action =
        modify $ \rs ->
            rs { rs_registry =
                     let reg = fromMaybe emptyRegistry (HM.lookup reqType (rs_registry rs))
-                        reg' = defRoute (basePath `subcompCombine` path) action reg
+                        reg' = defRoute (basePath </!> path) action reg
                     in HM.insert reqType reg' (rs_registry rs)
               }
 
@@ -66,13 +66,13 @@ middleware :: Monad m
 middleware x = tell [x]
 
 subcomponent :: (Monad m)
-             => Path '[]
+             => PathInternal '[]
              -> RegistryT n b middleware reqTypes m a
              -> RegistryT n b middleware reqTypes m a
 subcomponent basePath (RegistryT subReg) =
     do parentSt <- get
        parentBasePath <- ask
-       let childBasePath = parentBasePath `subcompCombine` basePath
+       let childBasePath = parentBasePath </!> basePath
            childSt = parentSt
        (a, parentSt', middleware') <-
            lift $ runRWST subReg childBasePath childSt
@@ -98,7 +98,7 @@ runRegistry :: (Monad m, Hashable reqTypes, Eq reqTypes)
             => RegistryT n b middleware reqTypes m a
             -> m (a, reqTypes -> [T.Text] -> [n b], [middleware])
 runRegistry (RegistryT rwst) =
-    do (val, st, w) <- runRWST rwst rootPath initSt
+    do (val, st, w) <- runRWST rwst PI_Empty initSt
        return (val, handleF (rs_registry st), w)
     where
       handleF hm ty route =

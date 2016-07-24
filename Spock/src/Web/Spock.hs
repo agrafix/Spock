@@ -49,13 +49,13 @@ import qualified Web.Spock.Core as C
 import Control.Applicative
 import Control.Monad.Reader
 import Control.Monad.Trans.Resource
-import Network.HTTP.Types.Status (status403)
 import Data.Pool
+import Network.HTTP.Types.Status (status403)
 import Prelude hiding (head)
-import qualified Data.HVect as HV
 import qualified Data.Text as T
 import qualified Data.Vault.Lazy as V
 import qualified Network.Wai as Wai
+import qualified Data.HVect as HV
 
 
 type SpockM conn sess st = SpockCtxM () conn sess st
@@ -138,43 +138,43 @@ csrfCheck =
             text "Broken/Missing CSRF Token"
 {-# INLINE csrfCheck #-}
 
-type RouteSpec xs ctx conn sess st =
-    Path xs -> HV.HVectElim xs (SpockActionCtx ctx conn sess st ()) -> SpockCtxM ctx conn sess st ()
+type RouteSpec xs ps ctx conn sess st =
+    Path xs ps -> HV.HVectElim xs (SpockActionCtx ctx conn sess st ()) -> SpockCtxM ctx conn sess st ()
 
 -- | Specify an action that will be run when a standard HTTP verb and the given route match
-hookRoute :: HV.HasRep xs => StdMethod -> RouteSpec xs ctx conn sess st
+hookRoute :: HV.HasRep xs => StdMethod -> RouteSpec xs ps ctx conn sess st
 hookRoute = hookRoute' . MethodStandard . HttpMethod
 
 -- | Specify an action that will be run when the HTTP verb 'GET' and the given route match
-get :: HV.HasRep xs => RouteSpec xs ctx conn sess st
+get :: HV.HasRep xs => RouteSpec xs ps ctx conn sess st
 get = hookRoute GET
 
 -- | Specify an action that will be run when the HTTP verb 'POST' and the given route match
-post :: HV.HasRep xs => RouteSpec xs ctx conn sess st
+post :: HV.HasRep xs => RouteSpec xs ps ctx conn sess st
 post = hookRoute POST
 
 -- | Specify an action that will be run when the HTTP verb 'GET'/'POST' and the given route match
-getpost :: HV.HasRep xs => RouteSpec xs ctx conn sess st
+getpost :: HV.HasRep xs => RouteSpec xs ps ctx conn sess st
 getpost r a = hookRoute POST r a >> hookRoute GET r a
 
 -- | Specify an action that will be run when the HTTP verb 'HEAD' and the given route match
-head :: HV.HasRep xs => RouteSpec xs ctx conn sess st
+head :: HV.HasRep xs => RouteSpec xs ps ctx conn sess st
 head = hookRoute HEAD
 
 -- | Specify an action that will be run when the HTTP verb 'PUT' and the given route match
-put :: HV.HasRep xs => RouteSpec xs ctx conn sess st
+put :: HV.HasRep xs => RouteSpec xs ps ctx conn sess st
 put = hookRoute PUT
 
 -- | Specify an action that will be run when the HTTP verb 'DELETE' and the given route match
-delete :: HV.HasRep xs => RouteSpec xs ctx conn sess st
+delete :: HV.HasRep xs => RouteSpec xs ps ctx conn sess st
 delete = hookRoute DELETE
 
 -- | Specify an action that will be run when the HTTP verb 'PATCH' and the given route match
-patch :: HV.HasRep xs => RouteSpec xs ctx conn sess st
+patch :: HV.HasRep xs => RouteSpec xs ps ctx conn sess st
 patch = hookRoute PATCH
 
 -- | Specify an action that will be run when a custom HTTP verb and the given route match
-hookRouteCustom :: HV.HasRep xs => T.Text -> RouteSpec xs ctx conn sess st
+hookRouteCustom :: HV.HasRep xs => T.Text -> RouteSpec xs ps ctx conn sess st
 hookRouteCustom = hookRoute' . MethodCustom
 
 -- | Specify an action that will be run when a standard HTTP verb matches but no defined route matches.
@@ -201,10 +201,10 @@ hookAny' m action =
 
 -- | Specify an action that will be run when a HTTP verb and the given route match
 hookRoute' ::
-    forall xs ctx conn sess st.
+    forall xs ps ctx conn sess st.
     (HV.HasRep xs)
     => SpockMethod
-    -> RouteSpec xs ctx conn sess st
+    -> RouteSpec xs ps ctx conn sess st
 hookRoute' m path action =
     do checkedAction <-
            case m of

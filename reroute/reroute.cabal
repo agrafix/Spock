@@ -19,7 +19,8 @@ library
   exposed-modules:
                        Data.PolyMap,
                        Web.Routing.Router,
-                       Web.Routing.SafeRouting
+                       Web.Routing.SafeRouting,
+                       Web.Routing.Combinators
   build-depends:
                        base >=4.6 && <5,
                        deepseq >= 1.1.0.2,

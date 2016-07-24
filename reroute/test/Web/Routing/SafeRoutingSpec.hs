@@ -10,6 +10,7 @@ import Data.HVect hiding (singleton)
 import Control.Monad.Identity
 import Control.Monad.RWS.Strict
 import Data.Maybe
+import Web.Routing.Combinators
 import Web.Routing.Router
 import Web.Routing.SafeRouting
 import qualified Data.HashMap.Strict as HM
@@ -22,8 +23,8 @@ data ReturnVar
    | ListVar [ReturnVar]
    deriving (Show, Eq, Read)
 
-defR :: (Monad m, m ReturnVar ~ x) => Path ts -> HVectElim ts x -> RegistryT m ReturnVar middleware Bool m ()
-defR path action = hookRoute True path (HVectElim' action)
+defR :: (Monad m, m ReturnVar ~ x) => Path ts ps -> HVectElim ts x -> RegistryT m ReturnVar middleware Bool m ()
+defR path action = hookRoute True (toInternalPath path) (HVectElim' action)
 
 -- TODO: abstract this code, move into AbstractRouter
 defSubComponent ::
@@ -33,7 +34,7 @@ defSubComponent ::
 #endif
     , m ([T.Text] -> ReturnVar) ~ x
     )
-    => Path ts
+    => Path ts ps
     -> HVectElim ts x
     -> RegistryT m ReturnVar middleware Bool m ()
 defSubComponent path comp =
@@ -42,7 +43,7 @@ defSubComponent path comp =
        modify $ \rs ->
            rs { rs_registry =
                     let (reg, fb) = fromMaybe emptyRegistry (HM.lookup reqType (rs_registry rs))
-                        reg' = insertSubComponent (RouteHandle (basePath </> path) comp) reg
+                        reg' = insertSubComponent (RouteHandle (basePath </!> toInternalPath path) comp) reg
                     in HM.insert reqType (reg', fb) (rs_registry rs)
               }
 
@@ -70,6 +71,9 @@ spec =
              checkRoute "/zuiasf/zuiasf" [StrVar "zuiasf/zuiasf"]
        it "should hand over remaining path pieces to subcomponents" $
           do checkRoute "/subcomponent/blog/foo/bar/nanana" [StrVar "blog:foo?bar?nanana"]
+       it "should handle wildcard routes" $
+          do checkRoute "/wildcard/" [StrVar ""]
+             checkRoute "/wildcard/some/additional/data" [StrVar "some/additional/data"]
     where
       pieces :: T.Text -> [T.Text]
       pieces = filter (not . T.null) . T.splitOn "/"
@@ -103,4 +107,6 @@ spec =
              defR ("entry" </> var </> "audit") (return . IntVar)
              defSubComponent ("subcomponent" </> var) $ \name ->
                return $ \ps -> StrVar $ name <> ":" <> T.intercalate "?" ps
+             defR ("wildcard" </> wildcard) $ \rest ->
+               return $ StrVar rest
              hookAny True (return . StrVar . T.intercalate "/")
