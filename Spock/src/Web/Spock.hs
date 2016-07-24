@@ -49,13 +49,13 @@ import qualified Web.Spock.Core as C
 import Control.Applicative
 import Control.Monad.Reader
 import Control.Monad.Trans.Resource
-import Data.Pool
 import Network.HTTP.Types.Status (status403)
+import Data.Pool
 import Prelude hiding (head)
+import qualified Data.HVect as HV
 import qualified Data.Text as T
 import qualified Data.Vault.Lazy as V
 import qualified Network.Wai as Wai
-import qualified Data.HVect as HV
 
 
 type SpockM conn sess st = SpockCtxM () conn sess st
@@ -193,10 +193,11 @@ hookAnyCustom = hookAny' . MethodCustom
 -- The full path is passed as an argument
 hookAny' :: SpockMethod -> ([T.Text] -> SpockActionCtx ctx conn sess st ()) -> SpockCtxM ctx conn sess st ()
 hookAny' m action =
+    getSpockCfg >>= \cfg ->
     C.hookAny' m $ \t ->
     case m of
       MethodStandard (HttpMethod stdMethod)
-          | shouldCheckCsrf stdMethod -> csrfCheck >> action t
+          | shouldCheckCsrf stdMethod && spc_csrfProtection cfg -> csrfCheck >> action t
       _ -> action t
 
 -- | Specify an action that will be run when a HTTP verb and the given route match
@@ -206,10 +207,11 @@ hookRoute' ::
     => SpockMethod
     -> RouteSpec xs ps ctx conn sess st
 hookRoute' m path action =
-    do checkedAction <-
+    do cfg <- getSpockCfg
+       checkedAction <-
            case m of
                MethodStandard (HttpMethod stdMethod)
-                   | shouldCheckCsrf stdMethod ->
+                   | shouldCheckCsrf stdMethod && spc_csrfProtection cfg ->
                          do let unpackedAction :: HV.HVect xs -> SpockActionCtx ctx conn sess st ()
                                 unpackedAction args =
                                     csrfCheck >> HV.uncurry action args
