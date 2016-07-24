@@ -107,10 +107,7 @@ spock spockCfg spockAppl =
 -- | Get the CSRF token for the current user. This token must be sent on all non
 -- GET requests via a post parameter or HTTP-Header if 'spc_csrfProtection' is turned on.
 -- See configuration 'SpockCfg' documentation for more information
-getCsrfToken ::
-    ( HasSpock (SpockActionCtx ctx conn sess st)
-    )
-    => SpockActionCtx ctx conn sess st T.Text
+getCsrfToken :: SpockActionCtx ctx conn sess st T.Text
 getCsrfToken = runInContext () $ sm_getCsrfToken =<< getSessMgr
 {-# INLINE getCsrfToken #-}
 
