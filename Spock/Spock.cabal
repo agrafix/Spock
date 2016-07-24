@@ -39,10 +39,10 @@ library
                   Web.Spock,
                   Web.Spock.Config,
                   Web.Spock.SessionActions,
-                  Web.Spock.Internal.SessionVault
+                  Web.Spock.Internal.SessionVault,
+                  Web.Spock.Internal.SessionManager
   other-modules:
                 Web.Spock.Internal.Monad,
-                Web.Spock.Internal.SessionManager,
                 Web.Spock.Internal.Types
   build-depends:
                        Spock-core >= 0.11,
@@ -78,6 +78,7 @@ test-suite spocktests
   main-is:             Spec.hs
   other-modules:
                 Web.Spock.Internal.SessionVaultSpec,
+                Web.Spock.Internal.SessionManagerSpec,
                 Web.Spock.SafeSpec,
                 Web.Spock.CsrfSpec,
                 Web.Spock.TestUtils
@@ -90,7 +91,9 @@ test-suite spocktests
                        Spock-core,
                        stm,
                        text,
+                       time,
                        unordered-containers,
+                       vault,
                        wai,
                        wai-extra
 

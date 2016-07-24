@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE RankNTypes #-}
@@ -13,7 +14,7 @@ import Data.Pool
 webM :: MonadTrans t => WebStateM conn sess st a -> t (WebStateM conn sess st) a
 webM = lift
 
-instance MonadTrans t => HasSpock (t (WebStateM conn sess st)) where
+instance (MonadTrans t) => HasSpock (t (WebStateM conn sess st)) where
     type SpockConn (t (WebStateM conn sess st)) = conn
     type SpockState (t (WebStateM conn sess st)) = st
     type SpockSession (t (WebStateM conn sess st)) = sess
@@ -54,7 +55,7 @@ runSpockIO st (WebStateT action) =
     runResourceT $
     runReaderT action st
 
-getSessMgrImpl :: (WebStateM conn sess st) (SessionManager conn sess st)
+getSessMgrImpl :: WebStateM conn sess st (SpockSessionManager conn sess st)
 getSessMgrImpl = asks web_sessionMgr
 
 -- | Read the connection pool of Spock. This is useful if you want to construct your own

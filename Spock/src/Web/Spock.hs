@@ -54,6 +54,7 @@ import Data.Pool
 import Prelude hiding (head)
 import qualified Data.HVect as HV
 import qualified Data.Text as T
+import qualified Data.Vault.Lazy as V
 import qualified Network.Wai as Wai
 
 
@@ -64,10 +65,9 @@ type SpockCtxM ctx conn sess st = SpockCtxT ctx (WebStateM conn sess st)
 -- Spock works with database libraries that already implement connection pooling and
 -- with those that don't come with it out of the box. For more see the 'PoolOrConn' type.
 -- Use @runSpock@ to run the app or @spockAsApp@ to create a @Wai.Application@
-spock :: SpockCfg conn sess st -> SpockM conn sess st () -> IO Wai.Middleware
+spock :: forall conn sess st. SpockCfg conn sess st -> SpockM conn sess st () -> IO Wai.Middleware
 spock spockCfg spockAppl =
-    do sessionMgr <- createSessionManager sessionCfg
-       connectionPool <-
+    do connectionPool <-
            case poolOrConn of
              PCNoDatabase ->
                  createPool (return ()) (const $ return ()) 5 60 5
@@ -78,25 +78,31 @@ spock spockCfg spockAppl =
                  in createPool (cb_createConn cb) (cb_destroyConn cb)
                         (pc_stripes pc) (pc_keepOpenTime pc)
                         (pc_resPerStripe pc)
-       let internalState =
-               WebState
-               { web_dbConn = connectionPool
-               , web_sessionMgr = sessionMgr
-               , web_state = initialState
-               , web_config = spockCfg
-               }
-           coreConfig =
+       internalState <-
+           WebState
+           <$> pure connectionPool
+           <*> (createSessionManager sessionCfg $
+                   SessionIf
+                   { si_queryVault = queryVault
+                   , si_modifyVault = modifyVault
+                   , si_setRawMultiHeader = setRawMultiHeader
+                   , si_vaultKey = V.newKey
+                   }
+               )
+           <*> pure initialState
+           <*> pure spockCfg
+       let coreConfig =
                defaultSpockConfig
                { sc_maxRequestSize = spc_maxRequestSize spockCfg
                , sc_errorHandler = spc_errorHandler spockCfg
                }
        spockConfigT coreConfig (\m -> runResourceT $ runReaderT (runWebStateT m) internalState)  $
-           do middleware (sm_middleware sessionMgr)
+           do middleware (sm_middleware $ web_sessionMgr internalState)
               spockAppl
     where
-      sessionCfg = spc_sessionCfg spockCfg
-      poolOrConn = spc_database spockCfg
-      initialState = spc_initialState spockCfg
+        sessionCfg = spc_sessionCfg spockCfg
+        poolOrConn = spc_database spockCfg
+        initialState = spc_initialState spockCfg
 
 -- | Get the CSRF token for the current user. This token must be sent on all non
 -- GET requests via a post parameter or HTTP-Header if 'spc_csrfProtection' is turned on.
@@ -105,7 +111,7 @@ getCsrfToken ::
     ( HasSpock (SpockActionCtx ctx conn sess st)
     )
     => SpockActionCtx ctx conn sess st T.Text
-getCsrfToken = sm_getCsrfToken =<< getSessMgr
+getCsrfToken = runInContext () $ sm_getCsrfToken =<< getSessMgr
 {-# INLINE getCsrfToken #-}
 
 -- | Get the CSRF token sent by the client. You should not need to call this

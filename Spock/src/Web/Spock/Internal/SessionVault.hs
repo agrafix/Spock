@@ -64,10 +64,10 @@ mapSessions f sv@(SessionVault smap) =
        forM_ allVals $ \sess ->
            STMMap.focus (F.adjustM f) (getSessionKey sess) smap
 
-newStmSessionStore :: IO (SessionStoreInstance (Session conn sess st))
-newStmSessionStore =
+newStmSessionStore' :: IO (SessionStore (Session conn sess st) STM)
+newStmSessionStore' =
   do vault <- atomically newSessionVault
-     return $ SessionStoreInstance $
+     return $
          SessionStore
          { ss_runTx = atomically
          , ss_loadSession = flip loadSession vault
@@ -77,3 +77,6 @@ newStmSessionStore =
          , ss_filterSessions = flip filterSessions vault
          , ss_mapSessions = flip mapSessions vault
          }
+
+newStmSessionStore :: IO (SessionStoreInstance (Session conn sess st))
+newStmSessionStore = SessionStoreInstance <$> newStmSessionStore'

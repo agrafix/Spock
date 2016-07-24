@@ -12,6 +12,7 @@ module Web.Spock.SessionActions
     )
 where
 
+import Web.Spock.Action
 import Web.Spock.Internal.Monad ()
 import Web.Spock.Internal.SessionManager
 import Web.Spock.Internal.Types
@@ -20,20 +21,22 @@ import Web.Spock.Internal.Types
 -- to logging in a user to prevent session fixation attacks.
 sessionRegenerateId :: SpockActionCtx ctx conn sess st ()
 sessionRegenerateId =
+    runInContext () $
     getSessMgr >>= sm_regenerateSessionId
 
 -- | Get the current users sessionId. Note that this ID should only be
 -- shown to it's owner as otherwise sessions can be hijacked.
 getSessionId :: SpockActionCtx ctx conn sess st SessionId
 getSessionId =
+    runInContext () $
     getSessMgr >>= sm_getSessionId
 
 -- | Write to the current session. Note that all data is stored on the server.
 -- The user only reciedes a sessionId to be identified.
-writeSession :: sess -> SpockActionCtx ctx conn sess st ()
+writeSession :: forall sess ctx conn st. sess -> SpockActionCtx ctx conn sess st ()
 writeSession d =
     do mgr <- getSessMgr
-       sm_writeSession mgr d
+       runInContext () $ sm_writeSession mgr d
 
 -- | Modify the stored session
 modifySession :: (sess -> sess) -> SpockActionCtx ctx conn sess st ()
@@ -44,7 +47,7 @@ modifySession f =
 modifySession' :: (sess -> (sess, a)) -> SpockActionCtx ctx conn sess st a
 modifySession' f =
     do mgr <- getSessMgr
-       sm_modifySession mgr f
+       runInContext () $ sm_modifySession mgr f
 
 -- | Modify the stored session and return the new value after modification
 modifyReadSession :: (sess -> sess) -> SpockActionCtx ctx conn sess st sess
@@ -56,6 +59,7 @@ modifyReadSession f =
 -- | Read the stored session
 readSession :: SpockActionCtx ctx conn sess st sess
 readSession =
+    runInContext () $
     do mgr <- getSessMgr
        sm_readSession mgr
 
@@ -64,11 +68,11 @@ readSession =
 clearAllSessions :: SpockActionCtx ctx conn sess st ()
 clearAllSessions =
     do mgr <- getSessMgr
-       sm_clearAllSessions mgr
+       runInContext () $ sm_clearAllSessions mgr
 
 -- | Apply a transformation to all sessions. Be careful with this, as this
 -- may cause many STM transaction retries.
 mapAllSessions :: (forall m. Monad m => sess -> m sess) -> SpockActionCtx ctx conn sess st ()
 mapAllSessions f =
     do mgr <- getSessMgr
-       sm_mapSessions mgr f
+       runInContext () $ sm_mapSessions mgr f

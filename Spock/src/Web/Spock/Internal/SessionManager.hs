@@ -1,8 +1,10 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts, OverloadedStrings, DoAndIfThenElse, RankNTypes #-}
+{-# LANGUAGE GADTs #-}
 module Web.Spock.Internal.SessionManager
     ( createSessionManager, withSessionManager
     , SessionId, Session(..), SessionManager(..)
+    , SessionIf(..)
     )
 where
 
@@ -29,22 +31,32 @@ import qualified Data.Text.Encoding as T
 import qualified Data.Vault.Lazy as V
 import qualified Network.Wai as Wai
 
-withSessionManager :: SessionCfg conn sess st -> (SessionManager conn sess st -> IO a) -> IO a
-withSessionManager sessCfg =
-    bracket (createSessionManager sessCfg) sm_closeSessionManager
+data SessionIf m
+    = SessionIf
+    { si_queryVault :: forall a. V.Key a -> m (Maybe a)
+    , si_modifyVault :: (V.Vault -> V.Vault) -> m ()
+    , si_setRawMultiHeader :: MultiHeader -> BS.ByteString -> m ()
+    , si_vaultKey :: IO (V.Key SessionId)
+    }
 
-createSessionManager :: SessionCfg conn sess st -> IO (SessionManager conn sess st)
-createSessionManager cfg =
-    do vaultKey <- V.newKey
+withSessionManager ::
+    MonadIO m => SessionCfg conn sess st -> SessionIf m -> (SessionManager m conn sess st -> IO a) -> IO a
+withSessionManager sessCfg sif =
+    bracket (createSessionManager sessCfg sif) sm_closeSessionManager
+
+createSessionManager ::
+    MonadIO m => SessionCfg conn sess st -> SessionIf m -> IO (SessionManager m conn sess st)
+createSessionManager cfg sif =
+    do vaultKey <- si_vaultKey sif
        housekeepThread <- forkIO (forever (housekeepSessions cfg))
        return
           SessionManager
-          { sm_getSessionId = getSessionIdImpl vaultKey store
-          , sm_getCsrfToken = getCsrfTokenImpl vaultKey store
-          , sm_regenerateSessionId = regenerateSessionIdImpl vaultKey store cfg
-          , sm_readSession = readSessionImpl vaultKey store
-          , sm_writeSession = writeSessionImpl vaultKey store
-          , sm_modifySession = modifySessionImpl vaultKey store
+          { sm_getSessionId = getSessionIdImpl vaultKey store sif
+          , sm_getCsrfToken = getCsrfTokenImpl vaultKey store sif
+          , sm_regenerateSessionId = regenerateSessionIdImpl vaultKey store cfg sif
+          , sm_readSession = readSessionImpl vaultKey store sif
+          , sm_writeSession = writeSessionImpl vaultKey store sif
+          , sm_modifySession = modifySessionImpl vaultKey store sif
           , sm_clearAllSessions = clearAllSessionsImpl store
           , sm_mapSessions = mapAllSessionsImpl store
           , sm_middleware = sessionMiddleware cfg vaultKey
@@ -54,36 +66,48 @@ createSessionManager cfg =
       store = sc_store cfg
 
 regenerateSessionIdImpl ::
-    V.Key SessionId
+    MonadIO m
+    => V.Key SessionId
     -> SessionStoreInstance (Session conn sess st)
     -> SessionCfg conn sess st
-    -> SpockActionCtx ctx conn sess st ()
-regenerateSessionIdImpl vK sessionRef cfg =
-    do sess <- readSessionBase vK sessionRef
+    -> SessionIf m
+    -> m ()
+regenerateSessionIdImpl vK sessionRef cfg sif =
+    do sess <- readSessionBase vK sessionRef sif
        liftIO $ deleteSessionImpl sessionRef (sess_id sess)
        newSession <- liftIO $ newSessionImpl cfg sessionRef (sess_data sess)
        now <- liftIO getCurrentTime
-       setRawMultiHeader MultiHeaderSetCookie $ makeSessionIdCookie cfg newSession now
-       modifyVault $ V.insert vK (sess_id newSession)
+       si_setRawMultiHeader sif MultiHeaderSetCookie (makeSessionIdCookie cfg newSession now)
+       si_modifyVault sif $ V.insert vK (sess_id newSession)
 
-getSessionIdImpl :: V.Key SessionId
-                 -> SessionStoreInstance (Session conn sess st)
-                 -> SpockActionCtx ctx conn sess st SessionId
-getSessionIdImpl vK sessionRef =
-    do sess <- readSessionBase vK sessionRef
+getSessionIdImpl ::
+    MonadIO m
+    => V.Key SessionId
+    -> SessionStoreInstance (Session conn sess st)
+    -> SessionIf m
+    -> m SessionId
+getSessionIdImpl vK sessionRef sif =
+    do sess <- readSessionBase vK sessionRef sif
        return $ sess_id sess
 
-getCsrfTokenImpl :: V.Key SessionId
-                 -> SessionStoreInstance (Session conn sess st)
-                 -> SpockActionCtx ctx conn sess st T.Text
-getCsrfTokenImpl vK sessionRef = sess_csrfToken <$> readSessionBase vK sessionRef
+getCsrfTokenImpl ::
+    MonadIO m
+    => V.Key SessionId
+    -> SessionStoreInstance (Session conn sess st)
+    -> SessionIf m
+    -> m T.Text
+getCsrfTokenImpl vK sessionRef sif =
+    sess_csrfToken <$> readSessionBase vK sessionRef sif
 
-modifySessionBase :: V.Key SessionId
-                  -> SessionStoreInstance (Session conn sess st)
-                  -> (Session conn sess st -> (Session conn sess st, a))
-                  -> SpockActionCtx ctx conn sess st a
-modifySessionBase vK (SessionStoreInstance sessionRef) modFun =
-    do mValue <- queryVault vK
+modifySessionBase ::
+    MonadIO m
+    => V.Key SessionId
+    -> SessionStoreInstance (Session conn sess st)
+    -> SessionIf m
+    -> (Session conn sess st -> (Session conn sess st, a))
+    -> m a
+modifySessionBase vK (SessionStoreInstance sessionRef) sif modFun =
+    do mValue <- si_queryVault sif vK
        case mValue of
          Nothing ->
              error "(3) Internal Spock Session Error. Please report this bug!"
@@ -98,11 +122,14 @@ modifySessionBase vK (SessionStoreInstance sessionRef) modFun =
                          ss_storeSession sessionRef sessionNew
                          return result
 
-readSessionBase :: V.Key SessionId
-                -> SessionStoreInstance (Session conn sess st)
-                -> SpockActionCtx ctx conn sess st (Session conn sess st)
-readSessionBase vK (SessionStoreInstance sessionRef) =
-    do mValue <- queryVault vK
+readSessionBase ::
+    MonadIO m
+    => V.Key SessionId
+    -> SessionStoreInstance (Session conn sess st)
+    -> SessionIf m
+    -> m (Session conn sess st)
+readSessionBase vK (SessionStoreInstance sessionRef) sif =
+    do mValue <- si_queryVault sif vK
        case mValue of
          Nothing ->
              error "(1) Internal Spock Session Error. Please report this bug!"
@@ -114,29 +141,38 @@ readSessionBase vK (SessionStoreInstance sessionRef) =
                   Just session ->
                       return session
 
-readSessionImpl :: V.Key SessionId
-                -> SessionStoreInstance (Session conn sess st)
-                -> SpockActionCtx ctx conn sess st sess
-readSessionImpl vK sessionRef =
-    do base <- readSessionBase vK sessionRef
+readSessionImpl ::
+    MonadIO m
+    => V.Key SessionId
+    -> SessionStoreInstance (Session conn sess st)
+    -> SessionIf m
+    -> m sess
+readSessionImpl vK sessionRef sif =
+    do base <- readSessionBase vK sessionRef sif
        return (sess_data base)
 
-writeSessionImpl :: V.Key SessionId
-                 -> SessionStoreInstance (Session conn sess st)
-                 -> sess
-                 -> SpockActionCtx ctx conn sess st ()
-writeSessionImpl vK sessionRef value =
-    modifySessionImpl vK sessionRef (const (value, ()))
+writeSessionImpl ::
+    MonadIO m
+    => V.Key SessionId
+    -> SessionStoreInstance (Session conn sess st)
+    -> SessionIf m
+    -> sess
+    -> m ()
+writeSessionImpl vK sessionRef sif value =
+    modifySessionImpl vK sessionRef sif (const (value, ()))
 
-modifySessionImpl :: V.Key SessionId
-                  -> SessionStoreInstance (Session conn sess st)
-                  -> (sess -> (sess, a))
-                  -> SpockActionCtx ctx conn sess st a
-modifySessionImpl vK sessionRef f =
+modifySessionImpl ::
+    MonadIO m
+    => V.Key SessionId
+    -> SessionStoreInstance (Session conn sess st)
+    -> SessionIf m
+    -> (sess -> (sess, a))
+    -> m a
+modifySessionImpl vK sessionRef sif f =
     do let modFun session =
                let (sessData', out) = f (sess_data session)
                in (session { sess_data = sessData' }, out)
-       modifySessionBase vK sessionRef modFun
+       modifySessionBase vK sessionRef sif modFun
 
 makeSessionIdCookie :: SessionCfg conn sess st -> Session conn sess st -> UTCTime -> BS.ByteString
 makeSessionIdCookie cfg sess now =
@@ -193,10 +229,11 @@ newSessionImpl sessCfg (SessionStoreInstance sessionRef) content =
        ss_runTx sessionRef $ ss_storeSession sessionRef sess
        return $! sess
 
-loadSessionImpl :: SessionCfg conn sess st
-                -> SessionStoreInstance (Session conn sess st)
-                -> SessionId
-                -> IO (Maybe (Session conn sess st))
+loadSessionImpl ::
+    SessionCfg conn sess st
+    -> SessionStoreInstance (Session conn sess st)
+    -> SessionId
+    -> IO (Maybe (Session conn sess st))
 loadSessionImpl sessCfg sessionRef@(SessionStoreInstance store) sid =
     do mSess <- ss_runTx store $ ss_loadSession store sid
        now <- getCurrentTime
@@ -219,21 +256,25 @@ loadSessionImpl sessCfg sessionRef@(SessionStoreInstance store) sid =
          Nothing ->
              return Nothing
 
-deleteSessionImpl :: SessionStoreInstance (Session conn sess st)
-                  -> SessionId
-                  -> IO ()
+deleteSessionImpl ::
+    SessionStoreInstance (Session conn sess st)
+    -> SessionId
+    -> IO ()
 deleteSessionImpl (SessionStoreInstance sessionRef) sid =
     ss_runTx sessionRef $ ss_deleteSession sessionRef sid
 
-clearAllSessionsImpl :: SessionStoreInstance (Session conn sess st)
-                     -> SpockActionCtx ctx conn sess st ()
+clearAllSessionsImpl ::
+    MonadIO m
+    => SessionStoreInstance (Session conn sess st)
+    -> m ()
 clearAllSessionsImpl (SessionStoreInstance sessionRef) =
     liftIO $ ss_runTx sessionRef $ ss_filterSessions sessionRef (const False)
 
 mapAllSessionsImpl ::
-    SessionStoreInstance (Session conn sess st)
-    -> (forall m. Monad m => sess -> m sess)
-    -> SpockActionCtx ctx conn sess st ()
+    MonadIO m
+    => SessionStoreInstance (Session conn sess st)
+    -> (forall n. Monad n => sess -> n sess)
+    -> m ()
 mapAllSessionsImpl (SessionStoreInstance sessionRef) f =
     liftIO $ ss_runTx sessionRef $ ss_mapSessions sessionRef $ \sess ->
         do newData <- f (sess_data sess)

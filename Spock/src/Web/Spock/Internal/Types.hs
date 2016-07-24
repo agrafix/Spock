@@ -8,6 +8,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ConstraintKinds #-}
 module Web.Spock.Internal.Types where
 
 import Web.Spock.Core
@@ -116,7 +117,7 @@ data SessionHooks a
 data WebState conn sess st
    = WebState
    { web_dbConn :: Pool conn
-   , web_sessionMgr :: SessionManager conn sess st
+   , web_sessionMgr :: SpockSessionManager conn sess st
    , web_state :: st
    , web_config :: SpockCfg conn sess st
    }
@@ -132,12 +133,16 @@ class HasSpock m where
     -- use a 'TVar' from the STM packge.
     getState :: m (SpockState m)
     -- | Get the session manager
-    getSessMgr :: m (SessionManager (SpockConn m) (SpockSession m) (SpockState m))
+    getSessMgr :: m (SpockSessionManager (SpockConn m) (SpockSession m) (SpockState m))
     -- | Get the Spock configuration
     getSpockCfg :: m (SpockCfg (SpockConn m) (SpockSession m) (SpockState m))
 
-newtype WebStateT conn sess st m a = WebStateT { runWebStateT :: ReaderT (WebState conn sess st) m a }
-    deriving (Monad, Functor, Applicative, MonadIO, MonadReader (WebState conn sess st), MonadTrans)
+newtype WebStateT conn sess st m a
+    = WebStateT { runWebStateT :: ReaderT (WebState conn sess st) m a }
+    deriving ( Monad, Functor, Applicative, MonadIO
+             , MonadReader (WebState conn sess st)
+             , MonadTrans
+             )
 
 instance MonadBase b m => MonadBase b (WebStateT conn sess st m) where
     liftBase = liftBaseDefault
@@ -180,16 +185,18 @@ data SessionStore sess tx
 instance Show (Session conn sess st) where
     show = show . sess_id
 
-data SessionManager conn sess st
+type SpockSessionManager conn sess st = SessionManager (SpockActionCtx () conn sess st) conn sess st
+
+data SessionManager m conn sess st
    = SessionManager
-   { sm_getSessionId :: forall ctx. SpockActionCtx ctx conn sess st SessionId
-   , sm_getCsrfToken :: forall ctx. SpockActionCtx ctx conn sess st T.Text
-   , sm_regenerateSessionId :: forall ctx. SpockActionCtx ctx conn sess st ()
-   , sm_readSession :: forall ctx. SpockActionCtx ctx conn sess st sess
-   , sm_writeSession :: forall ctx. sess -> SpockActionCtx ctx conn sess st ()
-   , sm_modifySession :: forall a ctx. (sess -> (sess, a)) -> SpockActionCtx ctx conn sess st a
-   , sm_mapSessions :: forall ctx. (forall m. Monad m => sess -> m sess) -> SpockActionCtx ctx conn sess st ()
-   , sm_clearAllSessions :: forall ctx. SpockActionCtx ctx conn sess st ()
+   { sm_getSessionId :: m SessionId
+   , sm_getCsrfToken :: m T.Text
+   , sm_regenerateSessionId :: m ()
+   , sm_readSession :: m sess
+   , sm_writeSession :: sess -> m ()
+   , sm_modifySession :: forall a. (sess -> (sess, a)) -> m a
+   , sm_mapSessions :: (forall n. Monad n => sess -> n sess) -> m ()
+   , sm_clearAllSessions :: MonadIO m => m ()
    , sm_middleware :: Middleware
    , sm_closeSessionManager :: IO ()
    }
