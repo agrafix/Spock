@@ -14,10 +14,11 @@ import qualified Data.Vault.Lazy as V
 spec :: Spec
 spec =
     describe "Session Manager" $
-    do it "clear all sessions should not crash" $
+    do it "writing to the session after clearing all should not crash" $
            do mgr <- mkMgr
               sm_writeSession mgr True
               sm_clearAllSessions mgr
+              sm_writeSession mgr True
 
 mkMgr :: IO (SessionManager IO conn Bool st)
 mkMgr =

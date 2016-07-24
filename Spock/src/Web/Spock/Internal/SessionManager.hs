@@ -26,6 +26,7 @@ import qualified Crypto.Random as CR
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base64 as B64
 import qualified Data.HashMap.Strict as HM
+import qualified Data.Traversable as T
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Vault.Lazy as V
@@ -51,12 +52,12 @@ createSessionManager cfg sif =
        housekeepThread <- forkIO (forever (housekeepSessions cfg))
        return
           SessionManager
-          { sm_getSessionId = getSessionIdImpl vaultKey store sif
-          , sm_getCsrfToken = getCsrfTokenImpl vaultKey store sif
+          { sm_getSessionId = getSessionIdImpl vaultKey cfg sif
+          , sm_getCsrfToken = getCsrfTokenImpl vaultKey cfg sif
           , sm_regenerateSessionId = regenerateSessionIdImpl vaultKey store cfg sif
-          , sm_readSession = readSessionImpl vaultKey store sif
-          , sm_writeSession = writeSessionImpl vaultKey store sif
-          , sm_modifySession = modifySessionImpl vaultKey store sif
+          , sm_readSession = readSessionImpl vaultKey cfg sif
+          , sm_writeSession = writeSessionImpl vaultKey store cfg sif
+          , sm_modifySession = modifySessionImpl vaultKey store cfg sif
           , sm_clearAllSessions = clearAllSessionsImpl store
           , sm_mapSessions = mapAllSessionsImpl store
           , sm_middleware = sessionMiddleware cfg vaultKey
@@ -73,7 +74,7 @@ regenerateSessionIdImpl ::
     -> SessionIf m
     -> m ()
 regenerateSessionIdImpl vK sessionRef cfg sif =
-    do sess <- readSessionBase vK sessionRef sif
+    do sess <- readSessionBase vK cfg sif
        liftIO $ deleteSessionImpl sessionRef (sess_id sess)
        newSession <- liftIO $ newSessionImpl cfg sessionRef (sess_data sess)
        now <- liftIO getCurrentTime
@@ -83,96 +84,89 @@ regenerateSessionIdImpl vK sessionRef cfg sif =
 getSessionIdImpl ::
     MonadIO m
     => V.Key SessionId
-    -> SessionStoreInstance (Session conn sess st)
+    -> SessionCfg conn sess st
     -> SessionIf m
     -> m SessionId
-getSessionIdImpl vK sessionRef sif =
-    do sess <- readSessionBase vK sessionRef sif
+getSessionIdImpl vK cfg sif =
+    do sess <- readSessionBase vK cfg sif
        return $ sess_id sess
 
 getCsrfTokenImpl ::
     MonadIO m
     => V.Key SessionId
-    -> SessionStoreInstance (Session conn sess st)
+    -> SessionCfg conn sess st
     -> SessionIf m
     -> m T.Text
-getCsrfTokenImpl vK sessionRef sif =
-    sess_csrfToken <$> readSessionBase vK sessionRef sif
+getCsrfTokenImpl vK cfg sif =
+    sess_csrfToken <$> readSessionBase vK cfg sif
 
 modifySessionBase ::
     MonadIO m
     => V.Key SessionId
     -> SessionStoreInstance (Session conn sess st)
+    -> SessionCfg conn sess st
     -> SessionIf m
     -> (Session conn sess st -> (Session conn sess st, a))
     -> m a
-modifySessionBase vK (SessionStoreInstance sessionRef) sif modFun =
+modifySessionBase vK (SessionStoreInstance sessionRef) cfg sif modFun =
     do mValue <- si_queryVault sif vK
        case mValue of
          Nothing ->
              error "(3) Internal Spock Session Error. Please report this bug!"
          Just sid ->
-             liftIO $ ss_runTx sessionRef $
-             do mSession <- ss_loadSession sessionRef sid
-                case mSession of
-                  Nothing ->
-                      fail "Internal Spock Session Error: Unknown SessionId"
-                  Just session ->
-                      do let (sessionNew, result) = modFun session
-                         ss_storeSession sessionRef sessionNew
-                         return result
+             do session <- readOrNewSession cfg vK sif (Just sid)
+                let (sessionNew, result) = modFun session
+                liftIO $ ss_runTx sessionRef $ ss_storeSession sessionRef sessionNew
+                return result
 
 readSessionBase ::
     MonadIO m
     => V.Key SessionId
-    -> SessionStoreInstance (Session conn sess st)
+    -> SessionCfg conn sess st
     -> SessionIf m
     -> m (Session conn sess st)
-readSessionBase vK (SessionStoreInstance sessionRef) sif =
+readSessionBase vK cfg sif =
     do mValue <- si_queryVault sif vK
        case mValue of
          Nothing ->
              error "(1) Internal Spock Session Error. Please report this bug!"
          Just sid ->
-             do mSession <- liftIO $ ss_runTx sessionRef $ ss_loadSession sessionRef sid
-                case mSession of
-                  Nothing ->
-                      error "(2) Internal Spock Session Error. Please report this bug!"
-                  Just session ->
-                      return session
+             readOrNewSession cfg vK sif (Just sid)
 
 readSessionImpl ::
     MonadIO m
     => V.Key SessionId
-    -> SessionStoreInstance (Session conn sess st)
+    -> SessionCfg conn sess st
     -> SessionIf m
     -> m sess
-readSessionImpl vK sessionRef sif =
-    do base <- readSessionBase vK sessionRef sif
+readSessionImpl vK cfg sif =
+    do base <- readSessionBase vK cfg sif
        return (sess_data base)
 
 writeSessionImpl ::
     MonadIO m
     => V.Key SessionId
     -> SessionStoreInstance (Session conn sess st)
+    -> SessionCfg conn sess st
     -> SessionIf m
     -> sess
     -> m ()
-writeSessionImpl vK sessionRef sif value =
-    modifySessionImpl vK sessionRef sif (const (value, ()))
+writeSessionImpl vK sessionRef cfg sif value =
+    modifySessionImpl vK sessionRef cfg sif (const (value, ()))
 
 modifySessionImpl ::
     MonadIO m
     => V.Key SessionId
     -> SessionStoreInstance (Session conn sess st)
+    -> SessionCfg conn sess st
     -> SessionIf m
     -> (sess -> (sess, a))
     -> m a
-modifySessionImpl vK sessionRef sif f =
+modifySessionImpl vK sessionRef cfg sif f =
     do let modFun session =
                let (sessData', out) = f (sess_data session)
                in (session { sess_data = sessData' }, out)
-       modifySessionBase vK sessionRef sif modFun
+       modifySessionBase vK sessionRef cfg sif modFun
 
 makeSessionIdCookie :: SessionCfg conn sess st -> Session conn sess st -> UTCTime -> BS.ByteString
 makeSessionIdCookie cfg sess now =
@@ -186,22 +180,52 @@ makeSessionIdCookie cfg sess now =
           , cs_HTTPOnly = True
           }
 
+readOrNewSession ::
+    MonadIO m
+    => SessionCfg conn sess st
+    -> V.Key SessionId
+    -> SessionIf m
+    -> Maybe SessionId
+    -> m (Session conn sess st)
+readOrNewSession cfg vK sif mSid =
+    do (sess, write) <- loadOrSpanSession cfg mSid
+       when write $
+           do now <- liftIO getCurrentTime
+              si_setRawMultiHeader sif MultiHeaderSetCookie (makeSessionIdCookie cfg sess now)
+              si_modifyVault sif $ V.insert vK (sess_id sess)
+       return sess
+
+loadOrSpanSession ::
+    MonadIO m
+    => SessionCfg conn sess st
+    -> Maybe SessionId
+    -> m (Session conn sess st, Bool)
+loadOrSpanSession cfg mSid =
+    do mSess <-
+           liftIO $
+           join <$> T.mapM (loadSessionImpl cfg sessionRef) mSid
+       case mSess of
+         Nothing ->
+             do newSess <-
+                    liftIO $
+                    newSessionImpl cfg sessionRef (sc_emptySession cfg)
+                return (newSess, True)
+         Just s -> return (s, False)
+    where
+        sessionRef = sc_store cfg
+
 sessionMiddleware ::
     SessionCfg conn sess st
     -> V.Key SessionId
     -> Wai.Middleware
 sessionMiddleware cfg vK app req respond =
-    case getCookieFromReq (sc_cookieName cfg) of
-      Just sid ->
-          do mSess <- loadSessionImpl cfg sessionRef sid
-             case mSess of
-               Nothing -> mkNew
-               Just sess -> withSess False sess
-      Nothing -> mkNew
+    go $ getCookieFromReq (sc_cookieName cfg)
     where
+      go mSid =
+          do (sess, shouldWriteCookie) <- loadOrSpanSession cfg mSid
+             withSess shouldWriteCookie sess
       getCookieFromReq name =
           lookup "cookie" (Wai.requestHeaders req) >>= lookup name . parseCookies
-      defVal = sc_emptySession cfg
       v = Wai.vault req
       addCookie sess now responseHeaders =
           let cookieContent = makeSessionIdCookie cfg sess now
@@ -214,10 +238,6 @@ sessionMiddleware cfg vK app req respond =
                    if shouldSetCookie
                    then mapReqHeaders (addCookie sess now) unwrappedResp
                    else unwrappedResp
-      mkNew =
-          do newSess <- newSessionImpl cfg sessionRef defVal
-             withSess True newSess
-      sessionRef = sc_store cfg
 
 newSessionImpl ::
     SessionCfg conn sess st
