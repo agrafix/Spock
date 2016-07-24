@@ -14,11 +14,34 @@ import qualified Data.Vault.Lazy as V
 spec :: Spec
 spec =
     describe "Session Manager" $
-    do it "writing to the session after clearing all should not crash" $
+    do it "should return the correct csrf token" $
+           do mgr <- mkMgr
+              sm_getCsrfToken mgr `shouldReturn` "fake-token"
+       it "should not loose data on session id regeneration" $
+           do mgr <- mkMgr
+              sm_writeSession mgr True
+              sm_regenerateSessionId mgr
+              sm_readSession mgr `shouldReturn` True
+       it "should modify session correctly" $
+           do mgr <- mkMgr
+              x <- sm_modifySession mgr (const (True, True))
+              x `shouldBe` True
+              sm_readSession mgr `shouldReturn` True
+       it "should remember session content" $
+           do mgr <- mkMgr
+              sm_writeSession mgr True
+              sm_readSession mgr `shouldReturn` True
+       it "writing to the session after clearing all should not crash" $
            do mgr <- mkMgr
               sm_writeSession mgr True
               sm_clearAllSessions mgr
               sm_writeSession mgr True
+       it "should be possible to map over all sessions" $
+           do mgr <- mkMgr
+              sm_writeSession mgr True
+              sm_readSession mgr `shouldReturn` True
+              sm_mapSessions mgr (const $ return False)
+              sm_readSession mgr `shouldReturn` False
 
 mkMgr :: IO (SessionManager IO conn Bool st)
 mkMgr =
