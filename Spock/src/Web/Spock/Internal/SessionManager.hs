@@ -92,7 +92,12 @@ getSessionIdImpl vK cfg sif =
        return $ sess_id sess
 
 getCsrfTokenImpl ::
-    MonadIO m
+    ( MonadIO m
+#if MIN_VERSION_base(4,8,0)
+#else
+    , Functor m
+#endif
+    )
     => V.Key SessionId
     -> SessionCfg conn sess st
     -> SessionIf m
