@@ -107,6 +107,6 @@ spec =
              defR ("entry" </> var </> "audit") (return . IntVar)
              defSubComponent ("subcomponent" </> var) $ \name ->
                return $ \ps -> StrVar $ name <> ":" <> T.intercalate "?" ps
-             defR ("wildcard" </> theRest) $ \rest ->
+             defR ("wildcard" </> wildcard) $ \rest ->
                return $ StrVar rest
              hookAny True (return . StrVar . T.intercalate "/")

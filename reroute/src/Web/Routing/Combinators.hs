@@ -49,8 +49,8 @@ root :: Path '[] 'Open
 root = Empty
 
 -- | Matches the rest of the route. Should be the last part of the path.
-theRest :: Path '[T.Text] 'Closed
-theRest = Wildcard Empty
+wildcard :: Path '[T.Text] 'Closed
+wildcard = Wildcard Empty
 
 (</>) :: Path as 'Open -> Path bs ps2 -> Path (Append as bs) ps2
 (</>) Empty xs = xs
