@@ -64,7 +64,8 @@ mkMgr =
            SessionIf
            { si_queryVault =
                    \key ->
-                   V.lookup key <$> readIORef sessionVaultR
+                   do vault <- readIORef sessionVaultR
+                      return $ V.lookup key vault
            , si_modifyVault = modifyIORef sessionVaultR
            , si_setRawMultiHeader = \_ _ -> return ()
            , si_vaultKey = return k
