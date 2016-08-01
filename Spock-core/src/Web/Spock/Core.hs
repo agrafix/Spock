@@ -69,7 +69,7 @@ newtype SpockCtxT ctx m a
 instance MonadTrans (SpockCtxT ctx) where
     lift = SpockCtxT . lift . lift
 
--- | Run a Spock application. Basically just a wrapper aroung 'Warp.run'.
+-- | Run a Spock application. Basically just a wrapper around 'Warp.run'.
 runSpock :: Warp.Port -> IO Wai.Middleware -> IO ()
 runSpock port mw =
     do putStrLn ("Spock is running on port " ++ show port)
@@ -88,7 +88,7 @@ spockAsApp :: IO Wai.Middleware -> IO Wai.Application
 spockAsApp = liftM W.middlewareToApp
 
 -- | Create a raw spock application with custom underlying monad
--- Use @runSpock@ to run the app or @spockAsApp@ to create a @Wai.Application@
+-- Use 'runSpock' to run the app or 'spockAsApp' to create a @Wai.Application@
 -- The first argument is request size limit in bytes. Set to 'Nothing' to disable.
 spockT :: (MonadIO m)
        => (forall a. m a -> IO a)
@@ -96,7 +96,7 @@ spockT :: (MonadIO m)
        -> IO Wai.Middleware
 spockT = spockConfigT defaultSpockConfig
 
--- | Like @spockT@, but first argument is request size limit in bytes. Set to 'Nothing' to disable.
+-- | Like 'spockT', but first argument is request size limit in bytes. Set to 'Nothing' to disable.
 {-# DEPRECATED spockLimT "Consider using spockConfigT instead" #-}
 spockLimT :: forall m .MonadIO m
        => Maybe Word64
@@ -107,7 +107,7 @@ spockLimT mSizeLimit  =
     let spockConfigWithLimit = defaultSpockConfig { sc_maxRequestSize = mSizeLimit }
     in spockConfigT spockConfigWithLimit
 
--- | Like @spockT@, but with additional configuration for request size and error
+-- | Like 'spockT', but with additional configuration for request size and error
 -- handlers passed as first parameter.
 spockConfigT :: forall m .MonadIO m
         => SpockConfig
