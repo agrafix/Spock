@@ -4,7 +4,7 @@ layout: default
 permalink: /blog/
 ---
 
-{% for post in site.posts limit 15 %}
+{% for post in site.posts %}
 <div class="blog-content">
     <!-- Heading -->
     <h1><a href="{{ post.url | prepend: site.baseurl }}">{{ post.title }}</a></h1>
