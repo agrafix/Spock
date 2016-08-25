@@ -1,0 +1,9 @@
+<h3 class="entry-title">
+    {{ post.date | date: "%b %-d, %Y" }}:
+    {% if page.title %}
+    <a href="{{ root_url }}{{ page.url }}">{{ page.title }}</a>
+    {% endif %}
+    {% if post.title %}
+    <a href="{{ root_url }}{{ post.url }}">{{ post.title }}</a>
+    {% endif %}
+</h3>
