@@ -1,7 +1,7 @@
 reroute
 =====
 
-[![Build Status](https://travis-ci.org/agrafix/reroute.svg)](https://travis-ci.org/agrafix/reroute)
+[![Build Status](https://travis-ci.org/agrafix/Spock.svg)](https://travis-ci.org/agrafix/Spock)
 
 [![Hackage Deps](https://img.shields.io/hackage-deps/v/reroute.svg)](http://packdeps.haskellers.com/reverse/reroute)
 
@@ -18,4 +18,4 @@ provided path to a route and multiple actions.
 # Install
 
 * Using cabal: `cabal install reroute`
-* From Source: `git clone https://github.com/agrafix/reroute.git && cd reroute && cabal install`
+* From Source: `git clone https://github.com/agrafix/Spock.git && cd Spock/reroute && cabal install`
