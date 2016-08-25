@@ -105,6 +105,7 @@ See the [Spock-bench repository](https://github.com/agrafix/Spock-bench) to repr
 * [funblog](https://github.com/agrafix/funblog)
 * [makeci](https://github.com/openbrainsrc/makeci)
 * [curry-recipes](https://github.com/timjb/reroute-talk/tree/06574561918b50c1809f1e24ec7faeff731fddcf/curry-recipes)
+* [spock-jwt-starterkit](https://github.com/jasonzoladz/spock-jwt-starterkit)
 
 ## Notes
 
