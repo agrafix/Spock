@@ -2,7 +2,7 @@ name:                Spock-core
 version:             0.11.0.0
 synopsis:            Another Haskell web framework for rapid development
 description:         Barebones high performance type safe web framework
-Homepage:            http://www.spock.li
+Homepage:            https://www.spock.li
 Bug-reports:         https://github.com/agrafix/Spock/issues
 license:             BSD3
 license-file:        LICENSE
