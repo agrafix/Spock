@@ -234,8 +234,8 @@ send me [an email][atmail] or comment on [Reddit][reddit] or [Hacker News][hn]. 
 [u:dancingrobot84]: https://github.com/dancingrobot84
 [u:cdepillabout]: https://github.com/cdepillabout
 [tramcloud]: https://www.tramcloud.net
-[reddit]: http://TODO
-[hn]: http://TODO
+[reddit]: https://www.reddit.com/r/haskell/comments/4zjh1z/spock_011_shareable_apis_and_more/
+[hn]: https://news.ycombinator.com/item?id=12360463
 [atmail]: mailto:mail@athiemann.net
 [spock-hackage]: https://hackage.haskell.org/package/Spock-0.11.0.0
 [hstack]: http://haskellstack.org/
