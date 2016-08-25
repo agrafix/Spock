@@ -1,6 +1,8 @@
 flags: {}
 packages:
   - Spock/
+  - Spock-api/
+  - Spock-api-server/
   - Spock-core/
   - reroute/
-resolver: lts-5.8
+resolver: lts-6.13
