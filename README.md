@@ -3,36 +3,21 @@ Spock
 
 [![Build Status](https://travis-ci.org/agrafix/Spock.svg)](https://travis-ci.org/agrafix/Spock)
 [![Hackage](https://img.shields.io/hackage/v/Spock.svg)](http://hackage.haskell.org/package/Spock)
+[![Hackage Spock-Core](https://img.shields.io/hackage/v/Spock-core.svg)](http://hackage.haskell.org/package/Spock-core)
 
 ## Intro
 
-Hackage: [Spock](http://hackage.haskell.org/package/Spock)
-Stackage: [Spock](https://www.stackage.org/package/Spock)
+Hackage: [Spock](http://hackage.haskell.org/package/Spock), [Spock-core](http://hackage.haskell.org/package/Spock-core)
+Stackage: [Spock](https://www.stackage.org/package/Spock), [Spock-core](https://www.stackage.org/package/Spock)
 
-Another Haskell web framework for rapid development
+Another Haskell web framework for rapid development. To get started with Spock, check our [tutorial][https://www.spock.li/tutorial/]
+or look at our example projects.
 
+## Example Projects
 
-## Library Usage Example
-
-```haskell
-{-# LANGUAGE OverloadedStrings #-}
-import Web.Spock
-
-import qualified Data.Text as T
-
-main =
-    runSpock 3000 $ spockT id $
-    do get ("echo" <//> var) $ \something ->
-        text $ T.concat ["Echo: ", something]
-
-```
-
-## Install
-
-* Using cabal: `cabal install Spock`
-* Using Stack: `stack install Spock`
-* From Source (cabal): `git clone https://github.com/agrafix/Spock.git && cd Spock && cabal install`
-* From Source (stack): `git clone https://github.com/agrafix/Spock.git && cd Spock && stack build`
+* [funblog](https://github.com/agrafix/funblog)
+* [makeci](https://github.com/openbrainsrc/makeci)
+* [curry-recipes](https://github.com/timjb/reroute-talk/tree/06574561918b50c1809f1e24ec7faeff731fddcf/curry-recipes)
 
 ## Mailing list
 
@@ -99,12 +84,6 @@ See the [Spock-bench repository](https://github.com/agrafix/Spock-bench) to repr
 | snap      | 7.10.2 | 0.9.8.0  | 39964                     | 35566                     | 38356               |
 | fn        | 7.10.2 | 0.2.0.2  | 63083                     | 63183                     | 22346               |
 | servant   | 7.10.2 | 0.7      | 66041                     | 65590                     | 64606               |
-
-## Example Projects
-
-* [funblog](https://github.com/agrafix/funblog)
-* [makeci](https://github.com/openbrainsrc/makeci)
-* [curry-recipes](https://github.com/timjb/reroute-talk/tree/06574561918b50c1809f1e24ec7faeff731fddcf/curry-recipes)
 
 ## Notes
 
