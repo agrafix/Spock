@@ -6,34 +6,32 @@ cache:
   directories:
   - $HOME/.stack
 
-  addons:
+addons:
   apt:
     packages:
-    - libgmp-dev
-    - nodejs
-    - npm
+      - libgmp-dev
+      - nodejs
+      - npm
 
 env:
-- STACK_BUILD_MODE="test" STACK_BUILD_ARGS="--bench --no-run-benchmarks" STACK_ARGS="" PUBLISH_DOCS="yes" STACK_YAML=stack.yaml
-
-- STACK_BUILD_MODE="test" STACK_BUILD_ARGS="--bench --no-run-benchmarks" STACK_ARGS="" STACK_YAML=stack.yaml
-- STACK_BUILD_MODE="test" STACK_BUILD_ARGS="--bench --no-run-benchmarks" STACK_ARGS="--resolver lts-2" STACK_YAML=stack-lts2.yaml
-- STACK_BUILD_MODE="test" STACK_BUILD_ARGS="--bench --no-run-benchmarks" STACK_ARGS="--resolver nightly" STACK_YAML=stack.yaml
-
-- STACK_BUILD_MODE="build" STACK_BUILD_ARGS="" STACK_ARGS="" STACK_YAML=stack-ghcjs.yaml
+  - STACK_BUILD_MODE="test" STACK_BUILD_ARGS="--bench --no-run-benchmarks" STACK_ARGS="" PUBLISH_DOCS="yes" STACK_YAML=stack.yaml
+  - STACK_BUILD_MODE="test" STACK_BUILD_ARGS="--bench --no-run-benchmarks" STACK_ARGS="" STACK_YAML=stack.yaml
+  - STACK_BUILD_MODE="test" STACK_BUILD_ARGS="--bench --no-run-benchmarks" STACK_ARGS="--resolver lts-2" STACK_YAML=stack-lts2.yaml
+  - STACK_BUILD_MODE="test" STACK_BUILD_ARGS="--bench --no-run-benchmarks" STACK_ARGS="--resolver nightly" STACK_YAML=stack.yaml
+  - STACK_BUILD_MODE="build" STACK_BUILD_ARGS="" STACK_ARGS="" STACK_YAML=stack-ghcjs.yaml
 
 before_install:
-- mkdir -p ~/.local/bin
-- export PATH=$HOME/.local/bin:$PATH
-- travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
+  - mkdir -p ~/.local/bin
+  - export PATH=$HOME/.local/bin:$PATH
+  - travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
 
 install:
-- stack $STACK_ARGS setup --no-terminal
-- stack $STACK_ARGS build --only-snapshot --no-terminal --haddock
-- stack $STACK_ARGS install hscolour
+  - stack $STACK_ARGS setup --no-terminal
+  - stack $STACK_ARGS build --only-snapshot --no-terminal --haddock
+  - stack $STACK_ARGS install hscolour
 
 script:
-- stack $STACK_ARGS $STACK_BUILD_MODE --pedantic --no-terminal --skip-ghc-check --haddock $STACK_BUILD_ARGS
+  - stack $STACK_ARGS $STACK_BUILD_MODE --pedantic --no-terminal --skip-ghc-check --haddock $STACK_BUILD_ARGS
 
 deploy:
   on:
