@@ -4,6 +4,8 @@ Spock
 [![Build Status](https://travis-ci.org/agrafix/Spock.svg)](https://travis-ci.org/agrafix/Spock)
 [![Hackage](https://img.shields.io/hackage/v/Spock.svg)](http://hackage.haskell.org/package/Spock)
 
+Documentation: [Spock 0.11.0.0](https://spockdocs.s3.eu-central-1.amazonaws.com/Spock-0.11.0.0/Web-Spock.html)
+
 ## Intro
 
 Hackage: [Spock](http://hackage.haskell.org/package/Spock)
