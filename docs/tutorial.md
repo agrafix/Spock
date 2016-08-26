@@ -1,71 +1,100 @@
 ---
 layout: page
 title: "Tutorial"
-date: 2015-03-27 12:36:06
+date: 2016-08-26 08:36:06
 author: Alexander Thiemann
 permalink: /tutorial/
 ---
 
 ## Setup
 
-Before using Spock, you'll need to install the Haskell tool chain on your machine. For more
-information on installing it, check the [guide on Stackage.org](http://www.stackage.org/install).
+Before using Spock, you'll need to install the Haskell toolchain on your machine. We recommend using the
+[stack](http://haskellstack.org/) tool to quickly get started! Our guide will be `stack` based, but you can
+easily translate this to `cabal`.
 Next, you can prepare a directory for your first Spock powered application:
 
-1. Create a new directory for your project and switch into it
-1. Create a new directory `src/`
-1. Run `cabal sandbox init && cabal update && cabal init` to create a new cabal project
-1. Answer the questions prompted
-	- when asked *What does the package build* select *Executable (2)*
-	- when asked about the source directory, choose *src (2)*
+1. Create a new project using `stack new Spock-example`
+1. Jump into the directory `cd Spock-example`
+
+## Dependencies
+
+To make sure your dependencies will match those of this tutorial, replace the content of `stack.yaml` with:
+
+{% highlight yaml %}
+resolver: lts-6.13
+packages:
+- '.'
+- location:
+      git: https://github.com/agrafix/Spock.git
+      commit: 77333a2de5dea0dc8eba9432ab16864e93e5d70e
+  subdirs:
+    - Spock
+    - Spock-core
+    - reroute
+extra-deps: []
+{% endhighlight %}
+
+Now we will add `Spock` to our dependencies by opening `Spock-example.cabal` and adding `Spock >=0.11`, `mtl` and `text` to `build-depends` in the
+`executable Spock-example-exe` section.
+Next we build everything once: `stack build --fast --pedantic`.
 
 ## Hello world
 
-Now it is time to write some Haskell code. We start by creating a new file `src/Main.hs` and adding
-the following contents:
+Now it is time to write some Haskell code. Open `app/Main.hs` in your favorite editor and replace the content with:
 
 {% highlight haskell %}
 {% raw %}{-# LANGUAGE OverloadedStrings #-}{% endraw %}
 module Main where
 
+import Web.Spock
+import Web.Spock.Config
+
+import Control.Monad.Trans
 import Data.Monoid
-import Web.Spock.Safe
+import Data.IORef
+import qualified Data.Text as T
+
+data MySession = EmptySession
+data MyAppState = DummyAppState (IORef Int)
 
 main :: IO ()
 main =
-    runSpock 8080 $ spockT id $
+    do ref <- newIORef 0
+       spockCfg <- defaultSpockCfg EmptySession PCNoDatabase (DummyAppState ref)
+       runSpock 8080 (spock spockCfg app)
+
+app :: SpockM () MySession MyAppState ()
+app =
     do get root $
            text "Hello World!"
        get ("hello" <//> var) $ \name ->
-           text ("Hello " <> name <> "!")
+           do (DummyAppState ref) <- getState
+              visitorNumber <- liftIO $ atomicModifyIORef' ref $ \i -> (i+1, i+1)
+              text ("Hello " <> name <> ", you are visitor number " <> T.pack (show visitorNumber))
 {% endhighlight %}
 
-To run the example, we will have to add some dependencies to our [Cabal file](https://www.haskell.org/cabal/users-guide/developing-packages.html). It is located in our project
-root, called `YOUR_PROJECT.cabal`. Open the file and add the following dependencies to `build-depends`:
-{% highlight text %}
-Spock >=0.7.9
-{% endhighlight %}
-
-Next, run `cabal install --only-dependencies && cabal configure` to install the dependencies and
-`cabal build` to build the project. `cabal run` should start the executable. You may now point your browser to `http://localhost:8080` and `http://localhost:8080/hello/[YOUR_NAME]`.
+Next, run `stack build --fast --pedantic` again to build the project. `stack exec Spock-example-exe` should start the executable - you may now point your browser to `http://localhost:8080` and `http://localhost:8080/hello/[YOUR_NAME]`.
 
 ## Code explained
 
-Let us take a quick look at the interesting parts of the example. First, we import the core Spock module
+Let us take a quick look at the interesting parts of the example. First, we import the core Spock modules:
 {% highlight haskell %}
-import Web.Spock.Safe
+import Web.Spock
+import Web.Spock.Config
 {% endhighlight %}
-You might wonder about the `.Safe` - there's also a counterpart called `.Simple`. The key difference is
-in the way actions are mapped to URLs. The `.Safe`-Module allows us to define this mapping in a type safe way,
-while the `.Simple` defers these checks to runtime. We recommend using the `.Safe` module, because it eliminates
-many bugs at compile time and makes code much easier to follow.
 
-In the `main` function, we define a new Spock application using the `spockT` function. The second argument
-is for initializing the underlying monad of the `SpockT` and `ActionT` transformer. As we'll just use `IO` for
-now, and the `main` function already runs in `IO`, the `id` function will do the job (`a -> a`).
+Then, in the `main` function, we start out by configuring Spock. To do that, we need to describe what an
+empty session for an individual user will look like (in our case, the `EmptySession` from our `MySession` type),
+if and how we would like to use a database (no database, for now, so `PCNoDatabase`) and how our initial global
+application state will look like. This is very useful to pass around configuration or other globally shared
+information. We'll use it to implement a small hit counter by putting an `IORef Int` in our state. Let's not worry
+about the last line in `main` just now, and move on to `app`.
 
-Inside the `spockT` function, we'll wire URLs to actions. This is done using a monadic approach - you can think
-of the `SpockT` monad as a [`Writer` monad](https://hackage.haskell.org/package/mtl-2.2.1/docs/Control-Monad-Writer-Lazy.html). To connect an URL to an action, we use *routes*. A route is either
+The definition of a Spock application lives in the `SpockM conn sess st a` monad. The `conn` type parameter describes
+what are database connection looks like (`()` for no database), the `sess` is the type of our session and `st` the
+type of our global application state. Thus, for us: `SpockM () MySession MyAppState ()`. Inside the `SpockM` monad,
+we'll wire URLs to actions. You can think of it as a [`Writer` monad](https://hackage.haskell.org/package/mtl-2.2.1/docs/Control-Monad-Writer-Lazy.html).
+To connect an URL to an action, we use *routes*. A route is either
 
 - a static route piece, such as `"hello"` or `"blog"` or `root` (the `/` route)
 - a route parameter: `var`
@@ -81,9 +110,9 @@ This lambda function takes a `Text`, integrates it between `"Hello "` and `"!"`,
 the `var` in the route `"hello" <//> var` will require the parameter to be a text. If our function would take more than one argument, or our route would not contain a parameter this would result in a type error.
 
 Putting it all together, we first need an HTTP-Verb to match against. In the example, we match `GET` requests, so we'll use the `get` function to
-wire our action. Next we specify the route (e.g. `root`), and then the handler (e.g. `text "Hello world!"`). Handlers run in the `ActionT` transformer monad. You can use various functions to read headers and the HTTP body, and return content to the browser. Note that after a function returning content to the browser is called (such as `text`), the action is terminated.
+wire our action. Next we specify the route (e.g. `root`), and then the handler (e.g. `text "Hello world!"`). Handlers run in the `SpockAction conn sess st a` monad. You can use various functions to read headers and the HTTP body, and return content to the browser. Note that after a function returning content to the browser is called (such as `text`), the action is terminated.
 
-After having defined the application, you can run it using `runSpock 8080` (choosing any port you like). This essentially is just a shortcut for converting the Spock application (which is represented as a [wai](https://hackage.haskell.org/package/wai) middleware) to a [wai](https://hackage.haskell.org/package/wai) application and then running it using the [warp](https://hackage.haskell.org/package/warp) web server.
+After having defined the application, you can create a [`Wai.Middleware`](https://hackage.haskell.org/package/wai) from it using `spock spockCfg app` and then run it using `runSpock 8080` (choosing any port you like). Internally, the application is run by the [warp](https://hackage.haskell.org/package/warp) web server.
 
 ## Next Steps
 
