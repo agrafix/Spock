@@ -2,7 +2,7 @@
 
 module Main where
 
-import Web.Routing.TextRouting
+import Web.Routing.Combinators
 import Web.Routing.SafeRouting
 
 import Criterion.Main
@@ -10,21 +10,9 @@ import qualified Data.Text as T
 import Data.List (permutations, foldl')
 import System.Random (mkStdGen, randomRs)
 import Data.Maybe (listToMaybe, fromMaybe)
-import Data.Monoid (Monoid (..))
 
-
-buildRoutingTree :: [([T.Text], a)] -> RoutingTree a
-buildRoutingTree =
-  foldl' (\t (route, val) -> addToRoutingTree (joinSegs route) val t)
-         emptyRoutingTree
-  where joinSegs = T.intercalate "/"
-
-lookupRoutingTreeM :: [[T.Text]] -> RoutingTree Int -> Int
-lookupRoutingTreeM routes tree =
-  foldl' (\z route -> maybe z snd (listToMaybe $ matchRoute' route tree)) 0 routes
-
-buildPath :: [T.Text] -> Path '[]
-buildPath = static . T.unpack . T.intercalate "/"
+buildPath :: [T.Text] -> PathInternal '[]
+buildPath = toInternalPath . static . T.unpack . T.intercalate "/"
 
 buildPathMap :: [([T.Text], a)] -> PathMap a
 buildPathMap =
@@ -36,11 +24,7 @@ lookupPathMapM rs m =
 
 benchmarks :: [Benchmark]
 benchmarks =
-  [ env setupTextMap $ \ ~(routingTree, routes') ->
-    bgroup "TextRouting"
-    [ bench "static-lookup" $ whnf (lookupRoutingTreeM routes') routingTree
-    ]
-  , env setupSafeMap $ \ ~(safeMap, routes') ->
+  [ env setupSafeMap $ \ ~(safeMap, routes') ->
     bgroup "SafeRouting"
     [ bench "static-lookup" $ whnf (lookupPathMapM routes') safeMap
     ]
@@ -51,7 +35,6 @@ benchmarks =
     num = 10
     routes = rndRoutes strlen seglen num
     routesList = zip routes [1..]
-    setupTextMap = return (buildRoutingTree routesList, routes)
     setupSafeMap = return (buildPathMap routesList, routes)
 
 main :: IO ()
