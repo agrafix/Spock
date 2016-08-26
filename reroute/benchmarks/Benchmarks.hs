@@ -16,7 +16,7 @@ buildPath = toInternalPath . static . T.unpack . T.intercalate "/"
 
 buildPathMap :: [([T.Text], a)] -> PathMap a
 buildPathMap =
-  foldl' (\t (route, val) -> insertPathMap' (buildPath route) (const val) t) mempty
+  foldl' (\t (route, val) -> insertPathMap' (buildPath route) (const val) t) emptyPathMap
 
 lookupPathMapM :: [[T.Text]] -> PathMap Int -> Int
 lookupPathMapM rs m =
