@@ -8,13 +8,7 @@ Spock
 ## Intro
 
 Another Haskell web framework for rapid development. To get started with Spock, check our [tutorial](https://www.spock.li/tutorial/)
-or take a look at our example projects.
-
-## Example Projects
-
-* [funblog](https://github.com/agrafix/funblog)
-* [makeci](https://github.com/openbrainsrc/makeci)
-* [curry-recipes](https://github.com/timjb/reroute-talk/tree/06574561918b50c1809f1e24ec7faeff731fddcf/curry-recipes)
+or take a look at our example project [funblog](https://github.com/agrafix/funblog)!
 
 ## Mailing list
 
