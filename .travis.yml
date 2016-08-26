@@ -38,6 +38,7 @@ script:
 deploy:
   on:
     condition: "$PUBLISH_DOCS = yes"
+    branch: master
   provider: s3
   bucket: spockdocs
   skip_cleanup: true
