@@ -7,11 +7,8 @@ Spock
 
 ## Intro
 
-Hackage: [Spock](http://hackage.haskell.org/package/Spock), [Spock-core](http://hackage.haskell.org/package/Spock-core)
-Stackage: [Spock](https://www.stackage.org/package/Spock), [Spock-core](https://www.stackage.org/package/Spock)
-
-Another Haskell web framework for rapid development. To get started with Spock, check our [tutorial][https://www.spock.li/tutorial/]
-or look at our example projects.
+Another Haskell web framework for rapid development. To get started with Spock, check our [tutorial](https://www.spock.li/tutorial/)
+or take a look at our example projects.
 
 ## Example Projects
 
