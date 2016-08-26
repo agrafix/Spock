@@ -1,32 +1,40 @@
 language: c
 sudo: false
-
 cache:
   directories:
   - $HOME/.stack
-
 addons:
   apt:
     packages:
     - libgmp-dev
     - nodejs
     - npm
-
 env:
-  - STACK_BUILD_MODE="test" STACK_BUILD_ARGS="--bench --no-run-benchmarks" STACK_ARGS="" STACK_YAML=stack.yaml
-  - STACK_BUILD_MODE="test" STACK_BUILD_ARGS="--bench --no-run-benchmarks" STACK_ARGS="--resolver lts-2" STACK_YAML=stack-lts2.yaml
-  - STACK_BUILD_MODE="test" STACK_BUILD_ARGS="--bench --no-run-benchmarks" STACK_ARGS="--resolver nightly" STACK_YAML=stack.yaml
-
-  - STACK_BUILD_MODE="build" STACK_BUILD_ARGS="" STACK_ARGS="" STACK_YAML=stack-ghcjs.yaml
-
+- STACK_BUILD_MODE="test" STACK_BUILD_ARGS="--bench --no-run-benchmarks" STACK_ARGS="" PUBLISH_DOCS="yes" STACK_YAML=stack.yaml
+- STACK_BUILD_MODE="test" STACK_BUILD_ARGS="--bench --no-run-benchmarks" STACK_ARGS="--resolver lts-2" STACK_YAML=stack-lts2.yaml
+- STACK_BUILD_MODE="test" STACK_BUILD_ARGS="--bench --no-run-benchmarks" STACK_ARGS="--resolver nightly" STACK_YAML=stack.yaml
+- STACK_BUILD_MODE="build" STACK_BUILD_ARGS="" STACK_ARGS="" STACK_YAML=stack-ghcjs.yaml
 before_install:
-  - mkdir -p ~/.local/bin
-  - export PATH=$HOME/.local/bin:$PATH
-  - travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
-
+- mkdir -p ~/.local/bin
+- export PATH=$HOME/.local/bin:$PATH
+- travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards
+  --strip-components=1 -C ~/.local/bin '*/stack'
 install:
-  - stack $STACK_ARGS setup --no-terminal
-  - stack $STACK_ARGS build --only-snapshot --no-terminal --haddock
-
+- stack $STACK_ARGS setup --no-terminal
+- stack $STACK_ARGS build --only-snapshot --no-terminal --haddock
 script:
-  - stack $STACK_ARGS $STACK_BUILD_MODE --pedantic --no-terminal --skip-ghc-check --haddock $STACK_BUILD_ARGS
+- stack $STACK_ARGS $STACK_BUILD_MODE --pedantic --no-terminal --skip-ghc-check --haddock
+  $STACK_BUILD_ARGS
+deploy:
+  on:
+    condition: "$PUBLISH_DOCS = yes"
+  provider: s3
+  bucket: spockdocs
+  skip_cleanup: true
+  acl: public_read
+  region: eu-central-1
+  local_dir: .stack-work/install/x86_64-linux/lts-6.13/7.10.3/doc/
+  access_key_id:
+    secure: ScZQy2B54CnU26bGZivMS6IMQYnKbfOnjspkoRpUcuYU7tOc+IB4OHxSlribidtcyCel0PEARJzU2dlIf8Vn1XuVrj32K4gXzS3Mg7HBEKoeI1aioRwSp4z9VtQLBVDyzJzMIPqqKYGGSNByOjyXGUtxeFLuSK2yRfkoQe8CPGc=
+  secret_access_key:
+    secure: c61LIVSE3b2fFbwa2PVh27EaeY/dmEUmyM0wbrBWv09NWDrIfM12jQJ6R9VlIXgS44hRga9TrplVCiU5RUgaV7KuPfLyFOPfym1G3FGdKXjJWYmLugCxjJ4VhHAoggln6hrwe8WELCe/yVBVRcwjx/9J6cKz0SuIQb1fODDAOEk=
