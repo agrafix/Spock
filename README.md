@@ -5,6 +5,8 @@ Spock
 [![Hackage](https://img.shields.io/hackage/v/Spock.svg)](http://hackage.haskell.org/package/Spock)
 [![Hackage Spock-Core](https://img.shields.io/hackage/v/Spock-core.svg)](http://hackage.haskell.org/package/Spock-core)
 
+Documentation: [Spock 0.11.0.0](https://spockdocs.s3.eu-central-1.amazonaws.com/Spock-0.11.0.0/Web-Spock.html)
+
 ## Intro
 
 Another Haskell web framework for rapid development. To get started with Spock, check our [tutorial](https://www.spock.li/tutorial/)
