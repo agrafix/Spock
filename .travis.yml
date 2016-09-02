@@ -27,8 +27,8 @@ before_install:
 
 install:
   - stack $STACK_ARGS setup --no-terminal
-  - stack $STACK_ARGS build --only-snapshot --no-terminal --haddock
   - stack $STACK_ARGS install hscolour
+  - stack $STACK_ARGS build --only-snapshot --no-terminal --haddock
 
 script:
   - stack $STACK_ARGS $STACK_BUILD_MODE --pedantic --no-terminal --skip-ghc-check --haddock $STACK_BUILD_ARGS
