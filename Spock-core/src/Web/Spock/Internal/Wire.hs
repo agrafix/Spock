@@ -74,7 +74,7 @@ data UploadedFile
    { uf_name :: !T.Text
    , uf_contentType :: !T.Text
    , uf_tempLocation :: !FilePath
-   }
+   } deriving Show
 
 data VaultIf
    = VaultIf
