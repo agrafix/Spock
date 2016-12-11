@@ -43,10 +43,12 @@ app =
            do setHeader "Content-Language" "de"
               setHeader "Content-Language" "en"
               text "ok"
-       subcomponent "/subcomponent" $
-         do get "foo" $ text "foo"
-            subcomponent "/subcomponent2" $
-              get "bar" $ text "bar"
+       let subcomp x =
+               "subcomponent" <//> x
+           subsubcomp x =
+               subcomp ("subcomponent2" <//> x)
+       get (subcomp "foo") $ text "foo"
+       get (subsubcomp "bar") $ text "bar"
        get "preferred-format" $
          do fmt <- preferredFormat
             case fmt of
@@ -119,4 +121,3 @@ spec =
       500 -> text "SERVER ERROR"
       404 -> text "NOT FOUND"
       _ -> text "OTHER ERROR"
-

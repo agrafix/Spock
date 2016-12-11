@@ -234,6 +234,7 @@ hookAny' = wireAny
 -- request \/admin\/home will be routed to adminHomeHandler
 subcomponent :: (RouteM t, Monad m) => Path '[] 'Open -> t ctx m () -> t ctx m ()
 subcomponent = inSubcomponent
+{-# DEPRECATED subcomponent "Subcomponents will be removed in the next major release. They break route rendering and should not be used. Consider creating helper functions for reusable route components" #-}
 
 -- | Hook wai middleware into Spock
 middleware :: (RouteM t, Monad m) => Wai.Middleware -> t ctx m ()
