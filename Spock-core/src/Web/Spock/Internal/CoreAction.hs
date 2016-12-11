@@ -2,13 +2,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE DoAndIfThenElse #-}
-{-# LANGUAGE RecordWildCards #-}
 module Web.Spock.Internal.CoreAction
     ( ActionT
     , UploadedFile (..)
     , request, header, rawHeader, cookie, cookies, body, jsonBody, jsonBody'
     , reqMethod
-    , files, params, param, param', setStatus, setHeader, redirect
+    , files, params, param, param', paramsGet, paramsPost
+    , setStatus, setHeader, redirect
     , setRawMultiHeader, MultiHeader(..)
     , CookieSettings(..), CookieEOL(..), defaultCookieSettings
     , setCookie, deleteCookie
@@ -122,15 +122,25 @@ files =
     asks ri_files
 {-# INLINE files #-}
 
--- | Get all request params
+-- | Get all request GET params
+paramsGet :: MonadIO m => ActionCtxT ctx m [(T.Text, T.Text)]
+paramsGet = asks ri_getParams
+{-# INLINE paramsGet #-}
+
+-- | Get all request POST params
+paramsPost :: MonadIO m => ActionCtxT ctx m [(T.Text, T.Text)]
+paramsPost = asks ri_getParams
+{-# INLINE paramsPost #-}
+
+-- | Get all request (POST + GET) params
 params :: MonadIO m => ActionCtxT ctx m [(T.Text, T.Text)]
-params = asks ri_queryParams
+params = (++) <$> paramsGet <*> paramsPost
 {-# INLINE params #-}
 
--- | Read a request param. Spock looks in route captures first (in simple routing), then in POST variables and at last in GET variables
+-- | Read a request param. Spock looks POST variables first and then in GET variables
 param :: (PathPiece p, MonadIO m) => T.Text -> ActionCtxT ctx m (Maybe p)
 param k =
-    do qp <- asks ri_queryParams
+    do qp <- params
        return $ join $ fmap fromPathPiece (lookup k qp)
 {-# INLINE param #-}
 

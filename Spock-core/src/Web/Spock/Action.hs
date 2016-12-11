@@ -13,7 +13,7 @@ module Web.Spock.Action
     , preferredFormat, ClientPreferredFormat(..)
     , body, jsonBody, jsonBody'
     , files, UploadedFile (..)
-    , params, param, param'
+    , params, paramsGet, paramsPost, param, param'
      -- * Working with context
     , getContext, runInContext
      -- * Sending responses

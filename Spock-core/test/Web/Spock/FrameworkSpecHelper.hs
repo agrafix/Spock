@@ -62,6 +62,8 @@ routingSpec =
     describe "Routing Framework" $
       do it "allows root actions" $
             get "/" `shouldRespondWith` "root" { matchStatus = 200 }
+         it "allows access to get params" $
+            get "/get-params?foo=bar" `shouldRespondWith` "[(\"foo\",\"bar\")]" { matchStatus = 200 }
          it "routes different HTTP-verbs to different actions" $
             do verbTest get "GET"
                verbTest (`post` "") "POST"

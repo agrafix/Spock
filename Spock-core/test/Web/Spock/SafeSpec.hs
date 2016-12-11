@@ -43,6 +43,9 @@ app =
            do setHeader "Content-Language" "de"
               setHeader "Content-Language" "en"
               text "ok"
+       get "get-params" $
+           do gp <- paramsGet
+              text (T.pack $ show gp)
        let subcomp x =
                "subcomponent" <//> x
            subsubcomp x =

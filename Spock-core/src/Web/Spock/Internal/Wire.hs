@@ -86,7 +86,8 @@ data RequestInfo ctx
    = RequestInfo
    { ri_method :: !SpockMethod
    , ri_request :: !Wai.Request
-   , ri_queryParams :: [(T.Text, T.Text)]
+   , ri_getParams :: [(T.Text, T.Text)]
+   , ri_postParams :: [(T.Text, T.Text)]
    , ri_files :: !(HM.HashMap T.Text UploadedFile)
    , ri_vaultIf :: !VaultIf
    , ri_context :: !ctx
@@ -287,11 +288,11 @@ makeActionEnvironment st stdMethod req =
                map (T.decodeUtf8 *** T.decodeUtf8) bodyParams
            getParams =
                map (\(k, mV) -> (T.decodeUtf8 k, T.decodeUtf8 $ fromMaybe BS.empty mV)) $ Wai.queryString req
-           queryParams = postParams ++ getParams
        return ( RequestInfo
                 { ri_method = stdMethod
                 , ri_request = req
-                , ri_queryParams = queryParams
+                , ri_getParams = getParams
+                , ri_postParams = postParams
                 , ri_files = uploadedFiles
                 , ri_vaultIf = vaultIf
                 , ri_context = ()
