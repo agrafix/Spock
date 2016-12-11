@@ -1,5 +1,5 @@
 name:                Spock-api
-version:             0.11.0.0
+version:             0.12.0.0
 synopsis:            Another Haskell web framework for rapid development
 description:         API definition DSL for Spock web framework
 Homepage:            https://www.spock.li
