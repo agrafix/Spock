@@ -42,7 +42,7 @@ deploy:
   skip_cleanup: true
   acl: public_read
   region: eu-central-1
-  local_dir: .stack-work/install/x86_64-linux/lts-6.13/7.10.3/doc/
+  local_dir: .stack-work/install/x86_64-linux/lts-7.12/8.0.1/doc/
   access_key_id:
     secure: ScZQy2B54CnU26bGZivMS6IMQYnKbfOnjspkoRpUcuYU7tOc+IB4OHxSlribidtcyCel0PEARJzU2dlIf8Vn1XuVrj32K4gXzS3Mg7HBEKoeI1aioRwSp4z9VtQLBVDyzJzMIPqqKYGGSNByOjyXGUtxeFLuSK2yRfkoQe8CPGc=
   secret_access_key:

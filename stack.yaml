@@ -5,4 +5,4 @@ packages:
   - Spock-api-server/
   - Spock-core/
   - reroute/
-resolver: lts-6.13
+resolver: lts-7.12
