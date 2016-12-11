@@ -18,7 +18,6 @@ env:
   - STACK_BUILD_MODE="test" STACK_BUILD_ARGS="--bench --no-run-benchmarks" STACK_ARGS="" STACK_YAML=stack.yaml
   - STACK_BUILD_MODE="test" STACK_BUILD_ARGS="--bench --no-run-benchmarks" STACK_ARGS="--resolver lts-2" STACK_YAML=stack-lts2.yaml
   - STACK_BUILD_MODE="test" STACK_BUILD_ARGS="--bench --no-run-benchmarks" STACK_ARGS="--resolver nightly" STACK_YAML=stack.yaml
-  - STACK_BUILD_MODE="build" STACK_BUILD_ARGS="" STACK_ARGS="" STACK_YAML=stack-ghcjs.yaml
 
 before_install:
   - mkdir -p ~/.local/bin
