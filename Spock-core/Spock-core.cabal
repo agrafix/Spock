@@ -22,6 +22,7 @@ library
   exposed-modules:
                        Web.Spock.Core,
                        Web.Spock.Action,
+                       Web.Spock.Routing,
                        Web.Spock.Internal.Cookies,
                        Web.Spock.Internal.Util
   other-modules:

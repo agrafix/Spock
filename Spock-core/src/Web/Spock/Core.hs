@@ -33,6 +33,7 @@ where
 
 import Web.Spock.Action
 import Web.Spock.Internal.Wire (SpockMethod(..))
+import Web.Spock.Routing
 
 import Control.Applicative
 import Control.Monad.Reader
@@ -68,6 +69,39 @@ newtype SpockCtxT ctx m a
 
 instance MonadTrans (SpockCtxT ctx) where
     lift = SpockCtxT . lift . lift
+
+instance RouteM SpockCtxT where
+    addMiddleware = SpockCtxT . AR.middleware
+    inSubcomponent p (SpockCtxT subapp) =
+        SpockCtxT $ AR.subcomponent (toInternalPath p) subapp
+    wireAny m action =
+        SpockCtxT $
+        do hookLift <- lift $ asks unLiftHooked
+           AR.hookAny m (hookLift . action)
+    withPrehook = withPrehookImpl
+    wireRoute = wireRouteImpl
+
+withPrehookImpl :: forall m ctx ctx'. MonadIO m => ActionCtxT ctx m ctx' -> SpockCtxT ctx' m () -> SpockCtxT ctx m ()
+withPrehookImpl hook (SpockCtxT hookBody) =
+    SpockCtxT $
+    do prevHook <- lift ask
+       let newHook :: ActionCtxT ctx' m a -> ActionCtxT ctx m a
+           newHook act =
+               do newCtx <- hook
+                  runInContext newCtx act
+           hookLift :: forall a. ReaderT (LiftHooked ctx' m) m a -> ReaderT (LiftHooked ctx m) m a
+           hookLift a =
+               lift $ runReaderT a (injectHook prevHook newHook)
+       swapMonad hookLift hookBody
+
+wireRouteImpl :: forall xs ctx m ps. (HasRep xs, Monad m) => SpockMethod -> Path xs ps -> HVectElim xs (ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
+wireRouteImpl m path action =
+    SpockCtxT $
+    do hookLift <- lift $ asks unLiftHooked
+       let actionPacker :: HVectElim xs (ActionCtxT ctx m ()) -> HVect xs -> ActionCtxT () m ()
+           actionPacker act captures = hookLift (uncurry act captures)
+       AR.hookRoute m (toInternalPath path) (HVectElim' $ curry $ actionPacker action)
+
 
 -- | Run a Spock application. Basically just a wrapper around 'Warp.run'.
 runSpock :: Warp.Port -> IO Wai.Middleware -> IO ()
@@ -130,81 +164,63 @@ baseAppHook app =
       lifter action = runReaderT action (LiftHooked id)
 
 -- | Specify an action that will be run when the HTTP verb 'GET' and the given route match
-get :: (HasRep xs, MonadIO m) => Path xs ps -> HVectElim xs (ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
+get :: (HasRep xs, RouteM t, Monad m) => Path xs ps -> HVectElim xs (ActionCtxT ctx m ()) -> t ctx m ()
 get = hookRoute GET
 
 -- | Specify an action that will be run when the HTTP verb 'POST' and the given route match
-post :: (HasRep xs, MonadIO m) => Path xs ps -> HVectElim xs (ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
+post :: (HasRep xs, RouteM t, Monad m) => Path xs ps -> HVectElim xs (ActionCtxT ctx m ()) -> t ctx m ()
 post = hookRoute POST
 
 -- | Specify an action that will be run when the HTTP verb 'GET'/'POST' and the given route match
-getpost :: (HasRep xs, MonadIO m) => Path xs ps -> HVectElim xs (ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
+getpost :: (HasRep xs, RouteM t, Monad m, Monad (t ctx m)) => Path xs ps -> HVectElim xs (ActionCtxT ctx m ()) -> t ctx m ()
 getpost r a = hookRoute POST r a >> hookRoute GET r a
 
 -- | Specify an action that will be run when the HTTP verb 'HEAD' and the given route match
-head :: (HasRep xs, MonadIO m) => Path xs ps -> HVectElim xs (ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
+head :: (HasRep xs, RouteM t, Monad m) => Path xs ps -> HVectElim xs (ActionCtxT ctx m ()) -> t ctx m ()
 head = hookRoute HEAD
 
 -- | Specify an action that will be run when the HTTP verb 'PUT' and the given route match
-put :: (HasRep xs, MonadIO m) => Path xs ps -> HVectElim xs (ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
+put :: (HasRep xs, RouteM t, Monad m) => Path xs ps -> HVectElim xs (ActionCtxT ctx m ()) -> t ctx m ()
 put = hookRoute PUT
 
 -- | Specify an action that will be run when the HTTP verb 'DELETE' and the given route match
-delete :: (HasRep xs, MonadIO m) => Path xs ps -> HVectElim xs (ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
+delete :: (HasRep xs, RouteM t, Monad m) => Path xs ps -> HVectElim xs (ActionCtxT ctx m ()) -> t ctx m ()
 delete = hookRoute DELETE
 
 -- | Specify an action that will be run when the HTTP verb 'PATCH' and the given route match
-patch :: (HasRep xs, MonadIO m) => Path xs ps -> HVectElim xs (ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
+patch :: (HasRep xs, RouteM t, Monad m) => Path xs ps -> HVectElim xs (ActionCtxT ctx m ()) -> t ctx m ()
 patch = hookRoute PATCH
 
 -- | Specify an action that will be run before all subroutes. It can modify the requests current context
-prehook :: forall m ctx ctx'. MonadIO m => ActionCtxT ctx m ctx' -> SpockCtxT ctx' m () -> SpockCtxT ctx m ()
-prehook hook (SpockCtxT hookBody) =
-    SpockCtxT $
-    do prevHook <- lift ask
-       let newHook :: ActionCtxT ctx' m a -> ActionCtxT ctx m a
-           newHook act =
-               do newCtx <- hook
-                  runInContext newCtx act
-           hookLift :: forall a. ReaderT (LiftHooked ctx' m) m a -> ReaderT (LiftHooked ctx m) m a
-           hookLift a =
-               lift $ runReaderT a (injectHook prevHook newHook)
-       swapMonad hookLift hookBody
+prehook :: (RouteM t, MonadIO m) => ActionCtxT ctx m ctx' -> t ctx' m () -> t ctx m ()
+prehook = withPrehook
 
 -- | Specify an action that will be run when a standard HTTP verb and the given route match
-hookRoute :: forall xs ctx m ps. (HasRep xs, Monad m) => StdMethod -> Path xs ps -> HVectElim xs (ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
+hookRoute :: (HasRep xs, RouteM t, Monad m) => StdMethod -> Path xs ps -> HVectElim xs (ActionCtxT ctx m ()) -> t ctx m ()
 hookRoute = hookRoute' . MethodStandard . W.HttpMethod
 
 -- | Specify an action that will be run when a custom HTTP verb and the given route match
-hookRouteCustom :: forall xs ctx m ps. (HasRep xs, Monad m) => T.Text -> Path xs ps -> HVectElim xs (ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
+hookRouteCustom :: (HasRep xs, RouteM t, Monad m) => T.Text -> Path xs ps -> HVectElim xs (ActionCtxT ctx m ()) -> t ctx m ()
 hookRouteCustom = hookRoute' . MethodCustom
 
 -- | Specify an action that will be run when a HTTP verb and the given route match
-hookRoute' :: forall xs ctx m ps. (HasRep xs, Monad m) => SpockMethod -> Path xs ps -> HVectElim xs (ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
-hookRoute' m path action =
-    SpockCtxT $
-    do hookLift <- lift $ asks unLiftHooked
-       let actionPacker :: HVectElim xs (ActionCtxT ctx m ()) -> HVect xs -> ActionCtxT () m ()
-           actionPacker act captures = hookLift (uncurry act captures)
-       AR.hookRoute m (toInternalPath path) (HVectElim' $ curry $ actionPacker action)
+hookRoute' :: (HasRep xs, RouteM t, Monad m) => SpockMethod -> Path xs ps -> HVectElim xs (ActionCtxT ctx m ()) -> t ctx m ()
+hookRoute' = wireRoute
 
 -- | Specify an action that will be run when a standard HTTP verb matches but no defined route matches.
 -- The full path is passed as an argument
-hookAny :: Monad m => StdMethod -> ([T.Text] -> ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
+hookAny :: (RouteM t, Monad m) => StdMethod -> ([T.Text] -> ActionCtxT ctx m ()) -> t ctx m ()
 hookAny = hookAny' . MethodStandard . W.HttpMethod
 
 -- | Specify an action that will be run when a custom HTTP verb matches but no defined route matches.
 -- The full path is passed as an argument
-hookAnyCustom :: Monad m => T.Text -> ([T.Text] -> ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
+hookAnyCustom :: (RouteM t, Monad m) => T.Text -> ([T.Text] -> ActionCtxT ctx m ()) -> t ctx m ()
 hookAnyCustom = hookAny' . MethodCustom
 
 -- | Specify an action that will be run when a HTTP verb matches but no defined route matches.
 -- The full path is passed as an argument
-hookAny' :: Monad m => SpockMethod -> ([T.Text] -> ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
-hookAny' m action =
-    SpockCtxT $
-    do hookLift <- lift $ asks unLiftHooked
-       AR.hookAny m (hookLift . action)
+hookAny' :: (RouteM t, Monad m) => SpockMethod -> ([T.Text] -> ActionCtxT ctx m ()) -> t ctx m ()
+hookAny' = wireAny
 
 -- | Define a subcomponent. Usage example:
 --
@@ -216,12 +232,12 @@ hookAny' m action =
 --
 -- The request \/site\/home will be routed to homeHandler and the
 -- request \/admin\/home will be routed to adminHomeHandler
-subcomponent :: Monad m => Path '[] 'Open -> SpockCtxT ctx m () -> SpockCtxT ctx m ()
-subcomponent p (SpockCtxT subapp) = SpockCtxT $ AR.subcomponent (toInternalPath p) subapp
+subcomponent :: (RouteM t, Monad m) => Path '[] 'Open -> t ctx m () -> t ctx m ()
+subcomponent = inSubcomponent
 
 -- | Hook wai middleware into Spock
-middleware :: Monad m => Wai.Middleware -> SpockCtxT ctx m ()
-middleware = SpockCtxT . AR.middleware
+middleware :: (RouteM t, Monad m) => Wai.Middleware -> t ctx m ()
+middleware = addMiddleware
 
 -- | Combine two path components
 (<//>) :: Path as 'Open -> Path bs ps -> Path (Append as bs) ps
