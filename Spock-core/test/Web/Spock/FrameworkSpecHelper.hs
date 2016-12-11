@@ -1,8 +1,12 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Web.Spock.FrameworkSpecHelper where
 
 import Test.Hspec
 import Test.Hspec.Wai
+#if MIN_VERSION_hspec_wai(0,8,0)
+import Test.Hspec.Wai.Matcher
+#endif
 
 import Data.Monoid
 import Data.Word
@@ -15,6 +19,19 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Network.Wai as Wai
 
+statusBodyMatch :: Int -> BSLC.ByteString -> ResponseMatcher
+#if MIN_VERSION_hspec_wai(0,8,0)
+statusBodyMatch s b =
+    ResponseMatcher
+    { matchStatus = s
+    , matchBody = bodyEquals b
+    , matchHeaders = []
+    }
+#else
+statusBodyMatch s b =
+    ResponseMatcher { matchStatus = s, matchBody = Just b, matchHeaders = [] }
+#endif
+
 sizeLimitSpec :: (Word64 -> IO Wai.Application) -> Spec
 sizeLimitSpec app =
     with (app maxSize) $
@@ -25,12 +42,7 @@ sizeLimitSpec app =
        it "denys large requests the way" $
           post "/size" tooLongBs `shouldRespondWith` 413
     where
-      matcher s b =
-          ResponseMatcher
-          { matchStatus = s
-          , matchBody = Just b
-          , matchHeaders = []
-          }
+      matcher = statusBodyMatch
       maxSize = 1024
       okBs = BSLC.replicate (fromIntegral maxSize - 50) 'i'
       okBs2 = BSLC.replicate (fromIntegral maxSize) 'j'
@@ -157,7 +169,11 @@ headerTest =
 
 matchCookie :: T.Text -> T.Text -> MatchHeader
 matchCookie name val =
+#if MIN_VERSION_hspec_wai(0,8,0)
+    MatchHeader $ \headers _ ->
+#else
     MatchHeader $ \headers ->
+#endif
         let relevantHeaders = filter (\h -> fst h == "Set-Cookie") headers
             loop [] =
                 Just ("No cookie named " ++ T.unpack name ++ " with value "
