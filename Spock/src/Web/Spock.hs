@@ -6,7 +6,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Web.Spock
-    ( -- * Lauching Spock
+    ( -- * Launching Spock
       runSpock, runSpockNoBanner, spockAsApp
       -- * Spock's route definition monad
     , spock, SpockM, SpockCtxM
