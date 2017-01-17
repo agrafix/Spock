@@ -24,10 +24,6 @@ import Web.Spock.Internal.Cookies
 import Web.Spock.Internal.Util
 import Web.Spock.Internal.Wire
 
-#if MIN_VERSION_base(4,8,0)
-#else
-import Control.Applicative
-#endif
 import Control.Monad
 #if MIN_VERSION_mtl(2,2,0)
 import Control.Monad.Except
@@ -138,7 +134,10 @@ paramsPost = asks ri_getParams
 
 -- | Get all request (POST + GET) params
 params :: MonadIO m => ActionCtxT ctx m [(T.Text, T.Text)]
-params = (++) <$> paramsGet <*> paramsPost
+params =
+    do g <- paramsGet
+       p <- paramsPost
+       return $ g ++ p
 {-# INLINE params #-}
 
 -- | Read a request param. Spock looks POST variables first and then in GET variables
@@ -383,8 +382,7 @@ cookies :: MonadIO m => ActionCtxT ctx m [(T.Text, T.Text)]
 cookies =
     do req <- request
        return $
-           fromMaybe [] $
-           fmap parseCookies $
+           maybe [] parseCookies $
            lookup "cookie" (Wai.requestHeaders req)
 {-# INLINE cookies #-}
 
