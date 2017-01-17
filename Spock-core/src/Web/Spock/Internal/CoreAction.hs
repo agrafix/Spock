@@ -24,16 +24,19 @@ import Web.Spock.Internal.Cookies
 import Web.Spock.Internal.Util
 import Web.Spock.Internal.Wire
 
+#if MIN_VERSION_base(4,8,0)
+#else
+import Control.Applicative
+#endif
 import Control.Monad
 #if MIN_VERSION_mtl(2,2,0)
 import Control.Monad.Except
 #else
 import Control.Monad.Error
 #endif
-import Control.Monad.Reader
 import Control.Monad.RWS.Strict (runRWST)
+import Control.Monad.Reader
 import Control.Monad.State hiding (get, put)
-import qualified Control.Monad.State as ST
 import Data.Maybe
 import Data.Monoid
 import Data.Time
@@ -41,6 +44,7 @@ import Network.HTTP.Types.Header (HeaderName, ResponseHeaders)
 import Network.HTTP.Types.Status
 import Prelude hiding (head)
 import Web.PathPieces
+import qualified Control.Monad.State as ST
 import qualified Data.Aeson as A
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base64 as B64
