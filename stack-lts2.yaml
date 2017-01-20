@@ -9,3 +9,4 @@ resolver: lts-2.22
 extra-deps:
   - hvect-0.3.1.0
   - cryptonite-0.6
+  - superbuffer-0.2.0.1

@@ -47,6 +47,7 @@ library
                        reroute >=0.3.1,
                        resourcet >= 0.4,
                        stm >=2.4,
+                       superbuffer >= 0.2,
                        text >= 0.11.3.1,
                        time >=1.4,
                        transformers >=0.3,
@@ -67,6 +68,7 @@ test-suite spockcoretests
                        Web.Spock.Internal.UtilSpec,
                        Web.Spock.SafeSpec
   build-depends:
+                       aeson,
                        base,
                        bytestring,
                        base64-bytestring >=1.0,

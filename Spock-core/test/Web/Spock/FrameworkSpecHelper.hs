@@ -64,6 +64,22 @@ routingSpec =
             get "/" `shouldRespondWith` "root" { matchStatus = 200 }
          it "allows access to get params" $
             get "/get-params?foo=bar" `shouldRespondWith` "[(\"foo\",\"bar\")]" { matchStatus = 200 }
+         it "allows access to post params" $
+            postHtmlForm "/post-params" [("foo", "bar")]
+                `shouldRespondWith` "[(\"foo\",\"bar\")]" { matchStatus = 200 }
+         it "allows access to empty post params" $
+            postHtmlForm "/post-params" []
+                `shouldRespondWith` "[]" { matchStatus = 200 }
+         it "allows broken body for post params" $
+             post "/post-params" ""
+                `shouldRespondWith` "[]" { matchStatus = 200 }
+         it "allows json body" $
+             post "/json" "{ \"sampleJson\": \"foo\"}"
+                 `shouldRespondWith` "foo" { matchStatus = 200 }
+         it "allows raw body" $
+             post "/raw-body" "raw" `shouldRespondWith` "raw" { matchStatus = 200 }
+         it "allows empty raw body" $
+             post "/raw-body" "" `shouldRespondWith` "" { matchStatus = 200 }
          it "routes different HTTP-verbs to different actions" $
             do verbTest get "GET"
                verbTest (`post` "") "POST"

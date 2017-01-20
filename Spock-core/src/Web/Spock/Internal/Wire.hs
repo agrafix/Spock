@@ -1,3 +1,4 @@
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveDataTypeable #-}
@@ -12,8 +13,9 @@
 {-# LANGUAGE TypeOperators #-}
 module Web.Spock.Internal.Wire where
 
-import Control.Arrow ((***))
 import Control.Applicative
+import Control.Arrow ((***))
+import Control.Concurrent.MVar
 import Control.Concurrent.STM
 import Control.Exception
 import Control.Monad.RWS.Strict
@@ -43,6 +45,7 @@ import Web.Routing.Router
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSLC
+import qualified Data.ByteString.SuperBuffer as SB
 import qualified Data.CaseInsensitive as CI
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
@@ -82,13 +85,58 @@ data VaultIf
    , vi_lookupKey :: forall a. V.Key a -> IO (Maybe a)
    }
 
+data CacheVar v
+    = forall r. CacheVar
+    { cv_lock :: !(MVar ())
+    , cv_makeVal :: !(IO r)
+    , cv_value :: !(IORef (Maybe r))
+    , cv_read :: r -> v
+    }
+
+instance Functor CacheVar where
+    fmap f (CacheVar lock makeVal valRef readV) =
+        CacheVar
+        { cv_lock = lock
+        , cv_makeVal = makeVal
+        , cv_value = valRef
+        , cv_read = f . readV
+        }
+
+newCacheVar :: IO v -> IO (CacheVar v)
+newCacheVar makeVal =
+    do lock <- newEmptyMVar
+       valueR <- newIORef Nothing
+       return (CacheVar lock makeVal valueR id)
+
+loadCacheVarOpt :: CacheVar v -> IO (Maybe v)
+loadCacheVarOpt (CacheVar lock _ valRef readV) =
+    bracket_ (putMVar lock ()) (takeMVar lock) $
+    fmap readV <$> readIORef valRef
+
+loadCacheVar :: CacheVar v -> IO v
+loadCacheVar (CacheVar lock makeVal valRef readV) =
+    bracket_ (putMVar lock ()) (takeMVar lock) $
+    do val <- readIORef valRef
+       case val of
+         Just v -> return (readV v)
+         Nothing ->
+             do v <- makeVal
+                writeIORef valRef (Just v)
+                return (readV v)
+
+data RequestBody
+    = RequestBody
+    { rb_value :: CacheVar BS.ByteString
+    , rb_postParams :: CacheVar [(T.Text, T.Text)]
+    , rb_files :: CacheVar (HM.HashMap T.Text UploadedFile)
+    }
+
 data RequestInfo ctx
    = RequestInfo
    { ri_method :: !SpockMethod
    , ri_request :: !Wai.Request
-   , ri_getParams :: [(T.Text, T.Text)]
-   , ri_postParams :: [(T.Text, T.Text)]
-   , ri_files :: !(HM.HashMap T.Text UploadedFile)
+   , ri_getParams :: ![(T.Text, T.Text)]
+   , ri_reqBody :: !RequestBody
    , ri_vaultIf :: !VaultIf
    , ri_context :: !ctx
    }
@@ -270,42 +318,78 @@ middlewareToApp mw =
 
 makeActionEnvironment :: InternalState -> SpockMethod -> Wai.Request -> IO (RequestInfo (), TVar V.Vault, IO ())
 makeActionEnvironment st stdMethod req =
-    do (bodyParams, bodyFiles) <- P.parseRequestBody (P.tempFileBackEnd st) req
-       vaultVar <- liftIO $ newTVarIO (Wai.vault req)
+    do vaultVar <- liftIO $ newTVarIO (Wai.vault req)
        let vaultIf =
                VaultIf
                { vi_modifyVault = atomically . modifyTVar' vaultVar
                , vi_lookupKey = \k -> V.lookup k <$> atomically (readTVar vaultVar)
                }
-           uploadedFiles =
-               HM.fromList $
-                 map (\(k, fileInfo) ->
-                          ( T.decodeUtf8 k
-                          , UploadedFile (T.decodeUtf8 $ P.fileName fileInfo) (T.decodeUtf8 $ P.fileContentType fileInfo) (P.fileContent fileInfo)
-                          )
-                     ) bodyFiles
-           postParams =
-               map (T.decodeUtf8 *** T.decodeUtf8) bodyParams
            getParams =
                map (\(k, mV) -> (T.decodeUtf8 k, T.decodeUtf8 $ fromMaybe BS.empty mV)) $ Wai.queryString req
+       rbValue <-
+           newCacheVar $
+           do let parseBody = Wai.requestBody req
+                  bodyLength = Wai.requestBodyLength req
+                  buffStart =
+                      case bodyLength of
+                        Wai.ChunkedBody -> 1024
+                        Wai.KnownLength x -> fromIntegral x
+              SB.withBuffer buffStart $ \sb ->
+                  do let loop =
+                             do b <- parseBody
+                                if BS.null b then pure () else (SB.appendBuffer sb b >> loop)
+                     loop
+       bodyTuple <-
+           newCacheVar $
+           case P.getRequestBodyType req of
+             Nothing -> return ([], HM.empty)
+             Just rbt ->
+                 do bodyBs <- loadCacheVar rbValue
+                    bodyRef <- newIORef (Just bodyBs)
+                    let loader =
+                            do mb <- readIORef bodyRef
+                               case mb of
+                                 Just b -> writeIORef bodyRef Nothing >> pure b
+                                 Nothing -> pure BS.empty
+                    (bodyParams, bodyFiles) <-
+                        P.sinkRequestBody (P.tempFileBackEnd st) rbt loader
+                    let uploadedFiles =
+                            HM.fromList $
+                            flip map bodyFiles $ \(k, fileInfo) ->
+                            ( T.decodeUtf8 k
+                            , UploadedFile (T.decodeUtf8 $ P.fileName fileInfo)
+                                (T.decodeUtf8 $ P.fileContentType fileInfo) (P.fileContent fileInfo)
+                            )
+                        postParams =
+                            map (T.decodeUtf8 *** T.decodeUtf8) bodyParams
+                    return (postParams, uploadedFiles)
+       let reqBody =
+               RequestBody
+               { rb_value = rbValue
+               , rb_files = fmap snd bodyTuple
+               , rb_postParams = fmap fst bodyTuple
+               }
        return ( RequestInfo
                 { ri_method = stdMethod
                 , ri_request = req
                 , ri_getParams = getParams
-                , ri_postParams = postParams
-                , ri_files = uploadedFiles
+                , ri_reqBody = reqBody
                 , ri_vaultIf = vaultIf
                 , ri_context = ()
                 }
               , vaultVar
-              , removeUploadedFiles uploadedFiles
+              , removeUploadedFiles (rb_files reqBody)
               )
 
-removeUploadedFiles :: HM.HashMap k UploadedFile -> IO ()
-removeUploadedFiles uploadedFiles =
-    forM_ (HM.elems uploadedFiles) $ \uploadedFile ->
-    do stillThere <- doesFileExist (uf_tempLocation uploadedFile)
-       when stillThere $ liftIO $ removeFile (uf_tempLocation uploadedFile)
+removeUploadedFiles :: CacheVar (HM.HashMap k UploadedFile) -> IO ()
+removeUploadedFiles uploadedFilesRef =
+    do cvals <- loadCacheVarOpt uploadedFilesRef
+       case cvals of
+         Nothing -> return ()
+         Just uploadedFiles ->
+             forM_ (HM.elems uploadedFiles) $ \uploadedFile ->
+             do stillThere <- doesFileExist (uf_tempLocation uploadedFile)
+                when stillThere $ liftIO $ removeFile (uf_tempLocation uploadedFile)
 
 applyAction :: MonadIO m
             => SpockConfigInternal

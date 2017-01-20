@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DoAndIfThenElse #-}
+{-# LANGUAGE DeriveGeneric #-}
 module Web.Spock.SafeSpec (spec) where
 
 import Web.Spock.Core
@@ -8,11 +9,22 @@ import Web.Spock.FrameworkSpecHelper
 
 import Control.Exception.Base
 import Control.Monad
+import Data.Aeson
 import Data.Monoid
+import GHC.Generics
 import Network.HTTP.Types.Status
 import Test.Hspec
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import qualified Test.Hspec.Wai as Test
+
+data SampleJson
+    = SampleJson
+    { sampleJson :: T.Text
+    } deriving (Show, Eq, Generic)
+
+instance ToJSON SampleJson
+instance FromJSON SampleJson
 
 app :: SpockT IO ()
 app =
@@ -46,6 +58,15 @@ app =
        get "get-params" $
            do gp <- paramsGet
               text (T.pack $ show gp)
+       post "post-params" $
+           do gp <- paramsPost
+              text (T.pack $ show gp)
+       post "json" $
+           do jbody <- jsonBody'
+              text (sampleJson jbody)
+       post "raw-body" $
+           do b <- body
+              text (T.decodeUtf8 b)
        let subcomp x =
                "subcomponent" <//> x
            subsubcomp x =

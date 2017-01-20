@@ -6,3 +6,5 @@ packages:
   - Spock-core/
   - reroute/
 resolver: lts-7.12
+extra-deps:
+  - superbuffer-0.2.0.1

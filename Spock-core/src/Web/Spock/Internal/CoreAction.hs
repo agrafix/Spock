@@ -87,14 +87,8 @@ reqMethod = asks ri_method
 -- | Get the raw request body
 body :: MonadIO m => ActionCtxT ctx m BS.ByteString
 body =
-    do req <- request
-       let parseBody = liftIO $ Wai.requestBody req
-           parseAll chunks =
-               do bs <- parseBody
-                  if BS.null bs
-                  then return chunks
-                  else parseAll (chunks `BS.append` bs)
-       parseAll BS.empty
+    do b <- asks ri_reqBody
+       liftIO $ loadCacheVar (rb_value b)
 {-# INLINE body #-}
 
 -- | Parse the request body as json
@@ -119,7 +113,8 @@ jsonBody' =
 -- | Get uploaded files
 files :: MonadIO m => ActionCtxT ctx m (HM.HashMap T.Text UploadedFile)
 files =
-    asks ri_files
+    do b <- asks ri_reqBody
+       liftIO $ loadCacheVar (rb_files b)
 {-# INLINE files #-}
 
 -- | Get all request GET params
@@ -129,7 +124,9 @@ paramsGet = asks ri_getParams
 
 -- | Get all request POST params
 paramsPost :: MonadIO m => ActionCtxT ctx m [(T.Text, T.Text)]
-paramsPost = asks ri_getParams
+paramsPost =
+    do b <- asks ri_reqBody
+       liftIO $ loadCacheVar (rb_postParams b)
 {-# INLINE paramsPost #-}
 
 -- | Get all request (POST + GET) params
