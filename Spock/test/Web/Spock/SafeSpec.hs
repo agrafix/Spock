@@ -12,6 +12,7 @@ import Control.Monad
 import Data.IORef
 import Data.Monoid
 import Test.Hspec
+import qualified Data.ByteString.Lazy.Char8 as BSLC
 import qualified Data.HashSet as HS
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
@@ -41,6 +42,12 @@ sessionSpec =
                    Test.request "GET" "/check" [("Cookie", T.encodeUtf8 $ "spockcookie=" <> sessCookie)] ""
                            `Test.shouldRespondWith` "5"
        Test.with sessionApp $
+           it "should update internal session id correctly" $
+           do bdy <- fmap Wai.simpleBody (Test.get "/regenerate-different-sids")
+              case BSLC.split '|' bdy of
+                [a, b] | a /= b -> pure ()
+                xs -> Test.liftIO $ expectationFailure ("Bad result: " ++ show xs)
+       Test.with sessionApp $
           it "should regenerate and preserve all content" $
           do res <- Test.get "/set/5"
              case getSessCookie res of
@@ -64,6 +71,11 @@ sessionSpec =
           do get "test" $ getSessionId >>= text
              get ("set" <//> var) $ \number -> writeSession number >> text "done"
              get "regenerate" $ sessionRegenerateId >> text "done"
+             get "regenerate-different-sids" $
+                 do s1 <- getSessionId
+                    sessionRegenerateId
+                    s2 <- getSessionId
+                    text $ s1 <> "|" <> s2
              get "check" $
                  do val <- readSession
                     text (T.pack $ show val)
