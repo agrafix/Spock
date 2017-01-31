@@ -21,6 +21,7 @@ module Web.Spock.Action
     , CookieEOL(..), setCookie, deleteCookie, bytes, lazyBytes
     , setRawMultiHeader, MultiHeader(..)
     , text, html, file, json, stream, response
+    , respondApp, respondMiddleware
       -- * Middleware helpers
     , middlewarePass, modifyVault, queryVault
       -- * Basic HTTP-Auth

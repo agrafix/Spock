@@ -17,6 +17,7 @@ module Web.Spock.Internal.CoreAction
     , requireBasicAuth, withBasicAuthData
     , getContext, runInContext
     , preferredFormat, ClientPreferredFormat(..)
+    , respondApp, respondMiddleware
     )
 where
 
@@ -215,6 +216,20 @@ jumpNext = throwError ActionTryNext
 redirect :: MonadIO m => T.Text -> ActionCtxT ctx m a
 redirect = throwError . ActionRedirect
 {-# INLINE redirect #-}
+
+-- | Respond to the request by running a 'Wai.Application'. This is
+-- usefull in combination with wildcard routes. This can not be used
+-- in combination with other request consuming combinators
+-- like 'jsonBody', 'body', 'paramsPost', ...
+respondApp :: Monad m => Wai.Application -> ActionCtxT ctx m a
+respondApp = throwError . ActionApplication . return
+
+-- | Respond to the request by running a 'Wai.Middleware'. This is
+-- usefull in combination with wildcard routes. This can not be used
+-- in combination with other request consuming combinators
+-- like 'jsonBody', 'body', 'paramsPost', ...
+respondMiddleware :: Monad m => Wai.Middleware -> ActionCtxT ctx m a
+respondMiddleware = throwError . ActionMiddleware . return
 
 -- | If the Spock application is used as a middleware, you can use
 -- this to pass request handling to the underlying application.

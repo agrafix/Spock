@@ -220,7 +220,9 @@ data ActionInterupt
     | ActionError String
     | ActionDone
     | ActionMiddlewarePass
-    deriving (Show, Typeable)
+    | ActionMiddleware !(IO Wai.Middleware)
+    | ActionApplication !(IO Wai.Application)
+    deriving Typeable
 
 instance Monoid ActionInterupt where
     mempty = ActionDone
@@ -422,6 +424,13 @@ applyAction config req env (selectedAction : xs) =
              return $ Just (ResponseValState respState)
          Left ActionMiddlewarePass ->
              return Nothing
+         Left (ActionApplication app) ->
+             return $ Just (ResponseHandler app)
+         Left (ActionMiddleware getMiddleware) ->
+             return $ Just $ ResponseHandler $
+                do errHandler <- sci_errorHandler config status404
+                   mw <- getMiddleware
+                   return $ mw errHandler
          Right () ->
              return $ Just (ResponseValState respState)
 

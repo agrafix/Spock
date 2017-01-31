@@ -14,8 +14,10 @@ import Data.Monoid
 import GHC.Generics
 import Network.HTTP.Types.Status
 import Test.Hspec
+import qualified Data.ByteString.Lazy.Char8 as BSLC
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
+import qualified Network.Wai as Wai
 import qualified Test.Hspec.Wai as Test
 
 data SampleJson
@@ -87,6 +89,12 @@ app =
        hookRouteCustom "NOTIFY" ("notify" <//> var) $ \notification -> text notification
        hookAny GET $ text . T.intercalate "/"
        hookAnyCustom "MYVERB" $ text . T.intercalate "/"
+       get ("wai" <//> wildcard) $ \_ ->
+           respondApp dummyWai
+
+dummyWai :: Wai.Application
+dummyWai req respond =
+    respond $ Wai.responseLBS status200 [] (BSLC.pack $ show $ Wai.pathInfo req)
 
 routeRenderingSpec :: Spec
 routeRenderingSpec =

@@ -64,6 +64,9 @@ routingSpec =
             get "/" `shouldRespondWith` "root" { matchStatus = 200 }
          it "allows access to get params" $
             get "/get-params?foo=bar" `shouldRespondWith` "[(\"foo\",\"bar\")]" { matchStatus = 200 }
+         it "supports wai app responses" $
+             do get "/wai/foo" `shouldRespondWith` "[\"wai\",\"foo\"]" { matchStatus = 200 }
+                get "/wai/foo/bar" `shouldRespondWith` "[\"wai\",\"foo\",\"bar\"]" { matchStatus = 200 }
          it "allows access to post params" $
             postHtmlForm "/post-params" [("foo", "bar")]
                 `shouldRespondWith` "[(\"foo\",\"bar\")]" { matchStatus = 200 }

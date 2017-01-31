@@ -12,7 +12,7 @@ module Web.Spock.Core
       -- * Spock's route definition monad
     , spockT, spockLimT, spockConfigT, SpockT, SpockCtxT
       -- * Defining routes
-    , Path, root, Var, var, static, (<//>)
+    , Path, root, Var, var, static, (<//>), wildcard
       -- * Rendering routes
     , renderRoute
       -- * Hooking routes
@@ -48,10 +48,10 @@ import Web.Spock.Internal.Config
 import qualified Data.Text as T
 import qualified Network.HTTP.Types as Http
 import qualified Network.Wai as Wai
+import qualified Network.Wai.Handler.Warp as Warp
 import qualified Web.Routing.Combinators as COMB
 import qualified Web.Routing.Router as AR
 import qualified Web.Spock.Internal.Wire as W
-import qualified Network.Wai.Handler.Warp as Warp
 
 type SpockT = SpockCtxT ()
 
