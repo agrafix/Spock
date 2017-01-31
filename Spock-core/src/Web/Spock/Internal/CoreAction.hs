@@ -217,7 +217,7 @@ redirect :: MonadIO m => T.Text -> ActionCtxT ctx m a
 redirect = throwError . ActionRedirect
 {-# INLINE redirect #-}
 
--- | Respond to the request by running a 'Wai.Application'. This is
+-- | Respond to the request by running an 'Wai.Application'. This is
 -- usefull in combination with wildcard routes. This can not be used
 -- in combination with other request consuming combinators
 -- like 'jsonBody', 'body', 'paramsPost', ...

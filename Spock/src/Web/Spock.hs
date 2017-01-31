@@ -11,7 +11,7 @@ module Web.Spock
       -- * Spock's route definition monad
     , spock, SpockM, SpockCtxM
       -- * Defining routes
-    , Path, root, Var, var, static, (<//>)
+    , Path, root, Var, var, static, (<//>), wildcard
       -- * Rendering routes
     , renderRoute
       -- * Hooking routes
@@ -49,8 +49,8 @@ import qualified Web.Spock.Core as C
 import Control.Applicative
 import Control.Monad.Reader
 import Control.Monad.Trans.Resource
-import Network.HTTP.Types.Status (status403)
 import Data.Pool
+import Network.HTTP.Types.Status (status403)
 import Prelude hiding (head)
 import qualified Data.HVect as HV
 import qualified Data.Text as T
