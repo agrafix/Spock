@@ -5,7 +5,7 @@ Spock
 [![Hackage](https://img.shields.io/hackage/v/Spock.svg)](http://hackage.haskell.org/package/Spock)
 [![Hackage Spock-Core](https://img.shields.io/hackage/v/Spock-core.svg)](http://hackage.haskell.org/package/Spock-core)
 
-Documentation: [Spock 0.11.0.0](https://spockdocs.s3.eu-central-1.amazonaws.com/Spock-0.11.0.0/Web-Spock.html)
+Documentation: [Spock 0.12.0.0](https://spockdocs.s3.eu-central-1.amazonaws.com/Spock-0.12.0.0/Web-Spock.html)
 
 ## Intro
 
@@ -38,6 +38,7 @@ everything you need to get a quick start into web hacking with haskell:
 
 ### Talks
 
+* English: [ZuriHac 2016: Spock - Powerful Elegant Web Applications](https://www.youtube.com/watch?v=-b-Oz6y-n_Y) (by Alexander Thiemann)
 * English: [Spock - Powerful Elegent Web Applications using Haskell](https://www.youtube.com/watch?v=kNqsOBrCbLo) (by Alexander Thiemann)
 * English: [Beginning Web Programming in Haskell (using Spock)](https://www.youtube.com/watch?v=GobPiGL9jJ4) (by Ollie Charles)
 * German: [Moderne typsichere Web-Entwicklung mit Haskell](https://dl.dropboxusercontent.com/u/15078797/talks/typesafe-webdev-2015.pdf) (by Alexander Thiemann)
@@ -66,18 +67,6 @@ If you'd like to use your application via HTTPS, there are two options:
 * Use nginx/haproxy/... as reverse proxy in front of the Spock application.
 * Convert the Spock application to a `wai`-application using the `spockAsApp`. Then use the `warp-tls` package to run it.
 
-### Benchmarks
-
-See the [Spock-bench repository](https://github.com/agrafix/Spock-bench) to reproduce.
-
-| Framework | GHC    | Version  | simple route              | route with one param      | deeply nested route |
-|-----------|--------|----------|---------------------------|---------------------------|---------------------|
-| Spock     | 7.10.2 | 0.11.0.0 | **69243**                 | **65835**                 | **64763**           |
-| scotty    | 7.10.2 | 0.10.2   | 66441                     | 65357                     | 9542                |
-| snap      | 7.10.2 | 0.9.8.0  | 39964                     | 35566                     | 38356               |
-| fn        | 7.10.2 | 0.2.0.2  | 63083                     | 63183                     | 22346               |
-| servant   | 7.10.2 | 0.7      | 66041                     | 65590                     | 64606               |
-
 ## Notes
 
 Since version 0.11.0.0 Spock drops simple routing in favor of typesafe routing and drops safe actions in favor of the "usual" way of csrf protection with a token.
@@ -103,11 +92,10 @@ Pull requests are welcome! Please consider creating an issue beforehand, so we c
 
 ### Supported GHC Versions
 
-* 7.8.4
 * 7.10.2
 * 8.0
 
 ### License
 
 Released under the BSD3 license.
-(c) 2013 - 2016 Alexander Thiemann
+(c) 2013 - 2017 Alexander Thiemann
