@@ -8,11 +8,11 @@ license:             BSD3
 license-file:        LICENSE
 author:              Alexander Thiemann <mail@athiemann.net>
 maintainer:          Alexander Thiemann <mail@athiemann.net>
-copyright:           (c) 2013 - 2016 Alexander Thiemann
+copyright:           (c) 2013 - 2017 Alexander Thiemann
 category:            Web
 build-type:          Simple
 cabal-version:       >=1.8
-tested-with:         GHC==7.8.4, GHC==7.10.2, GHC==8.0.1
+tested-with:         GHC==7.10.2, GHC==8.0.1
 
 library
   hs-source-dirs:      src
