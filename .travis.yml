@@ -41,7 +41,7 @@ install:
       cabal)
         travis_retry cabal update -v;
         sed -i 's/^jobs:/-- jobs:/' ${HOME}/.cabal/config;
-        cabal new-build --dep --enable-tests --disable-benchmarks -j2;;
+        cabal new-build --dep --enable-tests --disable-benchmarks -j2 Spock Spock-core Spock-api Spock-api-server reroute ;;
     esac
 
 script:
