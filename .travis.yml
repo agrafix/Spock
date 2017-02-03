@@ -10,7 +10,7 @@ cache:
 matrix:
   fast_finish: true
   include:
-    - env: BUILD=stack STACK_BUILD_MODE="test" STACK_BUILD_ARGS="--bench --no-run-benchmarks" STACK_ARGS="" PUBLISH_DOCS="yes" STACK_YAML=stack.yaml
+    - env: BUILD=stack STACK_BUILD_MODE="test" STACK_BUILD_ARGS="--bench --no-run-benchmarks" STACK_ARGS="--haddock" PUBLISH_DOCS="yes" STACK_YAML=stack.yaml
       compiler: ": #stack 8.0.1"
       addons: {apt: {packages: [libgmp-dev]}}
     - env: BUILD=stack STACK_BUILD_MODE="test" STACK_BUILD_ARGS="--bench --no-run-benchmarks" STACK_ARGS="--resolver nightly" STACK_YAML=stack.yaml
@@ -36,8 +36,8 @@ install:
   - set -e; case "$BUILD" in
       stack)
         stack $STACK_ARGS setup --no-terminal;
-        stack $STACK_ARGS install hscolour;
-        stack $STACK_ARGS build --only-snapshot --no-terminal --haddock;;
+        if [ "$PUBLISH_DOCS" = "yes" ]; then stack $STACK_ARGS install --no-terminal hscolour; fi;
+        stack $STACK_ARGS build --fast --only-snapshot --no-terminal --haddock;;
       cabal)
         travis_retry cabal update -v;
         sed -i 's/^jobs:/-- jobs:/' ${HOME}/.cabal/config;
@@ -49,7 +49,7 @@ script:
   - set -e;
     case "$BUILD" in
       stack)
-        stack $STACK_ARGS $STACK_BUILD_MODE --pedantic --no-terminal --skip-ghc-check --haddock $STACK_BUILD_ARGS;;
+        stack $STACK_ARGS $STACK_BUILD_MODE --pedantic --fast --no-terminal --skip-ghc-check $STACK_BUILD_ARGS;;
       cabal)
         cabal new-build --dep --enable-tests --disable-benchmarks -j2;
         cabal check;
