@@ -11,3 +11,4 @@
 *.hp
 .stack-work/
 _site/
+dist-newstyle/
