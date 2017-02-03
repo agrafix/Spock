@@ -1,5 +1,5 @@
 name:                reroute
-version:             0.4.0.1
+version:             0.4.1.0
 synopsis:            abstract implementation of typed and untyped web routing
 description:         abstraction over how urls with/without parameters are mapped to their corresponding handlers
 homepage:            http://github.com/agrafix/Spock
