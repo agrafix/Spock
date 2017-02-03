@@ -15,8 +15,10 @@ case "$step" in
                 stack $STACK_ARGS setup --no-terminal
                 if [ "$PUBLISH_DOCS" = "yes" ]; then
                     stack $STACK_ARGS install --no-terminal hscolour
+                    stack $STACK_ARGS build --fast --only-snapshot --no-terminal --haddock
+                else
+                    stack $STACK_ARGS build --fast --only-snapshot --no-terminal
                 fi
-                stack $STACK_ARGS build --fast --only-snapshot --no-terminal --haddock
                 ;;
             cabal)
                 sed -i 's/^jobs:/-- jobs:/' ${HOME}/.cabal/config;
