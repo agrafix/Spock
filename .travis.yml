@@ -45,12 +45,13 @@ install:
     esac
 
 script:
-  - set -e;
-    case "$BUILD" in
+  - set -e; case "$BUILD" in
       stack)
-        stack $STACK_ARGS $STACK_BUILD_MODE --pedantic --fast --no-terminal --skip-ghc-check $STACK_BUILD_ARGS;;
+        stack $STACK_ARGS $STACK_BUILD_MODE --pedantic --fast --no-terminal --skip-ghc-check $STACK_BUILD_ARGS ;;
       cabal)
-        cabal new-build --enable-tests --disable-benchmarks -j2;;
+        echo "Doing a cabal build ...";
+        cabal version;
+        cabal new-build --enable-tests --disable-benchmarks -j2 ;;
     esac
 
 deploy:
