@@ -12,10 +12,10 @@ matrix:
   include:
     - env: BUILD=stack STACK_BUILD_MODE="test" STACK_BUILD_ARGS="--bench --no-run-benchmarks" STACK_ARGS="" PUBLISH_DOCS="yes" STACK_YAML=stack.yaml
       compiler: ": #stack 8.0.1"
-      addons: {apt: {packages: [ghc-8.0.1], sources: [hvr-ghc]}}
+      addons: {apt: {packages: [libgmp-dev]}}
     - env: BUILD=stack STACK_BUILD_MODE="test" STACK_BUILD_ARGS="--bench --no-run-benchmarks" STACK_ARGS="--resolver nightly" STACK_YAML=stack.yaml
       compiler: ": #stack 8.0.2"
-      addons: {apt: {packages: [ghc-8.0.2], sources: [hvr-ghc]}}
+      addons: {apt: {packages: [libgmp-dev]}}
     - env: BUILD=cabal CABALVER=1.24 GHCVER=8.0.1
       compiler: ": #GHC 8.0.1"
       addons: {apt: {packages: [cabal-install-1.24,ghc-8.0.1], sources: [hvr-ghc]}}
