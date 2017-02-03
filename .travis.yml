@@ -50,7 +50,7 @@ script:
         stack $STACK_ARGS $STACK_BUILD_MODE --pedantic --fast --no-terminal --skip-ghc-check $STACK_BUILD_ARGS ;;
       cabal)
         echo "Doing a cabal build ...";
-        cabal version;
+        cabal --version;
         cabal new-build --enable-tests --disable-benchmarks -j2 ;;
     esac
 
