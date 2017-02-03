@@ -51,9 +51,7 @@ script:
       stack)
         stack $STACK_ARGS $STACK_BUILD_MODE --pedantic --fast --no-terminal --skip-ghc-check $STACK_BUILD_ARGS;;
       cabal)
-        cabal new-build --dep --enable-tests --disable-benchmarks -j2;
-        cabal check;
-        cabal sdist;;
+        cabal new-build --enable-tests --disable-benchmarks -j2;;
     esac
 deploy:
   on:
