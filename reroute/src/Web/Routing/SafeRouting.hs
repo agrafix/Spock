@@ -9,20 +9,20 @@
 
 module Web.Routing.SafeRouting where
 
-import qualified Data.PolyMap as PM
 import Data.HVect hiding (null, length)
 import qualified Data.HVect as HV
+import qualified Data.PolyMap as PM
 
 import Data.Maybe
 #if MIN_VERSION_base(4,8,0)
 import Data.Monoid ((<>))
 #else
-import Data.Monoid (Monoid (..), (<>))
 import Control.Applicative ((<$>))
+import Data.Monoid (Monoid (..), (<>))
 #endif
-import Data.Typeable (Typeable)
 import Control.DeepSeq (NFData (..))
-import Web.PathPieces
+import Data.Typeable (Typeable)
+import Web.HttpApiData
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 
@@ -57,7 +57,7 @@ matchRoute (m, cAll) pathPieces =
 data PathInternal (as :: [*]) where
   PI_Empty :: PathInternal '[] -- the empty path
   PI_StaticCons :: T.Text -> PathInternal as -> PathInternal as -- append a static path piece to path
-  PI_VarCons :: (PathPiece a, Typeable a) => PathInternal as -> PathInternal (a ': as) -- append a param to path
+  PI_VarCons :: (FromHttpApiData a, Typeable a) => PathInternal as -> PathInternal (a ': as) -- append a param to path
   PI_Wildcard :: PathInternal as -> PathInternal (T.Text ': as) -- append the rest of the route
 
 data PathMap x =
@@ -65,7 +65,7 @@ data PathMap x =
   { pm_subComponents :: [[T.Text] -> x]
   , pm_here :: [x]
   , pm_staticMap :: HM.HashMap T.Text (PathMap x)
-  , pm_polyMap :: PM.PolyMap PathPiece PathMap x
+  , pm_polyMap :: PM.PolyMap FromHttpApiData PathMap x
   , pm_wildcards :: [T.Text -> x]
   }
 
@@ -133,7 +133,7 @@ match (PathMap c h s p w) pieces =
     [] -> h ++ fmap ($ "") w
     (pp:pps) ->
       let staticMatches = maybeToList (HM.lookup pp s) >>= flip match pps
-          varMatches = PM.lookupConcat (fromPathPiece pp)
+          varMatches = PM.lookupConcat (either (const Nothing) Just $ parseUrlPiece pp)
                          (\piece pathMap' -> fmap ($ piece) (match pathMap' pps)) p
           routeRest = combineRoutePieces pieces
           wildcardMatches = fmap ($ routeRest) w
@@ -160,12 +160,12 @@ parse path pathComps@(pathComp : xs) =
           then parse pathXs xs
           else Nothing
       PI_VarCons pathXs ->
-          case fromPathPiece pathComp of
-            Nothing -> Nothing
-            Just val ->
+          case parseUrlPiece pathComp of
+            Left _ -> Nothing
+            Right val ->
                 let finish = parse pathXs xs
                 in fmap (\parsedXs -> val :&: parsedXs) finish
       PI_Wildcard PI_Empty ->
-        Just $ (combineRoutePieces pathComps) :&: HNil
+        Just $ combineRoutePieces pathComps :&: HNil
       PI_Wildcard _ ->
         error "Shouldn't happen"

@@ -40,7 +40,7 @@ import Data.Time
 import Network.HTTP.Types.Header (HeaderName, ResponseHeaders)
 import Network.HTTP.Types.Status
 import Prelude hiding (head)
-import Web.PathPieces
+import Web.HttpApiData
 import qualified Control.Monad.State as ST
 import qualified Data.Aeson as A
 import qualified Data.ByteString as BS
@@ -139,14 +139,14 @@ params =
 {-# INLINE params #-}
 
 -- | Read a request param. Spock looks POST variables first and then in GET variables
-param :: (PathPiece p, MonadIO m) => T.Text -> ActionCtxT ctx m (Maybe p)
+param :: (FromHttpApiData p, MonadIO m) => T.Text -> ActionCtxT ctx m (Maybe p)
 param k =
     do qp <- params
-       return $ join $ fmap fromPathPiece (lookup k qp)
+       return $ join $ fmap (either (const Nothing) Just . parseQueryParam) (lookup k qp)
 {-# INLINE param #-}
 
 -- | Like 'param', but outputs an error when a param is missing
-param' :: (PathPiece p, MonadIO m) => T.Text -> ActionCtxT ctx m p
+param' :: (FromHttpApiData p, MonadIO m) => T.Text -> ActionCtxT ctx m p
 param' k =
     do mParam <- param k
        case mParam of

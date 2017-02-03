@@ -42,7 +42,7 @@ library
                        http-types >=0.8,
                        hvect >= 0.2,
                        mtl >=2.1,
-                       path-pieces >=0.1.4,
+                       http-api-data >= 0.2,
                        old-locale >=1.0,
                        reroute >=0.3.1,
                        resourcet >= 0.4,

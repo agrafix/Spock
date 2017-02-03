@@ -10,7 +10,7 @@ module Web.Routing.Combinators where
 import Data.HVect
 import Data.String
 import Data.Typeable (Typeable)
-import Web.PathPieces
+import Web.HttpApiData
 import qualified Data.Text as T
 
 import Web.Routing.SafeRouting
@@ -20,7 +20,7 @@ data PathState = Open | Closed
 data Path (as :: [*]) (pathState :: PathState) where
   Empty :: Path '[] 'Open
   StaticCons :: T.Text -> Path as ps -> Path as ps
-  VarCons :: (PathPiece a, Typeable a) => Path as ps -> Path (a ': as) ps
+  VarCons :: (FromHttpApiData a, Typeable a) => Path as ps -> Path (a ': as) ps
   Wildcard :: Path as 'Open -> Path (T.Text ': as) 'Closed
 
 toInternalPath :: Path as pathState -> PathInternal as
@@ -32,7 +32,7 @@ toInternalPath (Wildcard p) = PI_Wildcard (toInternalPath p)
 type Var a = Path (a ': '[]) 'Open
 
 -- | A route parameter
-var :: (Typeable a, PathPiece a) => Path (a ': '[]) 'Open
+var :: (Typeable a, FromHttpApiData a) => Path (a ': '[]) 'Open
 var = VarCons Empty
 
 -- | A static route piece
@@ -63,15 +63,15 @@ pathToRep (StaticCons _ p) = pathToRep p
 pathToRep (VarCons p) = RCons (pathToRep p)
 pathToRep (Wildcard p) = RCons (pathToRep p)
 
-renderRoute :: Path as 'Open -> HVect as -> T.Text
+renderRoute :: AllHave ToHttpApiData as => Path as 'Open -> HVect as -> T.Text
 renderRoute p = combineRoutePieces . renderRoute' p
 
-renderRoute' :: Path as 'Open -> HVect as -> [T.Text]
+renderRoute' :: AllHave ToHttpApiData as => Path as 'Open -> HVect as -> [T.Text]
 renderRoute' Empty _ = []
 renderRoute' (StaticCons pathPiece pathXs) paramXs =
     ( pathPiece : renderRoute' pathXs paramXs )
 renderRoute' (VarCons pathXs) (val :&: paramXs) =
-    ( toPathPiece val : renderRoute' pathXs paramXs)
+    ( toUrlPiece val : renderRoute' pathXs paramXs)
 #if __GLASGOW_HASKELL__ < 800
 renderRoute' _ _ =
     error "This will never happen."

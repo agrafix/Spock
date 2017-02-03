@@ -41,6 +41,7 @@ import Data.HVect hiding (head)
 import Data.Word
 import Network.HTTP.Types.Method
 import Prelude hiding (head, uncurry, curry)
+import Web.HttpApiData
 import Web.Routing.Combinators hiding (renderRoute)
 import Web.Routing.Router (swapMonad)
 import Web.Routing.SafeRouting
@@ -245,5 +246,5 @@ middleware = addMiddleware
 (<//>) = (</>)
 
 -- | Render a route applying path pieces
-renderRoute :: Path as 'Open -> HVectElim as T.Text
+renderRoute :: AllHave ToHttpApiData as => Path as 'Open -> HVectElim as T.Text
 renderRoute route = curryExpl (pathToRep route) (T.cons '/' . COMB.renderRoute route)

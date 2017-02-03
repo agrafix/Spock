@@ -122,7 +122,7 @@ getClientCsrfToken =
 {-# INLINE getClientCsrfToken #-}
 
 -- | Check that the client sent a valid CSRF token. You should not need to call this
--- manually if 'spc_csrfProtection' is turned on.
+-- manually in non GET requests if 'spc_csrfProtection' is turned on.
 csrfCheck :: SpockActionCtx ctx conn sess st ()
 csrfCheck =
     do csrf <- getCsrfToken
