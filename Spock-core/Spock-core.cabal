@@ -40,7 +40,7 @@ library
                        directory >=1.2,
                        hashable >=1.2,
                        http-types >=0.8,
-                       hvect >= 0.2,
+                       hvect >= 0.4,
                        mtl >=2.1,
                        http-api-data >= 0.2,
                        old-locale >=1.0,
