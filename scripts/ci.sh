@@ -5,6 +5,8 @@ set -x
 
 step="$1"
 
+echo "Running step $step ..."
+
 case "$step" in
     install)
         mkdir -p $HOME/.local/bin
@@ -37,3 +39,6 @@ case "$step" in
         exit 1
         ;;
 esac
+
+echo "Completed $step ."
+exit 0

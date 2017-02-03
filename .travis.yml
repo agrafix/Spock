@@ -35,7 +35,7 @@ before_install:
 install:
   - set -e; case "$BUILD" in
       cabal)
-        travis_retry cabal update -v;
+        travis_retry cabal update -v;;
     esac
   - scripts/ci.sh "install"
 
