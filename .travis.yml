@@ -24,7 +24,7 @@ before_install:
   - chmod +x scripts/ci.sh
   - mkdir -p ~/.local/bin
   - unset CC
-  - set -e; case "$BUILD" in
+  - case "$BUILD" in
        stack)
          export PATH=$HOME/.local/bin:/opt/ghc/$GHCVER/bin:$PATH;
          travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack';;
@@ -33,7 +33,7 @@ before_install:
     esac
 
 install:
-  - set -e; case "$BUILD" in
+  - case "$BUILD" in
       cabal)
         travis_retry cabal update -v;;
     esac
