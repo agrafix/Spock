@@ -1,6 +1,8 @@
 packages:
-  Spock/
-  Spock-api/
-  Spock-api-server/
-  Spock-core/
-  reroute/
+  Spock/*.cabal
+  Spock-api/*.cabal
+  Spock-api-server/*.cabal
+  Spock-core/*.cabal
+  reroute/*.cabal
+
+benchmarks: False
