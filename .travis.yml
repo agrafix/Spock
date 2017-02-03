@@ -51,7 +51,7 @@ script:
       cabal)
         echo "Doing a cabal build ...";
         cabal --version;
-        cabal new-build --enable-tests --disable-benchmarks -j2 ;;
+        cabal new-build --enable-tests --disable-benchmarks -j2 Spock Spock-core Spock-api Spock-api-server reroute ;;
     esac
 
 deploy:
