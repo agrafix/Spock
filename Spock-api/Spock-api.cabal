@@ -20,7 +20,7 @@ library
   build-depends:
                 aeson >= 0.7,
                 base >= 4 && < 5,
-                reroute >= 0.3,
+                reroute >= 0.4,
                 hvect >= 0.3.1,
                 deepseq
   ghc-options: -auto-all -Wall
