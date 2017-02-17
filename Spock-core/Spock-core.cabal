@@ -44,7 +44,7 @@ library
                        mtl >=2.1,
                        http-api-data >= 0.2,
                        old-locale >=1.0,
-                       reroute >=0.3.1,
+                       reroute >=0.4,
                        resourcet >= 0.4,
                        stm >=2.4,
                        superbuffer >= 0.2,
