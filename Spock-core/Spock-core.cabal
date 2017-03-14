@@ -52,6 +52,7 @@ library
                        text >= 0.11.3.1,
                        time >=1.4,
                        transformers >=0.3,
+                       transformers-base >=0.4,
                        unordered-containers >=0.2,
                        vault >=0.3,
                        wai >=3.0,

@@ -4,13 +4,16 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DoAndIfThenElse #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 module Web.Spock.Internal.Wire where
 
 import Control.Applicative
@@ -18,6 +21,7 @@ import Control.Arrow ((***))
 import Control.Concurrent.MVar
 import Control.Concurrent.STM
 import Control.Exception
+import Control.Monad.Base
 import Control.Monad.RWS.Strict
 #if MIN_VERSION_mtl(2,2,0)
 import Control.Monad.Except
@@ -268,6 +272,13 @@ instance MonadTransControl (ActionCtxT ctx) where
           (f $ \(ActionCtxT lala) -> runRWST (runErrorT lala) requestInfo responseState)
     restoreT mSt = ActionCtxT . toErrorT $ RWST (\_ _ -> mSt)
 
+instance MonadBase b m => MonadBase b (ActionCtxT ctx m) where
+    liftBase = liftBaseDefault
+
+instance MonadBaseControl b m => MonadBaseControl b (ActionCtxT ctx m) where
+    type StM (ActionCtxT ctx m) a = ComposeSt (ActionCtxT ctx) m a
+    liftBaseWith = defaultLiftBaseWith
+    restoreM = defaultRestoreM
 
 data SpockConfigInternal
     = SpockConfigInternal
