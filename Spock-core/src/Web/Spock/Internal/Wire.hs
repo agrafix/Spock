@@ -25,6 +25,7 @@ import Control.Monad.Except
 import Control.Monad.Error
 #endif
 import Control.Monad.Reader.Class ()
+import Control.Monad.Trans.Control
 import Control.Monad.Trans.Resource
 import Data.Hashable
 import Data.IORef
@@ -230,9 +231,16 @@ instance Monoid ActionInterupt where
 
 #if MIN_VERSION_mtl(2,2,0)
 type ErrorT = ExceptT
+
 runErrorT :: ExceptT e m a -> m (Either e a)
 runErrorT = runExceptT
+
+toErrorT :: m (Either e a) -> ErrorT e m a
+toErrorT = ExceptT
 #else
+toErrorT :: m (Either e a) -> ErrorT e m a
+toErrorT = ErrorT
+
 instance Error ActionInterupt where
     noMsg = ActionError "Unkown Internal Action Error"
     strMsg = ActionError
@@ -250,6 +258,16 @@ newtype ActionCtxT ctx m a
 
 instance MonadTrans (ActionCtxT ctx) where
     lift = ActionCtxT . lift . lift
+
+instance MonadTransControl (ActionCtxT ctx) where
+    type StT (ActionCtxT ctx) a = (Either ActionInterupt a, ResponseState, ())
+    liftWith f =
+      ActionCtxT . toErrorT . RWST $ \requestInfo responseState ->
+        fmap
+          (\x -> (pure x, responseState, ()))
+          (f $ \(ActionCtxT lala) -> runRWST (runErrorT lala) requestInfo responseState)
+    restoreT mSt = ActionCtxT . toErrorT $ RWST (\_ _ -> mSt)
+
 
 data SpockConfigInternal
     = SpockConfigInternal
