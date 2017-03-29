@@ -4,13 +4,16 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DoAndIfThenElse #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 module Web.Spock.Internal.Wire where
 
 import Control.Applicative
@@ -18,6 +21,7 @@ import Control.Arrow ((***))
 import Control.Concurrent.MVar
 import Control.Concurrent.STM
 import Control.Exception
+import Control.Monad.Base
 import Control.Monad.RWS.Strict
 #if MIN_VERSION_mtl(2,2,0)
 import Control.Monad.Except
@@ -25,6 +29,7 @@ import Control.Monad.Except
 import Control.Monad.Error
 #endif
 import Control.Monad.Reader.Class ()
+import Control.Monad.Trans.Control
 import Control.Monad.Trans.Resource
 import Data.Hashable
 import Data.IORef
@@ -230,9 +235,16 @@ instance Monoid ActionInterupt where
 
 #if MIN_VERSION_mtl(2,2,0)
 type ErrorT = ExceptT
+
 runErrorT :: ExceptT e m a -> m (Either e a)
 runErrorT = runExceptT
+
+toErrorT :: m (Either e a) -> ErrorT e m a
+toErrorT = ExceptT
 #else
+toErrorT :: m (Either e a) -> ErrorT e m a
+toErrorT = ErrorT
+
 instance Error ActionInterupt where
     noMsg = ActionError "Unkown Internal Action Error"
     strMsg = ActionError
@@ -250,6 +262,23 @@ newtype ActionCtxT ctx m a
 
 instance MonadTrans (ActionCtxT ctx) where
     lift = ActionCtxT . lift . lift
+
+instance MonadTransControl (ActionCtxT ctx) where
+    type StT (ActionCtxT ctx) a = (Either ActionInterupt a, ResponseState, ())
+    liftWith f =
+      ActionCtxT . toErrorT . RWST $ \requestInfo responseState ->
+        fmap
+          (\x -> (pure x, responseState, ()))
+          (f $ \(ActionCtxT lala) -> runRWST (runErrorT lala) requestInfo responseState)
+    restoreT mSt = ActionCtxT . toErrorT $ RWST (\_ _ -> mSt)
+
+instance MonadBase b m => MonadBase b (ActionCtxT ctx m) where
+    liftBase = liftBaseDefault
+
+instance MonadBaseControl b m => MonadBaseControl b (ActionCtxT ctx m) where
+    type StM (ActionCtxT ctx m) a = ComposeSt (ActionCtxT ctx) m a
+    liftBaseWith = defaultLiftBaseWith
+    restoreM = defaultRestoreM
 
 data SpockConfigInternal
     = SpockConfigInternal
