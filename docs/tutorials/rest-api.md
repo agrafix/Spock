@@ -412,6 +412,7 @@ function to generate simple JSON errors:
 errorJson :: Int -> Text -> ApiAction ()
 errorJson code message =
   json $
+    object
     [ "result" .= String "failure"
     , "error" .= object ["code" .= code, "message" .= message]
     ]
