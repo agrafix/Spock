@@ -32,7 +32,7 @@ that or another way to perform HTTP requests. `curl` examples are provided throu
 the tutorial.
 
 You can find the finished code
-[here](//github.com/brynedwards/spock-tutorials/tree/90d283c9cad9d90c5de7d832eb40e5ef8c0c209b/rest-api). "part1"
+[here](//github.com/brynedwards/spock-tutorials/tree/9076c2e0f887dab0bd1758b937d630cdcb9555df/rest-api). "part1"
 covers up to Adding a Database; "part2" covers up to Finishing up. 
 
 # Project Setup
