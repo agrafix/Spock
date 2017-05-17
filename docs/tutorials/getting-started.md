@@ -1,9 +1,9 @@
 ---
 layout: page
-title: "Tutorial"
+title: "Getting Started"
 date: 2016-08-26 08:36:06
 author: Alexander Thiemann
-permalink: /tutorial/
+permalink: /tutorials/getting-started
 ---
 
 ## Setup
