@@ -4,6 +4,7 @@ title: "Getting Started"
 date: 2016-08-26 08:36:06
 author: Alexander Thiemann
 permalink: /tutorials/getting-started
+redirect_from: "/tutorial"
 ---
 
 ## Setup
