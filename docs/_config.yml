@@ -1,11 +1,11 @@
 # Site settings
 title: Spock Haskell Web Framework
 email: mail@athiemann.net
-description: > # this means to ignore newlines until "baseurl:"
+description: > 
   Spock is a lightweight Haskell web framework inspired by Ruby's Sinatra. It provides a full
   toolbox including everything to get a quick start into web programming using Haskell.
-baseurl: "" # the subpath of your site, e.g. /blog/
-url: "https://www.spock.li" # the base hostname & protocol for your site
+baseurl: "" 
+url: "https://www.spock.li" 
 enforce_ssl: www.spock.li
 
 twitter_username: agrafix
@@ -13,3 +13,6 @@ github_username:  agrafix
 
 # Build settings
 markdown: kramdown
+
+gems:
+  - jekyll-redirect-from
