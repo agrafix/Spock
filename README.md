@@ -1,4 +1,4 @@
-Spock
+[Spock](https://www.spock.li)
 =====
 
 [![Build Status](https://travis-ci.org/agrafix/Spock.svg)](https://travis-ci.org/agrafix/Spock)
@@ -33,6 +33,7 @@ everything you need to get a quick start into web hacking with haskell:
 ## Important Links
 
 * [Tutorial](https://www.spock.li/tutorial/)
+* [REST API Tutorial](https://www.spock.li/tutorials/rest-api)
 * [Type-safe routing in Spock](https://www.spock.li/2015/04/19/type-safe_routing.html)
 * [Taking Authentication to the next Level](https://www.spock.li/2015/08/23/taking_authentication_to_the_next_level.html)
 
@@ -52,6 +53,7 @@ The following Spock extensions exist:
 
 * Background workers for Spock: [Spock-worker](http://hackage.haskell.org/package/Spock-worker)
 * Digestive functors for Spock: [Spock-digestive](http://hackage.haskell.org/package/Spock-digestive)
+* Lucid for Spock: [Spock-lucid](http://hackage.haskell.org/package/Spock-lucid)
 
 ### Works well with Spock
 
