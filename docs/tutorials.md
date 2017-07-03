@@ -8,6 +8,7 @@ permalink: /tutorials/
 
 - [Getting Started](getting-started)
 - [Building a REST API](rest-api)
+- [Automated Testing](testing)
 
 ## Blog Posts
 
