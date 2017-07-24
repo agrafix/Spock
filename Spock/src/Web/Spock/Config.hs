@@ -17,8 +17,10 @@ import qualified Web.Spock.Internal.SessionVault as SV
 
 import Data.Monoid
 import Network.HTTP.Types.Status
+import System.IO
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
+import qualified Data.Text.IO as T
 
 -- | NOP session hooks
 defaultSessionHooks :: SessionHooks a
@@ -57,6 +59,7 @@ defaultSpockCfg sess conn st =
        , spc_database = conn
        , spc_sessionCfg = defSess
        , spc_maxRequestSize = Just (5 * 1024 * 1024)
+       , spc_logError = T.hPutStrLn stderr
        , spc_errorHandler = errorHandler
        , spc_csrfProtection = False
        , spc_csrfHeaderName = "X-Csrf-Token"
