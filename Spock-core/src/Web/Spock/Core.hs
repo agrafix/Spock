@@ -132,17 +132,6 @@ spockT :: (MonadIO m)
        -> IO Wai.Middleware
 spockT = spockConfigT defaultSpockConfig
 
--- | Like 'spockT', but first argument is request size limit in bytes. Set to 'Nothing' to disable.
-{-# DEPRECATED spockLimT "Consider using spockConfigT instead" #-}
-spockLimT :: forall m .MonadIO m
-       => Maybe Word64
-       -> (forall a. m a -> IO a)
-       -> SpockT m ()
-       -> IO Wai.Middleware
-spockLimT mSizeLimit  =
-    let spockConfigWithLimit = defaultSpockConfig { sc_maxRequestSize = mSizeLimit }
-    in spockConfigT spockConfigWithLimit
-
 -- | Like 'spockT', but with additional configuration for request size and error
 -- handlers passed as first parameter.
 spockConfigT :: forall m .MonadIO m
