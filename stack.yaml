@@ -5,7 +5,4 @@ packages:
   - Spock-api-server/
   - Spock-core/
   - reroute/
-resolver: lts-7.12
-extra-deps:
-  - superbuffer-0.2.0.1
-  - hvect-0.4.0.0
+resolver: lts-8.23
