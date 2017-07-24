@@ -41,6 +41,7 @@ import Data.HVect hiding (head)
 import Data.Word
 import Network.HTTP.Types.Method
 import Prelude hiding (head, uncurry, curry)
+import System.IO
 import Web.HttpApiData
 import Web.Routing.Combinators hiding (renderRoute)
 import Web.Routing.Router (swapMonad)
@@ -107,7 +108,7 @@ wireRouteImpl m path action =
 -- | Run a Spock application. Basically just a wrapper around 'Warp.run'.
 runSpock :: Warp.Port -> IO Wai.Middleware -> IO ()
 runSpock port mw =
-    do putStrLn ("Spock is running on port " ++ show port)
+    do hPutStrLn stderr ("Spock is running on port " ++ show port)
        app <- spockAsApp mw
        Warp.run port app
 
@@ -149,10 +150,10 @@ spockConfigT :: forall m .MonadIO m
         -> (forall a. m a -> IO a)
         -> SpockT m ()
         -> IO Wai.Middleware
-spockConfigT (SpockConfig maxRequestSize errorAction) liftFun app =
+spockConfigT (SpockConfig maxRequestSize errorAction logError) liftFun app =
     W.buildMiddleware internalConfig liftFun (baseAppHook app)
   where
-    internalConfig = W.SpockConfigInternal maxRequestSize errorHandler
+    internalConfig = W.SpockConfigInternal maxRequestSize errorHandler logError
     errorHandler status = spockAsApp $ W.buildMiddleware W.defaultSpockConfigInternal id $ baseAppHook $ errorApp status
     errorApp status = mapM_ (\method -> hookAny method $ \_ -> errorAction' status) [minBound .. maxBound]
     errorAction' status = setStatus status >> errorAction status

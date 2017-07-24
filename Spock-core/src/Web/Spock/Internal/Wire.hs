@@ -46,6 +46,7 @@ import Prelude
 import Prelude hiding (catch)
 #endif
 import System.Directory
+import System.IO
 import Web.Routing.Router
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -55,6 +56,7 @@ import qualified Data.CaseInsensitive as CI
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
+import qualified Data.Text.IO as T
 import qualified Data.Vault.Lazy as V
 import qualified Network.Wai as Wai
 import qualified Network.Wai.Parse as P
@@ -66,8 +68,8 @@ newtype HttpMethod
 instance Hashable HttpMethod where
     hashWithSalt = hashUsing (fromEnum . unHttpMethod)
 
--- | The 'SpockMethod' allows safe use of http verbs via the 'MethodStandard' constructor and 'StdMethod',
--- and custom verbs via the 'MethodCustom' constructor.
+-- | The 'SpockMethod' allows safe use of http verbs via the 'MethodStandard'
+-- constructor and 'StdMethod', and custom verbs via the 'MethodCustom' constructor.
 data SpockMethod
    -- | Standard HTTP Verbs from 'StdMethod'
    = MethodStandard !HttpMethod
@@ -188,9 +190,11 @@ multiHeaderMap =
     HM.fromList $ flip map allHeaders $ \mh ->
     (multiHeaderCI mh, mh)
     where
-      -- this is a nasty hack until we know more about the origin of
-      -- uncaught exception: ErrorCall (toEnum{MultiHeader}: tag (-12565) is outside of enumeration's range (0,12))
-      -- see: https://ghc.haskell.org/trac/ghc/ticket/10792 and https://github.com/agrafix/Spock/issues/44
+      -- this is a nasty hack until we know more about the origin of uncaught
+      -- exception: ErrorCall (toEnum{MultiHeader}: tag (-12565) is outside of
+      -- enumeration's range (0,12)) see:
+      -- https://ghc.haskell.org/trac/ghc/ticket/10792 and
+      -- https://github.com/agrafix/Spock/issues/44
       allHeaders =
           [ MultiHeaderCacheControl
           , MultiHeaderConnection
@@ -284,14 +288,17 @@ data SpockConfigInternal
     = SpockConfigInternal
     { sci_maxRequestSize :: Maybe Word64
     , sci_errorHandler :: Status -> IO Wai.Application
+    , sci_logError :: T.Text -> IO ()
     }
 
 defaultSpockConfigInternal :: SpockConfigInternal
-defaultSpockConfigInternal = SpockConfigInternal Nothing defaultErrorHandler
-  where
-    defaultErrorHandler status = return $ \_ respond -> do
-      let errorMessage = "Error handler failed with status code " ++ (show $ statusCode status)
-      respond $ Wai.responseLBS status500 [] $ BSLC.pack errorMessage
+defaultSpockConfigInternal =
+    SpockConfigInternal Nothing defaultErrorHandler (T.hPutStrLn stderr)
+    where
+      defaultErrorHandler status = return $ \_ respond ->
+          do let errorMessage =
+                     "Error handler failed with status code " ++ show (statusCode status)
+             respond $ Wai.responseLBS status500 [] $ BSLC.pack errorMessage
 
 respStateToResponse :: ResponseVal -> Wai.Response
 respStateToResponse (ResponseValState (ResponseState headers multiHeaders status (ResponseBody body))) =
@@ -306,7 +313,7 @@ respStateToResponse _ = error "ResponseState expected"
 
 errorResponse :: Status -> BSL.ByteString -> ResponseVal
 errorResponse s e =
-    ResponseValState $
+    ResponseValState
     ResponseState
     { rs_responseHeaders =
           HM.singleton "Content-Type" "text/html"
@@ -347,7 +354,8 @@ middlewareToApp mw =
       fallbackApp _ respond = respond notFound
       notFound = respStateToResponse $ errorResponse status404 "404 - File not found"
 
-makeActionEnvironment :: InternalState -> SpockMethod -> Wai.Request -> IO (RequestInfo (), TVar V.Vault, IO ())
+makeActionEnvironment ::
+    InternalState -> SpockMethod -> Wai.Request -> IO (RequestInfo (), TVar V.Vault, IO ())
 makeActionEnvironment st stdMethod req =
     do vaultVar <- liftIO $ newTVarIO (Wai.vault req)
        let vaultIf =
@@ -446,8 +454,10 @@ applyAction config req env (selectedAction : xs) =
          Left ActionTryNext ->
              applyAction config req env xs
          Left (ActionError errorMsg) ->
-             do liftIO $ putStrLn $ "Spock Error while handling "
-                             ++ show (Wai.pathInfo req) ++ ": " ++ errorMsg
+             do liftIO $ sci_logError config $
+                    T.pack $
+                    "Spock Error while handling "
+                    ++ show (Wai.pathInfo req) ++ ": " ++ errorMsg
                 return $ Just $ getErrorHandler config status500
          Left ActionDone ->
              return $ Just (ResponseValState respState)
@@ -498,7 +508,9 @@ handleRequest' config stdMethod registryLift allActions st coreApp req respond =
                       [ Handler $ \(_ :: SizeException) ->
                           return (Just $ getErrorHandler config status413)
                       , Handler $ \(e :: SomeException) ->
-                        do putStrLn $ "Spock Error while handling " ++ show (Wai.pathInfo req) ++ ": " ++ show e
+                        do sci_logError config $ T.pack $
+                               "Spock Error while handling " ++ show (Wai.pathInfo req)
+                               ++ ": " ++ show e
                            return $ Just $ getErrorHandler config status500
                       ]
                 cleanUp
