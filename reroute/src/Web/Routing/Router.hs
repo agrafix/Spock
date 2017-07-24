@@ -31,13 +31,15 @@ newtype RegistryT n b middleware reqTypes (m :: * -> *) a
 
 data RegistryState n b reqTypes
    = RegistryState
-   { rs_registry :: HM.HashMap reqTypes (Registry n b)
+   { rs_registry :: !(HM.HashMap reqTypes (Registry n b))
+   , rs_anyMethod :: !(Registry n b)
    }
 
-hookAny :: (Monad m, Eq reqTypes, Hashable reqTypes)
-        => reqTypes
-        -> ([T.Text] -> n b)
-        -> RegistryT n b middleware reqTypes m ()
+hookAny ::
+    (Monad m, Eq reqTypes, Hashable reqTypes)
+    => reqTypes
+    -> ([T.Text] -> n b)
+    -> RegistryT n b middleware reqTypes m ()
 hookAny reqType action =
     modify $ \rs ->
         rs
@@ -46,11 +48,23 @@ hookAny reqType action =
                 in HM.insert reqType (fallbackRoute action reg) (rs_registry rs)
         }
 
-hookRoute :: (Monad m, Eq reqTypes, Hashable reqTypes)
-          => reqTypes
-          -> PathInternal as
-          -> HVectElim' (n b) as
-          -> RegistryT n b middleware reqTypes m ()
+hookAnyMethod ::
+    (Monad m)
+    => ([T.Text] -> n b)
+    -> RegistryT n b middleware reqTypes m ()
+hookAnyMethod action =
+    modify $
+    \rs ->
+        rs
+        { rs_anyMethod = fallbackRoute action (rs_anyMethod rs)
+        }
+
+hookRoute ::
+    (Monad m, Eq reqTypes, Hashable reqTypes)
+    => reqTypes
+    -> PathInternal as
+    -> HVectElim' (n b) as
+    -> RegistryT n b middleware reqTypes m ()
 hookRoute reqType path action =
     do basePath <- ask
        modify $ \rs ->
@@ -59,6 +73,18 @@ hookRoute reqType path action =
                         reg' = defRoute (basePath </!> path) action reg
                     in HM.insert reqType reg' (rs_registry rs)
               }
+
+hookRouteAnyMethod ::
+    (Monad m)
+    => PathInternal as
+    -> HVectElim' (n b) as
+    -> RegistryT n b middleware reqTypes m ()
+hookRouteAnyMethod path action =
+    do basePath <- ask
+       modify $ \rs ->
+           rs
+           { rs_anyMethod = defRoute (basePath </!> path) action (rs_anyMethod rs)
+           }
 
 middleware :: Monad m
            => middleware
@@ -84,14 +110,16 @@ runRegistry :: (Monad m, Hashable reqTypes, Eq reqTypes)
             -> m (a, reqTypes -> [T.Text] -> [n b], [middleware])
 runRegistry (RegistryT rwst) =
     do (val, st, w) <- runRWST rwst PI_Empty initSt
-       return (val, handleF (rs_registry st), w)
+       return (val, handleF (rs_anyMethod st) (rs_registry st), w)
     where
-      handleF hm ty route =
-          case HM.lookup ty hm of
-            Nothing -> []
-            Just registry ->
-                matchRoute registry (filter (not . T.null) route)
+      handleF anyReg hm ty route =
+          let froute = filter (not . T.null) route
+          in case HM.lookup ty hm of
+               Nothing -> matchRoute anyReg froute
+               Just registry ->
+                   (matchRoute registry froute ++ matchRoute anyReg froute)
       initSt =
           RegistryState
           { rs_registry = HM.empty
+          , rs_anyMethod = emptyRegistry
           }

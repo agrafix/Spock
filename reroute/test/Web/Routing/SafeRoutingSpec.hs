@@ -4,8 +4,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Web.Routing.SafeRoutingSpec where
 
-import Test.Hspec
 import Data.HVect hiding (singleton)
+import Test.Hspec
 
 import Control.Monad.Identity
 import Control.Monad.RWS.Strict
@@ -25,6 +25,9 @@ data ReturnVar
 
 defR :: (Monad m, m ReturnVar ~ x) => Path ts ps -> HVectElim ts x -> RegistryT m ReturnVar middleware Bool m ()
 defR path action = hookRoute True (toInternalPath path) (HVectElim' action)
+
+defRAny :: (Monad m, m ReturnVar ~ x) => Path ts ps -> HVectElim ts x -> RegistryT m ReturnVar middleware Bool m ()
+defRAny path action = hookRouteAnyMethod (toInternalPath path) (HVectElim' action)
 
 -- TODO: abstract this code, move into AbstractRouter
 defSubComponent ::
@@ -54,6 +57,9 @@ spec =
           do checkRoute "" [StrVar "root"]
              checkRoute "/" [StrVar "root"]
              checkRoute "/bar" [StrVar "bar"]
+       it "should match any routes" $
+          do checkRoute' "/any" True [StrVar "any", StrVar "any"] -- two due to hookAny
+             checkRoute' "/any" False [StrVar "any"]
        it "should capture variables in routes" $
           do checkRoute "/bar/23/baz" [IntVar 23]
              checkRoute "/bar/23/baz/" [IntVar 23]
@@ -78,17 +84,22 @@ spec =
       pieces :: T.Text -> [T.Text]
       pieces = filter (not . T.null) . T.splitOn "/"
 
-      checkRoute :: T.Text -> [ReturnVar] -> Expectation
-      checkRoute r x =
-          let matches = handleFun (pieces r)
+      checkRoute' :: T.Text -> Bool -> [ReturnVar] -> Expectation
+      checkRoute' r b x =
+          let matches = handleFun b (pieces r)
           in (map runIdentity matches) `shouldBe` x
 
-      handleFun :: [T.Text] -> [Identity ReturnVar]
-      handleFun = handleFun' True
+      checkRoute :: T.Text -> [ReturnVar] -> Expectation
+      checkRoute r x = checkRoute' r True x
+
+      handleFun :: Bool -> [T.Text] -> [Identity ReturnVar]
+      handleFun = handleFun'
+
       (_, handleFun', _) = runIdentity (runRegistry handleDefs)
 
       handleDefs =
           do defR root $ return (StrVar "root")
+             defRAny "any" $ pure (StrVar "any")
              defR "bar" $ return (StrVar "bar")
              defR ("bar" </> var) (return . IntVar)
              defR ("bar" </> var </> "baz") (return . IntVar)

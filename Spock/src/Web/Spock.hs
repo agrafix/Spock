@@ -19,6 +19,8 @@ module Web.Spock
     , RouteSpec
     , get, post, getpost, head, put, delete, patch, hookRoute
     , hookRouteCustom, hookAny, hookAnyCustom
+    , hookRouteAll
+    , hookAnyAll
     , C.StdMethod (..)
       -- * Adding Wai.Middleware
     , middleware
@@ -39,6 +41,7 @@ import Web.Spock.Core hiding
        ( hookRoute', hookAny'
        , get, post, getpost, head, put, delete, patch, hookRoute
        , hookRouteCustom, hookAny, hookAnyCustom
+       , hookRouteAll, hookAnyAll
        )
 import Web.Spock.Internal.Monad
 import Web.Spock.Internal.SessionManager
@@ -145,6 +148,10 @@ type RouteSpec xs ps ctx conn sess st =
 hookRoute :: HV.HasRep xs => StdMethod -> RouteSpec xs ps ctx conn sess st
 hookRoute = hookRoute' . MethodStandard . HttpMethod
 
+-- | Specify an action that will be run regardless of the HTTP verb
+hookRouteAll :: HV.HasRep xs => RouteSpec xs ps ctx conn sess st
+hookRouteAll = hookRoute' MethodAny
+
 -- | Specify an action that will be run when the HTTP verb 'GET' and the given route match
 get :: HV.HasRep xs => RouteSpec xs ps ctx conn sess st
 get = hookRoute GET
@@ -182,6 +189,11 @@ hookRouteCustom = hookRoute' . MethodCustom
 hookAny :: StdMethod -> ([T.Text] -> SpockActionCtx ctx conn sess st ()) -> SpockCtxM ctx conn sess st ()
 
 hookAny = hookAny' . MethodStandard . HttpMethod
+
+-- | Specify an action that will be run regardless of the HTTP verb and no defined route matches.
+-- The full path is passed as an argument
+hookAnyAll :: ([T.Text] -> SpockActionCtx ctx conn sess st ()) -> SpockCtxM ctx conn sess st ()
+hookAnyAll = hookAny' MethodAny
 
 -- | Specify an action that will be run when a custom HTTP verb matches but no defined route matches.
 -- The full path is passed as an argument

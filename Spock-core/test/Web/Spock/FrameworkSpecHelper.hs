@@ -83,6 +83,11 @@ routingSpec =
              post "/raw-body" "raw" `shouldRespondWith` "raw" { matchStatus = 200 }
          it "allows empty raw body" $
              post "/raw-body" "" `shouldRespondWith` "" { matchStatus = 200 }
+         it "matches regardless of the VERB" $
+             do get "/all/verbs" `shouldRespondWith` "ok" { matchStatus = 200 }
+                post "/all/verbs" "" `shouldRespondWith` "ok" { matchStatus = 200 }
+                request "FIZZBUZZ" "/all/verbs" [] "" `shouldRespondWith` "ok" { matchStatus = 200 }
+                request "NOTIFY" "/all/verbs" [] "" `shouldRespondWith` "ok" { matchStatus = 200 }
          it "routes different HTTP-verbs to different actions" $
             do verbTest get "GET"
                verbTest (`post` "") "POST"

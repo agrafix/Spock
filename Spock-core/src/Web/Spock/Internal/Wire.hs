@@ -63,7 +63,7 @@ import qualified Network.Wai.Parse as P
 
 newtype HttpMethod
     = HttpMethod { unHttpMethod :: StdMethod }
-    deriving (Show, Eq, Generic)
+    deriving (Show, Eq, Bounded, Enum, Generic)
 
 instance Hashable HttpMethod where
     hashWithSalt = hashUsing (fromEnum . unHttpMethod)
@@ -75,6 +75,8 @@ data SpockMethod
    = MethodStandard !HttpMethod
    -- | Custom HTTP Verbs using 'T.Text'
    | MethodCustom !T.Text
+   -- | Match any HTTP verb
+   | MethodAny
      deriving (Eq, Generic)
 
 instance Hashable SpockMethod

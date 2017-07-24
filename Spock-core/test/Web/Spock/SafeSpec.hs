@@ -91,6 +91,7 @@ app =
                    do setStatus status401
                       text "err"
            in requireBasicAuth "Foo" checker $ \() -> text "ok"
+       hookRouteAll ("all" <//> "verbs") $ text "ok"
        hookRouteCustom "NOTIFY" ("notify" <//> var) $ \notification -> text notification
        hookAny GET $ text . T.intercalate "/"
        hookAnyCustom "MYVERB" $ text . T.intercalate "/"

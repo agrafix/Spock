@@ -18,6 +18,8 @@ module Web.Spock.Core
       -- * Hooking routes
     , prehook
     , get, post, getpost, head, put, delete, patch, hookRoute, hookRouteCustom, hookAny, hookAnyCustom
+    , hookRouteAll
+    , hookAnyAll
     , Http.StdMethod (..)
       -- * Adding Wai.Middleware
     , middleware
@@ -76,7 +78,12 @@ instance RouteM SpockCtxT where
     wireAny m action =
         SpockCtxT $
         do hookLift <- lift $ asks unLiftHooked
-           AR.hookAny m (hookLift . action)
+           case m of
+             MethodAny ->
+                 do forM_ allStdMethods $ \mReg ->
+                        AR.hookAny mReg (hookLift . action)
+                    AR.hookAnyMethod (hookLift . action)
+             _ -> AR.hookAny m (hookLift . action)
     withPrehook = withPrehookImpl
     wireRoute = wireRouteImpl
 
@@ -99,8 +106,15 @@ wireRouteImpl m path action =
     do hookLift <- lift $ asks unLiftHooked
        let actionPacker :: HVectElim xs (ActionCtxT ctx m ()) -> HVect xs -> ActionCtxT () m ()
            actionPacker act captures = hookLift (uncurry act captures)
-       AR.hookRoute m (toInternalPath path) (HVectElim' $ curry $ actionPacker action)
+       case m of
+         MethodAny ->
+             do forM_ allStdMethods $ \mReg ->
+                    AR.hookRoute mReg (toInternalPath path) (HVectElim' $ curry $ actionPacker action)
+                AR.hookRouteAnyMethod (toInternalPath path) (HVectElim' $ curry $ actionPacker action)
+         _ -> AR.hookRoute m (toInternalPath path) (HVectElim' $ curry $ actionPacker action)
 
+allStdMethods :: [SpockMethod]
+allStdMethods = MethodStandard <$> [minBound .. maxBound]
 
 -- | Run a Spock application. Basically just a wrapper around 'Warp.run'.
 runSpock :: Warp.Port -> IO Wai.Middleware -> IO ()
@@ -118,7 +132,7 @@ runSpockNoBanner port mw =
 -- | Convert a middleware to an application. All failing requests will
 -- result in a 404 page
 spockAsApp :: IO Wai.Middleware -> IO Wai.Application
-spockAsApp = liftM W.middlewareToApp
+spockAsApp = fmap W.middlewareToApp
 
 -- | Create a raw spock application with custom underlying monad
 -- Use 'runSpock' to run the app or 'spockAsApp' to create a @Wai.Application@
@@ -187,6 +201,10 @@ prehook = withPrehook
 hookRoute :: (HasRep xs, RouteM t, Monad m) => StdMethod -> Path xs ps -> HVectElim xs (ActionCtxT ctx m ()) -> t ctx m ()
 hookRoute = hookRoute' . MethodStandard . W.HttpMethod
 
+-- | Specify an action that will be run regardless of the HTTP verb
+hookRouteAll :: (HasRep xs, RouteM t, Monad m) => Path xs ps -> HVectElim xs (ActionCtxT ctx m ()) -> t ctx m ()
+hookRouteAll = hookRoute' MethodAny
+
 -- | Specify an action that will be run when a custom HTTP verb and the given route match
 hookRouteCustom :: (HasRep xs, RouteM t, Monad m) => T.Text -> Path xs ps -> HVectElim xs (ActionCtxT ctx m ()) -> t ctx m ()
 hookRouteCustom = hookRoute' . MethodCustom
@@ -199,6 +217,11 @@ hookRoute' = wireRoute
 -- The full path is passed as an argument
 hookAny :: (RouteM t, Monad m) => StdMethod -> ([T.Text] -> ActionCtxT ctx m ()) -> t ctx m ()
 hookAny = hookAny' . MethodStandard . W.HttpMethod
+
+-- | Specify an action that will be run regardless of the HTTP verb and no defined route matches.
+-- The full path is passed as an argument
+hookAnyAll :: (RouteM t, Monad m) => ([T.Text] -> ActionCtxT ctx m ()) -> t ctx m ()
+hookAnyAll = hookAny' MethodAny
 
 -- | Specify an action that will be run when a custom HTTP verb matches but no defined route matches.
 -- The full path is passed as an argument
