@@ -10,13 +10,13 @@ module Web.Spock.Core
     ( -- * Lauching Spock
       runSpock, runSpockNoBanner, spockAsApp
       -- * Spock's route definition monad
-    , spockT, spockLimT, spockConfigT, SpockT, SpockCtxT
+    , spockT, spockConfigT, SpockT, SpockCtxT
       -- * Defining routes
     , Path, root, Var, var, static, (<//>), wildcard
       -- * Rendering routes
     , renderRoute
       -- * Hooking routes
-    , subcomponent, prehook
+    , prehook
     , get, post, getpost, head, put, delete, patch, hookRoute, hookRouteCustom, hookAny, hookAnyCustom
     , Http.StdMethod (..)
       -- * Adding Wai.Middleware
@@ -38,7 +38,6 @@ import Web.Spock.Routing
 import Control.Applicative
 import Control.Monad.Reader
 import Data.HVect hiding (head)
-import Data.Word
 import Network.HTTP.Types.Method
 import Prelude hiding (head, uncurry, curry)
 import System.IO
@@ -74,8 +73,6 @@ instance MonadTrans (SpockCtxT ctx) where
 
 instance RouteM SpockCtxT where
     addMiddleware = SpockCtxT . AR.middleware
-    inSubcomponent p (SpockCtxT subapp) =
-        SpockCtxT $ AR.subcomponent (toInternalPath p) subapp
     wireAny m action =
         SpockCtxT $
         do hookLift <- lift $ asks unLiftHooked
@@ -212,20 +209,6 @@ hookAnyCustom = hookAny' . MethodCustom
 -- The full path is passed as an argument
 hookAny' :: (RouteM t, Monad m) => SpockMethod -> ([T.Text] -> ActionCtxT ctx m ()) -> t ctx m ()
 hookAny' = wireAny
-
--- | Define a subcomponent. Usage example:
---
--- > subcomponent "site" $
--- >   do get "home" homeHandler
--- >      get ("misc" <//> var) $ -- ...
--- > subcomponent "admin" $
--- >   do get "home" adminHomeHandler
---
--- The request \/site\/home will be routed to homeHandler and the
--- request \/admin\/home will be routed to adminHomeHandler
-subcomponent :: (RouteM t, Monad m) => Path '[] 'Open -> t ctx m () -> t ctx m ()
-subcomponent = inSubcomponent
-{-# DEPRECATED subcomponent "Subcomponents will be removed in the next major release. They break route rendering and should not be used. Consider creating helper functions for reusable route components" #-}
 
 -- | Hook wai middleware into Spock
 middleware :: (RouteM t, Monad m) => Wai.Middleware -> t ctx m ()

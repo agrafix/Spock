@@ -65,21 +65,6 @@ middleware :: Monad m
            -> RegistryT n b middleware reqTypes m ()
 middleware x = tell [x]
 
-subcomponent :: (Monad m)
-             => PathInternal '[]
-             -> RegistryT n b middleware reqTypes m a
-             -> RegistryT n b middleware reqTypes m a
-subcomponent basePath (RegistryT subReg) =
-    do parentSt <- get
-       parentBasePath <- ask
-       let childBasePath = parentBasePath </!> basePath
-           childSt = parentSt
-       (a, parentSt', middleware') <-
-           lift $ runRWST subReg childBasePath childSt
-       put parentSt'
-       tell middleware'
-       return a
-
 swapMonad ::
     Monad m
     => (forall b. n b -> m b)

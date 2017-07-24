@@ -15,7 +15,7 @@ module Web.Spock
       -- * Rendering routes
     , renderRoute
       -- * Hooking routes
-    , subcomponent, prehook
+    , prehook
     , RouteSpec
     , get, post, getpost, head, put, delete, patch, hookRoute
     , hookRouteCustom, hookAny, hookAnyCustom
