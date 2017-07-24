@@ -1,5 +1,5 @@
 name:                Spock-core
-version:             0.12.0.1
+version:             0.13.0.0
 synopsis:            Another Haskell web framework for rapid development
 description:         Barebones high performance type safe web framework
 Homepage:            https://www.spock.li
@@ -45,7 +45,7 @@ library
                        mtl >=2.1,
                        http-api-data >= 0.2,
                        old-locale >=1.0,
-                       reroute >=0.4,
+                       reroute >=0.5,
                        resourcet >= 0.4,
                        stm >=2.4,
                        superbuffer >= 0.2,
