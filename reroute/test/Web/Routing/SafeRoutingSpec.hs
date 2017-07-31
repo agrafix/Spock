@@ -4,15 +4,16 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Web.Routing.SafeRoutingSpec where
 
-import Test.Hspec
-import Data.HVect hiding (singleton)
-
-import Control.Monad.Identity
-import Control.Monad.RWS.Strict
-import Data.Maybe
 import Web.Routing.Combinators
 import Web.Routing.Router
 import Web.Routing.SafeRouting
+
+import Control.Monad.Identity
+import Control.Monad.RWS.Strict
+import Data.HVect hiding (singleton)
+import Data.List
+import Data.Maybe
+import Test.Hspec
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 
@@ -21,7 +22,7 @@ data ReturnVar
    | StrVar T.Text
    | BoolVar Bool
    | ListVar [ReturnVar]
-   deriving (Show, Eq, Read)
+   deriving (Show, Eq, Read, Ord)
 
 defR :: (Monad m, m ReturnVar ~ x) => Path ts ps -> HVectElim ts x -> RegistryT m ReturnVar middleware Bool m ()
 defR path action = hookRoute True (toInternalPath path) (HVectElim' action)
@@ -81,7 +82,7 @@ spec =
       checkRoute :: T.Text -> [ReturnVar] -> Expectation
       checkRoute r x =
           let matches = handleFun (pieces r)
-          in (map runIdentity matches) `shouldBe` x
+          in sort (map runIdentity matches) `shouldBe` sort x
 
       handleFun :: [T.Text] -> [Identity ReturnVar]
       handleFun = handleFun' True
