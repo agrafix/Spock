@@ -53,6 +53,8 @@ data SpockCfg conn sess st
    , spc_errorHandler :: Status -> ActionCtxT () IO ()
      -- ^ Custom error handlers for implicit errors such as not matching routes or
      -- exceptions during a request handler run.
+   , spc_logError :: T.Text -> IO ()
+     -- ^ Function that should be called to log errors.
    , spc_csrfProtection :: Bool
      -- ^ When set to true, all non GET request will require
      -- either an HTTP-Header 'spc_csrfHeaderName' or a

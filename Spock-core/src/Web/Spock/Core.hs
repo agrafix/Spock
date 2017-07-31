@@ -10,14 +10,16 @@ module Web.Spock.Core
     ( -- * Lauching Spock
       runSpock, runSpockNoBanner, spockAsApp
       -- * Spock's route definition monad
-    , spockT, spockLimT, spockConfigT, SpockT, SpockCtxT
+    , spockT, spockConfigT, SpockT, SpockCtxT
       -- * Defining routes
     , Path, root, Var, var, static, (<//>), wildcard
       -- * Rendering routes
     , renderRoute
       -- * Hooking routes
-    , subcomponent, prehook
+    , prehook
     , get, post, getpost, head, put, delete, patch, hookRoute, hookRouteCustom, hookAny, hookAnyCustom
+    , hookRouteAll
+    , hookAnyAll
     , Http.StdMethod (..)
       -- * Adding Wai.Middleware
     , middleware
@@ -38,9 +40,9 @@ import Web.Spock.Routing
 import Control.Applicative
 import Control.Monad.Reader
 import Data.HVect hiding (head)
-import Data.Word
 import Network.HTTP.Types.Method
 import Prelude hiding (head, uncurry, curry)
+import System.IO
 import Web.HttpApiData
 import Web.Routing.Combinators hiding (renderRoute)
 import Web.Routing.Router (swapMonad)
@@ -73,12 +75,15 @@ instance MonadTrans (SpockCtxT ctx) where
 
 instance RouteM SpockCtxT where
     addMiddleware = SpockCtxT . AR.middleware
-    inSubcomponent p (SpockCtxT subapp) =
-        SpockCtxT $ AR.subcomponent (toInternalPath p) subapp
     wireAny m action =
         SpockCtxT $
         do hookLift <- lift $ asks unLiftHooked
-           AR.hookAny m (hookLift . action)
+           case m of
+             MethodAny ->
+                 do forM_ allStdMethods $ \mReg ->
+                        AR.hookAny mReg (hookLift . action)
+                    AR.hookAnyMethod (hookLift . action)
+             _ -> AR.hookAny m (hookLift . action)
     withPrehook = withPrehookImpl
     wireRoute = wireRouteImpl
 
@@ -101,13 +106,20 @@ wireRouteImpl m path action =
     do hookLift <- lift $ asks unLiftHooked
        let actionPacker :: HVectElim xs (ActionCtxT ctx m ()) -> HVect xs -> ActionCtxT () m ()
            actionPacker act captures = hookLift (uncurry act captures)
-       AR.hookRoute m (toInternalPath path) (HVectElim' $ curry $ actionPacker action)
+       case m of
+         MethodAny ->
+             do forM_ allStdMethods $ \mReg ->
+                    AR.hookRoute mReg (toInternalPath path) (HVectElim' $ curry $ actionPacker action)
+                AR.hookRouteAnyMethod (toInternalPath path) (HVectElim' $ curry $ actionPacker action)
+         _ -> AR.hookRoute m (toInternalPath path) (HVectElim' $ curry $ actionPacker action)
 
+allStdMethods :: [SpockMethod]
+allStdMethods = MethodStandard <$> [minBound .. maxBound]
 
 -- | Run a Spock application. Basically just a wrapper around 'Warp.run'.
 runSpock :: Warp.Port -> IO Wai.Middleware -> IO ()
 runSpock port mw =
-    do putStrLn ("Spock is running on port " ++ show port)
+    do hPutStrLn stderr ("Spock is running on port " ++ show port)
        app <- spockAsApp mw
        Warp.run port app
 
@@ -120,7 +132,7 @@ runSpockNoBanner port mw =
 -- | Convert a middleware to an application. All failing requests will
 -- result in a 404 page
 spockAsApp :: IO Wai.Middleware -> IO Wai.Application
-spockAsApp = liftM W.middlewareToApp
+spockAsApp = fmap W.middlewareToApp
 
 -- | Create a raw spock application with custom underlying monad
 -- Use 'runSpock' to run the app or 'spockAsApp' to create a @Wai.Application@
@@ -131,17 +143,6 @@ spockT :: (MonadIO m)
        -> IO Wai.Middleware
 spockT = spockConfigT defaultSpockConfig
 
--- | Like 'spockT', but first argument is request size limit in bytes. Set to 'Nothing' to disable.
-{-# DEPRECATED spockLimT "Consider using spockConfigT instead" #-}
-spockLimT :: forall m .MonadIO m
-       => Maybe Word64
-       -> (forall a. m a -> IO a)
-       -> SpockT m ()
-       -> IO Wai.Middleware
-spockLimT mSizeLimit  =
-    let spockConfigWithLimit = defaultSpockConfig { sc_maxRequestSize = mSizeLimit }
-    in spockConfigT spockConfigWithLimit
-
 -- | Like 'spockT', but with additional configuration for request size and error
 -- handlers passed as first parameter.
 spockConfigT :: forall m .MonadIO m
@@ -149,10 +150,10 @@ spockConfigT :: forall m .MonadIO m
         -> (forall a. m a -> IO a)
         -> SpockT m ()
         -> IO Wai.Middleware
-spockConfigT (SpockConfig maxRequestSize errorAction) liftFun app =
+spockConfigT (SpockConfig maxRequestSize errorAction logError) liftFun app =
     W.buildMiddleware internalConfig liftFun (baseAppHook app)
   where
-    internalConfig = W.SpockConfigInternal maxRequestSize errorHandler
+    internalConfig = W.SpockConfigInternal maxRequestSize errorHandler logError
     errorHandler status = spockAsApp $ W.buildMiddleware W.defaultSpockConfigInternal id $ baseAppHook $ errorApp status
     errorApp status = mapM_ (\method -> hookAny method $ \_ -> errorAction' status) [minBound .. maxBound]
     errorAction' status = setStatus status >> errorAction status
@@ -200,6 +201,10 @@ prehook = withPrehook
 hookRoute :: (HasRep xs, RouteM t, Monad m) => StdMethod -> Path xs ps -> HVectElim xs (ActionCtxT ctx m ()) -> t ctx m ()
 hookRoute = hookRoute' . MethodStandard . W.HttpMethod
 
+-- | Specify an action that will be run regardless of the HTTP verb
+hookRouteAll :: (HasRep xs, RouteM t, Monad m) => Path xs ps -> HVectElim xs (ActionCtxT ctx m ()) -> t ctx m ()
+hookRouteAll = hookRoute' MethodAny
+
 -- | Specify an action that will be run when a custom HTTP verb and the given route match
 hookRouteCustom :: (HasRep xs, RouteM t, Monad m) => T.Text -> Path xs ps -> HVectElim xs (ActionCtxT ctx m ()) -> t ctx m ()
 hookRouteCustom = hookRoute' . MethodCustom
@@ -213,6 +218,11 @@ hookRoute' = wireRoute
 hookAny :: (RouteM t, Monad m) => StdMethod -> ([T.Text] -> ActionCtxT ctx m ()) -> t ctx m ()
 hookAny = hookAny' . MethodStandard . W.HttpMethod
 
+-- | Specify an action that will be run regardless of the HTTP verb and no defined route matches.
+-- The full path is passed as an argument
+hookAnyAll :: (RouteM t, Monad m) => ([T.Text] -> ActionCtxT ctx m ()) -> t ctx m ()
+hookAnyAll = hookAny' MethodAny
+
 -- | Specify an action that will be run when a custom HTTP verb matches but no defined route matches.
 -- The full path is passed as an argument
 hookAnyCustom :: (RouteM t, Monad m) => T.Text -> ([T.Text] -> ActionCtxT ctx m ()) -> t ctx m ()
@@ -222,20 +232,6 @@ hookAnyCustom = hookAny' . MethodCustom
 -- The full path is passed as an argument
 hookAny' :: (RouteM t, Monad m) => SpockMethod -> ([T.Text] -> ActionCtxT ctx m ()) -> t ctx m ()
 hookAny' = wireAny
-
--- | Define a subcomponent. Usage example:
---
--- > subcomponent "site" $
--- >   do get "home" homeHandler
--- >      get ("misc" <//> var) $ -- ...
--- > subcomponent "admin" $
--- >   do get "home" adminHomeHandler
---
--- The request \/site\/home will be routed to homeHandler and the
--- request \/admin\/home will be routed to adminHomeHandler
-subcomponent :: (RouteM t, Monad m) => Path '[] 'Open -> t ctx m () -> t ctx m ()
-subcomponent = inSubcomponent
-{-# DEPRECATED subcomponent "Subcomponents will be removed in the next major release. They break route rendering and should not be used. Consider creating helper functions for reusable route components" #-}
 
 -- | Hook wai middleware into Spock
 middleware :: (RouteM t, Monad m) => Wai.Middleware -> t ctx m ()

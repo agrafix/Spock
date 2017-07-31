@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DoAndIfThenElse #-}
@@ -9,11 +10,15 @@ import Web.Spock.FrameworkSpecHelper
 
 import Control.Exception.Base
 import Control.Monad
+import Control.Monad.Base
+import Control.Monad.Trans.Control
+import Control.Monad.Trans.Reader
 import Data.Aeson
 import Data.Monoid
 import GHC.Generics
 import Network.HTTP.Types.Status
 import Test.Hspec
+import qualified Control.Exception as Exception
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
@@ -86,6 +91,7 @@ app =
                    do setStatus status401
                       text "err"
            in requireBasicAuth "Foo" checker $ \() -> text "ok"
+       hookRouteAll ("all" <//> "verbs") $ text "ok"
        hookRouteCustom "NOTIFY" ("notify" <//> var) $ \notification -> text notification
        hookAny GET $ text . T.intercalate "/"
        hookAnyCustom "MYVERB" $ text . T.intercalate "/"
@@ -111,6 +117,44 @@ routeRenderingSpec =
              renderRoute r2 2 `shouldBe` "/blog/2"
              let r3 = "blog" <//> (var :: Var Int) <//> (var :: Var T.Text)
              renderRoute r3 2 "BIIM" `shouldBe` "/blog/2/BIIM"
+
+data InstancesTestException = InstancesTestException deriving Show
+instance Exception InstancesTestException
+
+instancesApp :: SpockCtxT () (ReaderT T.Text IO) ()
+instancesApp =
+    do get ("instances" <//> "monad-base") $ text =<< liftBase (pure "ok")
+       get ("instances" <//> "monad-base-control") $
+           do res <-
+                  catch'
+                      (throwIO' InstancesTestException)
+                      (\(_ :: InstancesTestException) -> pure "ok")
+              text res
+       get ("instances" <//> "monad-trans-control") $
+           do res <- liftWith (\run -> ask >>= run . text)
+              restoreT $ pure res
+    where
+      -- This is 'catch' from 'Control.Exception.Lifted'.
+      catch' :: (MonadBaseControl IO m, Exception e) => m a -> (e -> m a) -> m a
+      catch' a handler =
+        control $ \runInIO ->
+           Exception.catch (runInIO a) (\e -> runInIO $ handler e)
+
+      -- This is 'throwIO' from 'Control.Exception.Lifted'.
+      throwIO' :: (MonadBase IO m, Exception e) => e -> m a
+      throwIO' = liftBase . Exception.throwIO
+
+
+instancesSpec :: Spec
+instancesSpec =
+    describe "Instances for ActionT are correct" $
+    Test.with (spockAsApp $ spockT (flip runReaderT "ok") instancesApp) $
+        do it "MonadBase" $
+              Test.request "GET" "/instances/monad-base" [] "" `Test.shouldRespondWith` "ok"
+           it "MonadBaseControl" $
+              Test.request "GET" "/instances/monad-base-control" [] "" `Test.shouldRespondWith` "ok"
+           it "MonadTransControl" $
+              Test.request "GET" "/instances/monad-trans-control" [] "" `Test.shouldRespondWith` "ok"
 
 ctxApp :: SpockT IO ()
 ctxApp =
@@ -138,6 +182,7 @@ spec =
     describe "SafeRouting" $
     do frameworkSpec (spockAsApp $ spockT id app)
        ctxSpec
+       instancesSpec
        routeRenderingSpec
        sizeLimitSpec $ \lim -> spockAsApp $ spockConfigT (defaultSpockConfig { sc_maxRequestSize = Just lim }) id $
           post "size" $ body >>= bytes

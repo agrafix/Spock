@@ -15,10 +15,12 @@ module Web.Spock
       -- * Rendering routes
     , renderRoute
       -- * Hooking routes
-    , subcomponent, prehook
+    , prehook
     , RouteSpec
     , get, post, getpost, head, put, delete, patch, hookRoute
     , hookRouteCustom, hookAny, hookAnyCustom
+    , hookRouteAll
+    , hookAnyAll
     , C.StdMethod (..)
       -- * Adding Wai.Middleware
     , middleware
@@ -39,6 +41,7 @@ import Web.Spock.Core hiding
        ( hookRoute', hookAny'
        , get, post, getpost, head, put, delete, patch, hookRoute
        , hookRouteCustom, hookAny, hookAnyCustom
+       , hookRouteAll, hookAnyAll
        )
 import Web.Spock.Internal.Monad
 import Web.Spock.Internal.SessionManager
@@ -95,6 +98,7 @@ spock spockCfg spockAppl =
                defaultSpockConfig
                { sc_maxRequestSize = spc_maxRequestSize spockCfg
                , sc_errorHandler = spc_errorHandler spockCfg
+               , sc_logError = spc_logError spockCfg
                }
        spockConfigT coreConfig (\m -> runResourceT $ runReaderT (runWebStateT m) internalState)  $
            do middleware (sm_middleware $ web_sessionMgr internalState)
@@ -145,6 +149,10 @@ type RouteSpec xs ps ctx conn sess st =
 hookRoute :: HV.HasRep xs => StdMethod -> RouteSpec xs ps ctx conn sess st
 hookRoute = hookRoute' . MethodStandard . HttpMethod
 
+-- | Specify an action that will be run regardless of the HTTP verb
+hookRouteAll :: HV.HasRep xs => RouteSpec xs ps ctx conn sess st
+hookRouteAll = hookRoute' MethodAny
+
 -- | Specify an action that will be run when the HTTP verb 'GET' and the given route match
 get :: HV.HasRep xs => RouteSpec xs ps ctx conn sess st
 get = hookRoute GET
@@ -182,6 +190,11 @@ hookRouteCustom = hookRoute' . MethodCustom
 hookAny :: StdMethod -> ([T.Text] -> SpockActionCtx ctx conn sess st ()) -> SpockCtxM ctx conn sess st ()
 
 hookAny = hookAny' . MethodStandard . HttpMethod
+
+-- | Specify an action that will be run regardless of the HTTP verb and no defined route matches.
+-- The full path is passed as an argument
+hookAnyAll :: ([T.Text] -> SpockActionCtx ctx conn sess st ()) -> SpockCtxM ctx conn sess st ()
+hookAnyAll = hookAny' MethodAny
 
 -- | Specify an action that will be run when a custom HTTP verb matches but no defined route matches.
 -- The full path is passed as an argument

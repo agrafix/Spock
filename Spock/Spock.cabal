@@ -1,5 +1,5 @@
 name:                Spock
-version:             0.12.0.1
+version:             0.13.0.0
 synopsis:            Another Haskell web framework for rapid development
 description:         This toolbox provides everything you need to get a quick start into web hacking with haskell:
                      .
@@ -45,7 +45,7 @@ library
                 Web.Spock.Internal.Monad,
                 Web.Spock.Internal.Types
   build-depends:
-                       Spock-core >= 0.11,
+                       Spock-core >= 0.13,
                        base >= 4 && < 5,
                        base64-bytestring >=1.0,
                        bytestring >=0.10,
@@ -58,7 +58,7 @@ library
                        list-t >=0.4,
                        monad-control >=1.0,
                        mtl >=2.1,
-                       reroute >=0.3.1,
+                       reroute >=0.5,
                        resource-pool >=0.2,
                        resourcet >= 0.4,
                        stm >=2.4,

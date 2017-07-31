@@ -4,13 +4,16 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DoAndIfThenElse #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 module Web.Spock.Internal.Wire where
 
 import Control.Applicative
@@ -18,6 +21,7 @@ import Control.Arrow ((***))
 import Control.Concurrent.MVar
 import Control.Concurrent.STM
 import Control.Exception
+import Control.Monad.Base
 import Control.Monad.RWS.Strict
 #if MIN_VERSION_mtl(2,2,0)
 import Control.Monad.Except
@@ -25,6 +29,7 @@ import Control.Monad.Except
 import Control.Monad.Error
 #endif
 import Control.Monad.Reader.Class ()
+import Control.Monad.Trans.Control
 import Control.Monad.Trans.Resource
 import Data.Hashable
 import Data.IORef
@@ -41,6 +46,7 @@ import Prelude
 import Prelude hiding (catch)
 #endif
 import System.Directory
+import System.IO
 import Web.Routing.Router
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -50,24 +56,27 @@ import qualified Data.CaseInsensitive as CI
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
+import qualified Data.Text.IO as T
 import qualified Data.Vault.Lazy as V
 import qualified Network.Wai as Wai
 import qualified Network.Wai.Parse as P
 
 newtype HttpMethod
     = HttpMethod { unHttpMethod :: StdMethod }
-    deriving (Show, Eq, Generic)
+    deriving (Show, Eq, Bounded, Enum, Generic)
 
 instance Hashable HttpMethod where
     hashWithSalt = hashUsing (fromEnum . unHttpMethod)
 
--- | The 'SpockMethod' allows safe use of http verbs via the 'MethodStandard' constructor and 'StdMethod',
--- and custom verbs via the 'MethodCustom' constructor.
+-- | The 'SpockMethod' allows safe use of http verbs via the 'MethodStandard'
+-- constructor and 'StdMethod', and custom verbs via the 'MethodCustom' constructor.
 data SpockMethod
    -- | Standard HTTP Verbs from 'StdMethod'
    = MethodStandard !HttpMethod
    -- | Custom HTTP Verbs using 'T.Text'
    | MethodCustom !T.Text
+   -- | Match any HTTP verb
+   | MethodAny
      deriving (Eq, Generic)
 
 instance Hashable SpockMethod
@@ -183,9 +192,11 @@ multiHeaderMap =
     HM.fromList $ flip map allHeaders $ \mh ->
     (multiHeaderCI mh, mh)
     where
-      -- this is a nasty hack until we know more about the origin of
-      -- uncaught exception: ErrorCall (toEnum{MultiHeader}: tag (-12565) is outside of enumeration's range (0,12))
-      -- see: https://ghc.haskell.org/trac/ghc/ticket/10792 and https://github.com/agrafix/Spock/issues/44
+      -- this is a nasty hack until we know more about the origin of uncaught
+      -- exception: ErrorCall (toEnum{MultiHeader}: tag (-12565) is outside of
+      -- enumeration's range (0,12)) see:
+      -- https://ghc.haskell.org/trac/ghc/ticket/10792 and
+      -- https://github.com/agrafix/Spock/issues/44
       allHeaders =
           [ MultiHeaderCacheControl
           , MultiHeaderConnection
@@ -230,9 +241,16 @@ instance Monoid ActionInterupt where
 
 #if MIN_VERSION_mtl(2,2,0)
 type ErrorT = ExceptT
+
 runErrorT :: ExceptT e m a -> m (Either e a)
 runErrorT = runExceptT
+
+toErrorT :: m (Either e a) -> ErrorT e m a
+toErrorT = ExceptT
 #else
+toErrorT :: m (Either e a) -> ErrorT e m a
+toErrorT = ErrorT
+
 instance Error ActionInterupt where
     noMsg = ActionError "Unkown Internal Action Error"
     strMsg = ActionError
@@ -251,18 +269,38 @@ newtype ActionCtxT ctx m a
 instance MonadTrans (ActionCtxT ctx) where
     lift = ActionCtxT . lift . lift
 
+instance MonadTransControl (ActionCtxT ctx) where
+    type StT (ActionCtxT ctx) a = (Either ActionInterupt a, ResponseState, ())
+    liftWith f =
+      ActionCtxT . toErrorT . RWST $ \requestInfo responseState ->
+        fmap
+          (\x -> (pure x, responseState, ()))
+          (f $ \(ActionCtxT lala) -> runRWST (runErrorT lala) requestInfo responseState)
+    restoreT mSt = ActionCtxT . toErrorT $ RWST (\_ _ -> mSt)
+
+instance MonadBase b m => MonadBase b (ActionCtxT ctx m) where
+    liftBase = liftBaseDefault
+
+instance MonadBaseControl b m => MonadBaseControl b (ActionCtxT ctx m) where
+    type StM (ActionCtxT ctx m) a = ComposeSt (ActionCtxT ctx) m a
+    liftBaseWith = defaultLiftBaseWith
+    restoreM = defaultRestoreM
+
 data SpockConfigInternal
     = SpockConfigInternal
     { sci_maxRequestSize :: Maybe Word64
     , sci_errorHandler :: Status -> IO Wai.Application
+    , sci_logError :: T.Text -> IO ()
     }
 
 defaultSpockConfigInternal :: SpockConfigInternal
-defaultSpockConfigInternal = SpockConfigInternal Nothing defaultErrorHandler
-  where
-    defaultErrorHandler status = return $ \_ respond -> do
-      let errorMessage = "Error handler failed with status code " ++ (show $ statusCode status)
-      respond $ Wai.responseLBS status500 [] $ BSLC.pack errorMessage
+defaultSpockConfigInternal =
+    SpockConfigInternal Nothing defaultErrorHandler (T.hPutStrLn stderr)
+    where
+      defaultErrorHandler status = return $ \_ respond ->
+          do let errorMessage =
+                     "Error handler failed with status code " ++ show (statusCode status)
+             respond $ Wai.responseLBS status500 [] $ BSLC.pack errorMessage
 
 respStateToResponse :: ResponseVal -> Wai.Response
 respStateToResponse (ResponseValState (ResponseState headers multiHeaders status (ResponseBody body))) =
@@ -277,7 +315,7 @@ respStateToResponse _ = error "ResponseState expected"
 
 errorResponse :: Status -> BSL.ByteString -> ResponseVal
 errorResponse s e =
-    ResponseValState $
+    ResponseValState
     ResponseState
     { rs_responseHeaders =
           HM.singleton "Content-Type" "text/html"
@@ -318,7 +356,8 @@ middlewareToApp mw =
       fallbackApp _ respond = respond notFound
       notFound = respStateToResponse $ errorResponse status404 "404 - File not found"
 
-makeActionEnvironment :: InternalState -> SpockMethod -> Wai.Request -> IO (RequestInfo (), TVar V.Vault, IO ())
+makeActionEnvironment ::
+    InternalState -> SpockMethod -> Wai.Request -> IO (RequestInfo (), TVar V.Vault, IO ())
 makeActionEnvironment st stdMethod req =
     do vaultVar <- liftIO $ newTVarIO (Wai.vault req)
        let vaultIf =
@@ -417,8 +456,10 @@ applyAction config req env (selectedAction : xs) =
          Left ActionTryNext ->
              applyAction config req env xs
          Left (ActionError errorMsg) ->
-             do liftIO $ putStrLn $ "Spock Error while handling "
-                             ++ show (Wai.pathInfo req) ++ ": " ++ errorMsg
+             do liftIO $ sci_logError config $
+                    T.pack $
+                    "Spock Error while handling "
+                    ++ show (Wai.pathInfo req) ++ ": " ++ errorMsg
                 return $ Just $ getErrorHandler config status500
          Left ActionDone ->
              return $ Just (ResponseValState respState)
@@ -469,7 +510,9 @@ handleRequest' config stdMethod registryLift allActions st coreApp req respond =
                       [ Handler $ \(_ :: SizeException) ->
                           return (Just $ getErrorHandler config status413)
                       , Handler $ \(e :: SomeException) ->
-                        do putStrLn $ "Spock Error while handling " ++ show (Wai.pathInfo req) ++ ": " ++ show e
+                        do sci_logError config $ T.pack $
+                               "Spock Error while handling " ++ show (Wai.pathInfo req)
+                               ++ ": " ++ show e
                            return $ Just $ getErrorHandler config status500
                       ]
                 cleanUp
