@@ -21,23 +21,7 @@ Next, you can prepare a directory for your first Spock powered application:
 
 ## Dependencies
 
-To make sure your dependencies will match those of this tutorial, replace the content of `stack.yaml` with:
-
-{% highlight yaml %}
-resolver: lts-6.13
-packages:
-- '.'
-- location:
-      git: https://github.com/agrafix/Spock.git
-      commit: 77333a2de5dea0dc8eba9432ab16864e93e5d70e
-  subdirs:
-    - Spock
-    - Spock-core
-    - reroute
-extra-deps: []
-{% endhighlight %}
-
-Now we will add `Spock` to our dependencies by opening `Spock-example.cabal` and adding `Spock >=0.11`, `mtl` and `text` to `build-depends` in the
+First we will add `Spock` to our dependencies by opening `Spock-example.cabal` and adding `Spock >=0.11`, `mtl` and `text` to `build-depends` in the
 `executable Spock-example-exe` section.
 Next we build everything once: `stack build --fast --pedantic`.
 
