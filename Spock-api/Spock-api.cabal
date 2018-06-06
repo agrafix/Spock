@@ -23,7 +23,7 @@ library
                 reroute >= 0.4,
                 hvect >= 0.3.1,
                 deepseq
-  ghc-options: -auto-all -Wall
+  ghc-options: -Wall
 
 source-repository head
   type:     git

@@ -58,7 +58,7 @@ library
                        wai >=3.0,
                        wai-extra >=3.0,
                        warp >=3.0
-  ghc-options: -auto-all -Wall -fno-warn-orphans
+  ghc-options: -Wall -fno-warn-orphans
 
 test-suite spockcoretests
   type:                exitcode-stdio-1.0

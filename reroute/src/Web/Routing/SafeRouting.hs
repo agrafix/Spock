@@ -6,7 +6,6 @@
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
-
 module Web.Routing.SafeRouting where
 
 import Data.HVect hiding (null, length)
@@ -14,7 +13,10 @@ import qualified Data.HVect as HV
 import qualified Data.PolyMap as PM
 
 import Data.Maybe
-#if MIN_VERSION_base(4,8,0)
+#if MIN_VERSION_base(4,11,0)
+#elif MIN_VERSION_base(4,9,0)
+import Data.Semigroup
+#elif MIN_VERSION_base(4,8,0)
 import Data.Monoid ((<>))
 #else
 import Control.Applicative ((<$>))
@@ -80,10 +82,13 @@ instance NFData x => NFData (PathMap x) where
 emptyPathMap :: PathMap x
 emptyPathMap = PathMap mempty mempty mempty PM.empty mempty
 
+instance Semigroup (PathMap x) where
+  (PathMap c1 h1 s1 p1 w1) <> (PathMap c2 h2 s2 p2 w2) =
+    PathMap (c1 <> c2) (h1 <> h2) (HM.unionWith (<>) s1 s2) (PM.unionWith (<>) p1 p2) (w1 <> w2)
+
 instance Monoid (PathMap x) where
   mempty = emptyPathMap
-  mappend (PathMap c1 h1 s1 p1 w1) (PathMap c2 h2 s2 p2 w2) =
-    PathMap (c1 <> c2) (h1 <> h2) (HM.unionWith (<>) s1 s2) (PM.unionWith (<>) p1 p2) (w1 <> w2)
+  mappend = (<>)
 
 updatePathMap
   :: (forall y. (ctx -> y) -> PathMap y -> PathMap y)

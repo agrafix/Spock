@@ -22,7 +22,7 @@ import Control.Concurrent.MVar
 import Control.Concurrent.STM
 import Control.Exception
 import Control.Monad.Base
-import Control.Monad.RWS.Strict
+import Control.Monad.RWS.Strict hiding ((<>))
 #if MIN_VERSION_mtl(2,2,0)
 import Control.Monad.Except
 #else
@@ -34,6 +34,7 @@ import Control.Monad.Trans.Resource
 import Data.Hashable
 import Data.IORef
 import Data.Maybe
+import Data.Semigroup
 import Data.Typeable
 import Data.Word
 import GHC.Generics
@@ -235,9 +236,12 @@ data ActionInterupt
     | ActionApplication !(IO Wai.Application)
     deriving Typeable
 
+instance Semigroup ActionInterupt where
+    _ <> a = a
+
 instance Monoid ActionInterupt where
     mempty = ActionDone
-    mappend _ a = a
+    mappend = (<>)
 
 #if MIN_VERSION_mtl(2,2,0)
 type ErrorT = ExceptT

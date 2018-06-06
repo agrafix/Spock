@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Web.Spock.Config
     ( SpockCfg (..), defaultSpockCfg
@@ -15,7 +16,12 @@ import Web.Spock.Action
 import Web.Spock.Internal.Types
 import qualified Web.Spock.Internal.SessionVault as SV
 
+#if MIN_VERSION_base(4,11,0)
+#elif MIN_VERSION_base(4,9,0)
+import Data.Semigroup
+#else
 import Data.Monoid
+#endif
 import Network.HTTP.Types.Status
 import System.IO
 import qualified Data.Text as T

@@ -70,7 +70,7 @@ library
                        unordered-containers >=0.2,
                        vault >=0.3,
                        wai >=3.0
-  ghc-options: -auto-all -Wall -fno-warn-orphans
+  ghc-options: -Wall -fno-warn-orphans
 
 test-suite spocktests
   type:                exitcode-stdio-1.0

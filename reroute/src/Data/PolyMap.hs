@@ -4,7 +4,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE GADTs #-}
-
 module Data.PolyMap
   ( PolyMap, empty, rnfHelper
   , lookup, lookupApply, lookupApplyAll, lookupConcat
@@ -13,9 +12,14 @@ module Data.PolyMap
   , zipWith', zipWith, zip, ap
   ) where
 
-import Prelude hiding (lookup, zipWith, zip)
 import Data.Typeable
-#if MIN_VERSION_base(4,8,0)
+import Prelude hiding (lookup, zipWith, zip)
+#if MIN_VERSION_base(4,11,0)
+import Control.Applicative (Alternative ((<|>)), liftA2)
+#elif MIN_VERSION_base(4,9,0)
+import Control.Applicative (Alternative ((<|>)), liftA2)
+import Data.Semigroup
+#elif MIN_VERSION_base(4,8,0)
 import Control.Applicative (Alternative ((<|>)), liftA2)
 #else
 import Control.Applicative (Applicative (..), Alternative ((<|>)), liftA2)
@@ -31,9 +35,12 @@ instance Functor f => Functor (PolyMap c f) where
   fmap _ PMNil = PMNil
   fmap f (PMCons v pm) = PMCons (fmap ((.) f) v) (fmap f pm)
 
+instance Alternative f => Semigroup (PolyMap c f a) where
+  (<>) = union
+
 instance Alternative f => Monoid (PolyMap c f a) where
   mempty = empty
-  mappend = union
+  mappend = (<>)
 
 empty :: PolyMap c f a
 empty = PMNil
