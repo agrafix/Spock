@@ -8,7 +8,10 @@ import Test.Hspec.Wai
 import Test.Hspec.Wai.Matcher
 #endif
 
+#if MIN_VERSION_base(4,11,0)
+#else
 import Data.Monoid
+#endif
 import Data.Word
 import Network.HTTP.Types.Header
 import Network.HTTP.Types.Method
