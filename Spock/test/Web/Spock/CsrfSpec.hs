@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DoAndIfThenElse #-}
+{-# LANGUAGE CPP #-}
 module Web.Spock.CsrfSpec (spec) where
 
 import Web.Spock.TestUtils
@@ -8,7 +9,10 @@ import Web.Spock.TestUtils
 import Web.Spock
 import Web.Spock.Config
 
+#if MIN_VERSION_base(4,11,0)
+#else
 import Data.Monoid
+#endif
 import Test.Hspec
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Text.Encoding as T

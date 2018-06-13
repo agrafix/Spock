@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DoAndIfThenElse #-}
+{-# LANGUAGE CPP #-}
 module Web.Spock.SafeSpec (spec) where
 
 import Web.Spock.TestUtils
@@ -10,7 +11,10 @@ import Web.Spock.Config
 
 import Control.Monad
 import Data.IORef
+#if MIN_VERSION_base(4,11,0)
+#else
 import Data.Monoid
+#endif
 import Test.Hspec
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import qualified Data.HashSet as HS

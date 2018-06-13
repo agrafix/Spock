@@ -3,6 +3,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DoAndIfThenElse #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE CPP #-}
 module Web.Spock.SafeSpec (spec) where
 
 import Web.Spock.Core
@@ -14,7 +15,10 @@ import Control.Monad.Base
 import Control.Monad.Trans.Control
 import Control.Monad.Trans.Reader
 import Data.Aeson
+#if MIN_VERSION_base(4,11,0)
+#else
 import Data.Monoid
+#endif
 import GHC.Generics
 import Network.HTTP.Types.Status
 import Test.Hspec
