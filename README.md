@@ -5,7 +5,7 @@
 [![Hackage](https://img.shields.io/hackage/v/Spock.svg)](http://hackage.haskell.org/package/Spock)
 [![Hackage Spock-Core](https://img.shields.io/hackage/v/Spock-core.svg)](http://hackage.haskell.org/package/Spock-core)
 
-HEAD Documentation: [Spock 0.13.0.0 (unreleased)](https://spockdocs.s3.eu-central-1.amazonaws.com/Spock-0.13.0.0/Web-Spock.html)
+HEAD Documentation: [Spock 0.13.0.1 (unreleased)](https://spockdocs.s3.eu-central-1.amazonaws.com/Spock-0.13.0.1/Web-Spock.html)
 
 ## Intro
 
