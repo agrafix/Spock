@@ -37,7 +37,6 @@ library
                        case-insensitive >=1.1,
                        containers >=0.5,
                        cookie >=0.4,
-                       directory >=1.2,
                        hashable >=1.2,
                        http-types >=0.8,
                        hvect >= 0.4,

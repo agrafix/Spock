@@ -46,7 +46,6 @@ import Prelude
 #else
 import Prelude hiding (catch)
 #endif
-import System.Directory
 import System.IO
 import Web.Routing.Router
 import qualified Data.ByteString as BS
