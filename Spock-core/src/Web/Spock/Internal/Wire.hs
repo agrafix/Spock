@@ -46,7 +46,6 @@ import Prelude
 #else
 import Prelude hiding (catch)
 #endif
-import System.Directory
 import System.IO
 import Web.Routing.Router
 import qualified Data.ByteString as BS
@@ -361,7 +360,7 @@ middlewareToApp mw =
       notFound = respStateToResponse $ errorResponse status404 "404 - File not found"
 
 makeActionEnvironment ::
-    InternalState -> SpockMethod -> Wai.Request -> IO (RequestInfo (), TVar V.Vault, IO ())
+    InternalState -> SpockMethod -> Wai.Request -> IO (RequestInfo (), TVar V.Vault)
 makeActionEnvironment st stdMethod req =
     do vaultVar <- liftIO $ newTVarIO (Wai.vault req)
        let vaultIf =
@@ -423,18 +422,7 @@ makeActionEnvironment st stdMethod req =
                 , ri_context = ()
                 }
               , vaultVar
-              , removeUploadedFiles (rb_files reqBody)
               )
-
-removeUploadedFiles :: CacheVar (HM.HashMap k UploadedFile) -> IO ()
-removeUploadedFiles uploadedFilesRef =
-    do cvals <- loadCacheVarOpt uploadedFilesRef
-       case cvals of
-         Nothing -> return ()
-         Just uploadedFiles ->
-             forM_ (HM.elems uploadedFiles) $ \uploadedFile ->
-             do stillThere <- doesFileExist (uf_tempLocation uploadedFile)
-                when stillThere $ liftIO $ removeFile (uf_tempLocation uploadedFile)
 
 applyAction :: MonadIO m
             => SpockConfigInternal
@@ -508,7 +496,7 @@ handleRequest' config stdMethod registryLift allActions st coreApp req respond =
            `catch` \(_ :: SizeException) ->
                return (Right $ getErrorHandler config status413)
        case actEnv of
-         Left (mkEnv, vaultVar, cleanUp) ->
+         Left (mkEnv, vaultVar) ->
              do mRespState <-
                     registryLift (applyAction config req mkEnv allActions) `catches`
                       [ Handler $ \(_ :: SizeException) ->
@@ -519,7 +507,6 @@ handleRequest' config stdMethod registryLift allActions st coreApp req respond =
                                ++ ": " ++ show e
                            return $ Just $ getErrorHandler config status500
                       ]
-                cleanUp
                 case mRespState of
                   Just (ResponseHandler responseHandler) ->
                       responseHandler >>= \app -> app req respond
