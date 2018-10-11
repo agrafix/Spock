@@ -62,7 +62,7 @@ library
                        resource-pool >=0.2,
                        resourcet >= 0.4,
                        stm >=2.4,
-                       stm-containers >=0.2 && < 1.0,
+                       stm-containers >=0.2 && < 0.3,
                        text >= 0.11.3.1,
                        time >=1.4,
                        transformers >=0.3,
