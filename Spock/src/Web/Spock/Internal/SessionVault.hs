@@ -14,7 +14,7 @@ import Control.Monad
 import Data.Hashable
 import Focus as F
 import qualified ListT as L
-import qualified STMContainers.Map as STMMap
+import qualified StmContainers.Map as STMMap
 import qualified Data.Text as T
 
 class (Eq (SessionKey s), Hashable (SessionKey s)) => IsSession s where
@@ -46,7 +46,7 @@ deleteSession k (SessionVault smap) = STMMap.delete k smap
 
 -- | Get all sessions as list
 toList :: SessionVault s -> STM [s]
-toList =  liftM (map snd) . L.toList . STMMap.stream . unSessionVault
+toList =  liftM (map snd) . L.toList . STMMap.listT . unSessionVault
 
 -- | Remove all sessions that do not match the predicate
 filterSessions :: IsSession s => (s -> Bool) -> SessionVault s -> STM ()

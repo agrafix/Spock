@@ -1,8 +1,12 @@
 flags: {}
 packages:
-  - Spock/
-  - Spock-api/
-  - Spock-api-server/
-  - Spock-core/
-  - reroute/
-resolver: lts-11.12
+- Spock/
+- Spock-api/
+- Spock-api-server/
+- Spock-core/
+- reroute/
+extra-deps:
+- primitive-extras-0.7.1
+- stm-containers-1.1.0.2
+- stm-hamt-1.2.0.2
+resolver: lts-13.2

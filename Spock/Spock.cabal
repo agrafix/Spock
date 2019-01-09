@@ -1,5 +1,5 @@
 name:                Spock
-version:             0.13.0.1
+version:             0.13.0.2
 synopsis:            Another Haskell web framework for rapid development
 description:         This toolbox provides everything you need to get a quick start into web hacking with haskell:
                      .
@@ -60,9 +60,9 @@ library
                        mtl >=2.1,
                        reroute >=0.5,
                        resource-pool >=0.2,
-                       resourcet >= 0.4,
+                       resourcet >= 1.2.2,
                        stm >=2.4,
-                       stm-containers >=0.2 && < 0.3,
+                       stm-containers >= 1.1.0.2,
                        text >= 0.11.3.1,
                        time >=1.4,
                        transformers >=0.3,
