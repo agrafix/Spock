@@ -9,4 +9,8 @@ extra-deps:
 - primitive-extras-0.7.1
 - stm-containers-1.1.0.2
 - stm-hamt-1.2.0.2
+- resourcet-1.2.2
+- deferred-folds-0.9.10
+- focus-1.0.1.2
+- primitive-0.6.4.0
 resolver: lts-13.2
