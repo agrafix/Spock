@@ -86,7 +86,7 @@ information. We'll use it to implement a small hit counter by putting an `IORef 
 about the last line in `main` just now, and move on to `app`.
 
 The definition of a Spock application lives in the `SpockM conn sess st a` monad. The `conn` type parameter describes
-what are database connection looks like (`()` for no database), the `sess` is the type of our session and `st` the
+what our database connection looks like (`()` for no database), the `sess` is the type of our session and `st` the
 type of our global application state. Thus, for us: `SpockM () MySession MyAppState ()`. Inside the `SpockM` monad,
 we'll wire URLs to actions. You can think of it as a [`Writer` monad](https://hackage.haskell.org/package/mtl-2.2.1/docs/Control-Monad-Writer-Lazy.html).
 To connect an URL to an action, we use *routes*. A route is either
