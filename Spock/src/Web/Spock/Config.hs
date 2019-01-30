@@ -43,6 +43,7 @@ defaultSessionCfg emptySession =
      return
        SessionCfg
        { sc_cookieName = "spockcookie"
+       , sc_cookieEOL = CookieValidForever
        , sc_sessionTTL = 3600
        , sc_sessionIdEntropy = 64
        , sc_sessionExpandTTL = True
