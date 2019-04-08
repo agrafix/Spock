@@ -46,7 +46,6 @@ import Web.Spock.Config
 
 import Control.Monad.Trans
 import Data.IORef
-import Data.Monoid
 import qualified Data.Text as T
 
 data MySession = EmptySession
