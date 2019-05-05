@@ -29,6 +29,8 @@ extra-deps:
   - Spock-0.13.0.0
   - Spock-core-0.13.0.0
   - reroute-0.5.0.0
+  - stm-containers-0.2.16
+  - focus-0.1.5.2
 ```
 
 Next we build everything once: `stack build --fast --pedantic`.
@@ -46,7 +48,6 @@ import Web.Spock.Config
 
 import Control.Monad.Trans
 import Data.IORef
-import Data.Monoid
 import qualified Data.Text as T
 
 data MySession = EmptySession
