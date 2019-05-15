@@ -161,7 +161,7 @@ app = do
 
 {% endhighlight %}
 
-Our `Api` type represents our application's confinguration. In the second
+Our `Api` type represents our application's configuration. In the second
 part we'll be modifying it to add a database backend, but for now we'll
 leave all the types as Unit. Our `ApiAction` type is similar and represents
 actions in our application which are functions performed by route matches
