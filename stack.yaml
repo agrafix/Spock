@@ -6,11 +6,11 @@ packages:
 - Spock-core/
 - reroute/
 extra-deps:
-- primitive-extras-0.7.1
-- stm-containers-1.1.0.2
-- stm-hamt-1.2.0.2
-- resourcet-1.2.2
-- deferred-folds-0.9.10
-- focus-1.0.1.2
-- primitive-0.6.4.0
-resolver: lts-13.2
+- primitive-extras-0.8
+- stm-containers-1.1.0.4
+- stm-hamt-1.2.0.4
+- resourcet-1.2.4
+- deferred-folds-0.9.10.1
+- focus-1.0.1.3
+- primitive-0.7.0.1
+resolver: lts-15.3
