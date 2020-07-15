@@ -48,6 +48,7 @@ import Prelude hiding (catch)
 #endif
 import System.IO
 import Web.Routing.Router
+import qualified Control.Monad.Morph as MM
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSLC
@@ -271,6 +272,9 @@ newtype ActionCtxT ctx m a
 
 instance MonadTrans (ActionCtxT ctx) where
     lift = ActionCtxT . lift . lift
+
+instance MM.MFunctor (ActionCtxT ctx) where
+    hoist f m = ActionCtxT (MM.hoist (MM.hoist f) (runActionCtxT m))
 
 instance MonadTransControl (ActionCtxT ctx) where
     type StT (ActionCtxT ctx) a = (Either ActionInterupt a, ResponseState, ())
