@@ -41,6 +41,7 @@ library
                        http-types >=0.8,
                        hvect >= 0.4,
                        monad-control >= 1.0,
+                       mmorph >= 1.1,
                        mtl >=2.1,
                        http-api-data >= 0.2,
                        old-locale >=1.0,
