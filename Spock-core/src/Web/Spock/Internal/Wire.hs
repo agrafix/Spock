@@ -376,7 +376,7 @@ makeActionEnvironment st stdMethod req =
                map (\(k, mV) -> (T.decodeUtf8 k, T.decodeUtf8 $ fromMaybe BS.empty mV)) $ Wai.queryString req
        rbValue <-
            newCacheVar $
-           do let parseBody = Wai.requestBody req
+           do let parseBody = Wai.getRequestBodyChunk req
                   bodyLength = Wai.requestBodyLength req
                   buffStart =
                       case bodyLength of
@@ -537,7 +537,7 @@ requestSizeCheck maxSize req =
     do currentSize <- newIORef 0
        return $ req
                   { Wai.requestBody =
-                        do bs <- Wai.requestBody req
+                        do bs <- Wai.getRequestBodyChunk req
                            total <-
                                atomicModifyIORef currentSize $ \sz ->
                                let !nextSize = sz + fromIntegral (BS.length bs)
