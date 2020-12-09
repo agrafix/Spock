@@ -59,6 +59,7 @@ library
                        wai-extra >=3.0,
                        warp >=3.0
   ghc-options: -Wall -fno-warn-orphans
+  default-language:    Haskell2010
 
 test-suite spockcoretests
   type:                exitcode-stdio-1.0
@@ -88,6 +89,7 @@ test-suite spockcoretests
                        wai
 
   ghc-options: -Wall -fno-warn-orphans
+  default-language:    Haskell2010
 
 source-repository head
   type:     git

@@ -71,6 +71,7 @@ library
                        vault >=0.3,
                        wai >=3.0
   ghc-options: -Wall -fno-warn-orphans
+  default-language:    Haskell2010
 
 test-suite spocktests
   type:                exitcode-stdio-1.0
@@ -98,6 +99,7 @@ test-suite spocktests
                        wai-extra
 
   ghc-options: -Wall -fno-warn-orphans
+  default-language:    Haskell2010
 
 source-repository head
   type:     git
