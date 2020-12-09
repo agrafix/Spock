@@ -1,5 +1,5 @@
 name:                Spock
-version:             0.13.0.2
+version:             0.14.0.0
 synopsis:            Another Haskell web framework for rapid development
 description:         This toolbox provides everything you need to get a quick start into web hacking with haskell:
                      .
