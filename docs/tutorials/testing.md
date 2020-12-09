@@ -49,7 +49,7 @@ Add Hspec and Hspec-Wai to your tests dependencies in your project's
 ```haskell
 -- snip
 test-suite app-test
-  build-depends:   Spock >=0.12
+  build-depends:   Spock >=0.14
                  , base >=4.7 && <5
                  , hspec
                  , hspec-wai

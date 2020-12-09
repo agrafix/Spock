@@ -49,8 +49,13 @@ Spock powered application:
 ### Dependencies
 
 To make sure your dependencies will match those used in this tutorial, set
-your project to use Stackage LTS 8.13: Open your `stack.yaml` file, find the
-`resolver` key and make sure its value is `lts-8.13`.
+your project to use Stackage LTS 16.18: Open your `stack.yaml` file, find the
+`resolver` key and make sure it is configured correctly:
+
+```
+resolver:
+  url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/16/18.yaml
+```
 
 Next, you're going to add the packages you'll be using: `Spock`, `aeson`
 and `text`. To do this, open your `Spock-rest.cabal` file, find the
@@ -64,6 +69,9 @@ you can remove or just ignore. The result should look something like this:
                        , Spock
                        , text
 ```
+
+During the first build via `stack build --fast --pedantic`, stack may ask you to add further entries
+to `extra-deps`. Follow these instructions.
 
 ### Imports
 
@@ -161,7 +169,7 @@ app = do
 
 {% endhighlight %}
 
-Our `Api` type represents our application's confinguration. In the second
+Our `Api` type represents our application's configuration. In the second
 part we'll be modifying it to add a database backend, but for now we'll
 leave all the types as Unit. Our `ApiAction` type is similar and represents
 actions in our application which are functions performed by route matches

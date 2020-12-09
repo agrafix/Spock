@@ -21,17 +21,22 @@ Next, you can prepare a directory for your first Spock powered application:
 
 ## Dependencies
 
-First we will add `Spock` to our dependencies by opening `Spock-example.cabal` and adding `Spock >=0.11`, `mtl` and `text` to `build-depends` in the
+First we will add `Spock` to our dependencies by opening `Spock-example.cabal` and adding `Spock >=0.14`, `mtl` and `text` to `build-depends` in the
 `executable Spock-example-exe` section. Also, the `extra-deps:` section in the generated `stack.yaml` file to:
 
 ```
 extra-deps:
-  - Spock-0.13.0.0
-  - Spock-core-0.13.0.0
-  - reroute-0.5.0.0
+  - Spock-0.14.0.0
+  - Spock-core-0.14.0.0
+  - reroute-0.6.0.0
+  - stm-containers-1.2
+  - focus-1.0.1.4
+  - stm-hamt-1.2.0.4
+  - primitive-extras-0.8
+  - primitive-unlifted-0.1.3.0
 ```
 
-Next we build everything once: `stack build --fast --pedantic`.
+Next we build everything once: `stack build --fast --pedantic`. 
 
 ## Hello world
 
