@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wno-warnings-deprecations #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE CPP #-}
