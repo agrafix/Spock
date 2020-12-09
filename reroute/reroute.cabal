@@ -10,7 +10,7 @@ maintainer:          Alexander Thiemann <mail@athiemann.net>
 copyright:           (c) 2014 - 2020 Alexander Thiemann <mail@athiemann.net>, Tim Baumann <tim@timbaumann.info>
 category:            Web
 build-type:          Simple
-cabal-version:       >=3.0
+cabal-version:       >=2.0
 tested-with:         GHC==8.8.4
 
 extra-source-files:
