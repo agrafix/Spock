@@ -8,11 +8,11 @@ license:             BSD3
 license-file:        LICENSE
 author:              Alexander Thiemann <mail@athiemann.net>
 maintainer:          Alexander Thiemann <mail@athiemann.net>
-copyright:           (c) 2013 - 2017 Alexander Thiemann
+copyright:           (c) 2013 - 2020 Alexander Thiemann
 category:            Web
 build-type:          Simple
-cabal-version:       >=1.8
-tested-with:         GHC==7.10.2, GHC==8.0.1
+cabal-version:       >=3.0
+tested-with:         GHC==8.8.4
 
 extra-source-files:
     README.md
