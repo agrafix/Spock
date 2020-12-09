@@ -5,7 +5,7 @@
 [![Hackage](https://img.shields.io/hackage/v/Spock.svg)](http://hackage.haskell.org/package/Spock)
 [![Hackage Spock-Core](https://img.shields.io/hackage/v/Spock-core.svg)](http://hackage.haskell.org/package/Spock-core)
 
-HEAD Documentation: [Spock 0.13.0.1 (unreleased)](https://spockdocs.s3.eu-central-1.amazonaws.com/Spock-0.13.0.1/Web-Spock.html)
+HEAD Documentation: [Spock 0.14.0.1 (unreleased)](https://spockdocs.s3.eu-central-1.amazonaws.com/Spock-0.14.0.1/Web-Spock.html)
 
 ## Intro
 
@@ -81,8 +81,8 @@ implementation differs from scotty's.
 
 ## Thanks to
 
-* Tim Baumann [Github](https://github.com/timjb) (lot's of help with typesafe routing)
-* Tom Nielsen [Github](https://github.com/glutamate)  (much feedback and small improvements)
+* [Tim Baumann](https://github.com/timjb) (lot's of help with typesafe routing)
+* [Tom Nielsen](https://github.com/glutamate)  (much feedback and small improvements)
 * ... and all other awesome [contributors](https://github.com/agrafix/Spock/graphs/contributors)!
 
 ## Hacking
@@ -92,12 +92,11 @@ Pull requests are welcome! Please consider creating an issue beforehand, so we c
 
 ## Misc
 
-### Supported GHC Versions
+### Officially Supported GHC Versions
 
-* 7.10.2
-* 8.0
+* 8.8.4
 
 ### License
 
 Released under the BSD3 license.
-(c) 2013 - 2017 Alexander Thiemann
+(c) 2013 - 2020 Alexander Thiemann
