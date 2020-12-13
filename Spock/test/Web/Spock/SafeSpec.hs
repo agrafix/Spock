@@ -22,7 +22,7 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Network.Wai.Test as Wai
 import qualified Test.Hspec.Wai as Test
-import qualified Test.Hspec.Wai.Internal as Test
+-- import qualified Test.Hspec.Wai.Internal as Test
 
 sessionSpec :: Spec
 sessionSpec =
@@ -33,7 +33,7 @@ sessionSpec =
              -- of course this sample is too small to prove anything, but it's a good
              -- smoke test...
              replicateM_ 500 $
-                do Test.WaiSession (Wai.deleteClientCookie "spockcookie")
+                do --Test.WaiSession (Wai.deleteClientCookie "spockcookie")
                    res <- Test.get "/test"
                    Test.liftIO $ checkCookie ids res `shouldReturn` True
        Test.with sessionApp $
