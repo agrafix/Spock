@@ -60,7 +60,7 @@ frameworkSpec app =
        headerTest
        cookieTest
 
-routingSpec :: SpecWith Wai.Application
+routingSpec :: SpecWith (st, Wai.Application)
 routingSpec =
     describe "Routing Framework" $
       do it "allows root actions" $
@@ -141,7 +141,7 @@ errorHandlerSpec app =
                get "/user/error" `shouldRespondWith` "UNAUTHORIZED" { matchStatus = 403 }
 
 
-actionSpec :: SpecWith Wai.Application
+actionSpec :: SpecWith (st, Wai.Application)
 actionSpec =
     describe "Action Framework" $
       do it "handles auth correctly" $
@@ -155,7 +155,7 @@ actionSpec =
       mkAuthHeader user pass =
           ("Authorization", "Basic " <> (B64.encode $ user <> ":" <> pass))
 
-cookieTest :: SpecWith Wai.Application
+cookieTest :: SpecWith (st, Wai.Application)
 cookieTest =
     describe "Cookies" $
     do it "sets single cookies correctly" $
@@ -175,7 +175,7 @@ cookieTest =
                       , matchCookie "multiple2" "test2"
                       ]
                   }
-headerTest :: SpecWith Wai.Application
+headerTest :: SpecWith (st, Wai.Application)
 headerTest =
     describe "Headers" $
     do it "supports custom headers" $
