@@ -1,5 +1,4 @@
 language: generic
-sudo: false
 
 cache:
   directories:
@@ -7,14 +6,14 @@ cache:
     - $HOME/.cabal
     - $HOME/.ghc
 
-matrix:
+jobs:
   fast_finish: true
   include:
     - env: BUILD=stack STACK_BUILD_MODE="test" STACK_BUILD_ARGS="--bench --no-run-benchmarks" STACK_ARGS="--haddock" PUBLISH_DOCS="yes" STACK_YAML=stack.yaml
-      compiler: ": #stack lts-16.18"
+      name: "stack lts-16.25"
       addons: {apt: {packages: [libgmp-dev]}}
     - env: BUILD=cabal CABALVER=3.0 GHCVER=8.8.4
-      compiler: ": #GHC 8.8.4"
+      name: "GHC 8.8.4"
       addons: {apt: {packages: [cabal-install-3.0,ghc-8.8.4], sources: [hvr-ghc]}}
 
 before_install:
@@ -48,7 +47,7 @@ deploy:
   skip_cleanup: true
   acl: public_read
   region: eu-central-1
-  local_dir: .stack-work/install/x86_64-linux/lts-16.18/8.8.4/doc/
+  local_dir: .stack-work/install/x86_64-linux/lts-16.25/8.8.4/doc/
   access_key_id:
     secure: ScZQy2B54CnU26bGZivMS6IMQYnKbfOnjspkoRpUcuYU7tOc+IB4OHxSlribidtcyCel0PEARJzU2dlIf8Vn1XuVrj32K4gXzS3Mg7HBEKoeI1aioRwSp4z9VtQLBVDyzJzMIPqqKYGGSNByOjyXGUtxeFLuSK2yRfkoQe8CPGc=
   secret_access_key:
