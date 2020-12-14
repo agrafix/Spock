@@ -1,15 +1,134 @@
-on: [push]
-name: build
+name: Haskell CI
+
+on:
+  push:
+    branches: [ '**' ]
+  pull_request:
+    branches: [ master ]
+
 jobs:
-  runhaskell:
-    name: Build and test
-    runs-on: ubuntu-latest # or macOS-latest, or windows-latest
+  cabal:
+    name: ${{ matrix.os }} / ghc ${{ matrix.ghc }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macOS-latest, windows-latest]
+        ghc:
+          # - "8.0.2"
+          # - "8.2.2"
+          # - "8.4.4"
+          - "8.6.5"
+          - "8.8.4"
+          - "8.10.7"
+          - "9.0.2"
+          - "9.2.3"
+
     steps:
-      - uses: actions/checkout@v2
-      - uses: haskell/actions/setup@v1
-        with:
-          ghc-version: '8.10.7' # Exact version of ghc to use
-          # cabal-version: 'latest'. Omitted, but defaults to 'latest'
-          enable-stack: true
-          stack-version: 'latest'
-      - run: stack test --fast
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Setup Cabal and GHC
+      uses: haskell/actions/setup@v2
+      with:
+        ghc-version: ${{ matrix.ghc }}
+
+    - name: Cache Linux/Mac
+      uses: actions/cache@v3
+      if: ${{ matrix.os != 'windows-latest' }}
+      with:
+        path: ~/.cabal
+        key: -${{ runner.os }}-${{ matrix.ghc }}-build-${{ hashFiles('**/*.cabal') }}-${{ hashFiles('**/cabal.project') }}-
+        restore-keys: |
+          -${{ runner.os }}-${{ matrix.ghc }}-build-
+          -${{ runner.os }}-
+
+    - name: Cache Windows
+      uses: actions/cache@v3
+      if: ${{ matrix.os == 'windows-latest' }}
+      with:
+        path: C:\sr\
+        # path: ~/AppData/Roaming/cabal
+        key: -${{ runner.os }}-${{ matrix.ghc }}-build-${{ hashFiles('**/*.cabal') }}-${{ hashFiles('**/cabal.project') }}-
+        restore-keys: |
+          -${{ runner.os }}-${{ matrix.ghc }}-build-
+          -${{ runner.os }}-
+
+    - name: Install dependencies
+      run: |
+        cabal update
+        cabal build --only-dependencies --enable-tests --enable-benchmarks all
+
+    - name: Build
+      run: cabal build --enable-tests --enable-benchmarks all
+
+    - name: Run tests
+      run: cabal test all
+
+  stack:
+    name: ${{ matrix.os }} / stack ${{ matrix.stack-resolver }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macOS-latest, windows-latest]
+        stack-resolver:
+          - "--resolver nightly"  # stack nightly
+          - ""  # stack default
+          - "--resolver lts-19.16"  # stack 9.0.2
+          - "--resolver lts-18.28"  # stack 8.10.7
+          - "--resolver lts-18.8"  # stack 8.10.6
+          - "--resolver lts-18.6"  # stack 8.10.4
+          - "--resolver lts-17.2"  # stack 8.10.3
+          - "--resolver lts-16.31"  # stack 8.8.4
+          - "--resolver lts-16.11"  # stack 8.8.3
+          - "--resolver lts-15.3"  # stack 8.8.2
+        exclude:
+          - os: windows-latest
+            stack-resolver: "--resolver lts-18.8"
+          - os: windows-latest
+            stack-resolver: "--resolver lts-16.11"
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Setup Haskell Stack
+      uses: haskell/actions/setup@v2
+      with:
+        enable-stack: true
+        stack-no-global: true
+
+    - name: Cache MacOS
+      uses: actions/cache@v3
+      if: ${{ matrix.os == 'macOS-latest' }}
+      with:
+        path: ~/.stack
+        key: -${{ runner.os }}-${{ matrix.stack-resolver }}-
+
+    - name: Cache Ubuntu
+      uses: actions/cache@v3
+      if: ${{ matrix.os == 'ubuntu-latest' }}
+      with:
+        path: ~/.stack
+        key: -${{ runner.os }}-${{ matrix.stack-resolver }}-
+
+    - name: Cache Windows
+      uses: actions/cache@v3
+      if: ${{ matrix.os == 'windows-latest' }}
+      with:
+        path: C:\sr\
+        # path: ~\AppData\Local\Programs\stack
+        key: -${{ runner.os }}-${{ matrix.stack-resolver }}-
+
+    - name: Setup
+      run: |
+        stack setup ${{ matrix.stack-resolver }}
+
+    - name: Build
+      run: |
+        stack build ${{ matrix.stack-resolver }} --test --bench --no-run-tests --no-run-benchmarks
+
+    - name: Test
+      run: |
+        stack test ${{ matrix.stack-resolver }}
