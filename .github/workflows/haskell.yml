@@ -20,14 +20,15 @@ jobs:
           - "8.4.4"
           - "8.6.5"
           - "8.8.4"
-          - "8.10.2"
+          - "8.10.4"
+          - "9.0.1"
 
     steps:
     - name: Checkout
       uses: actions/checkout@v2
 
     - name: Setup Cabal and GHC
-      uses: actions/setup-haskell@v1
+      uses: haskell/actions/setup@v1
       with:
         ghc-version: ${{ matrix.ghc }}
 
@@ -73,7 +74,9 @@ jobs:
         stack-resolver:
           - "--resolver nightly"  # stack nightly
           - ""  # stack default
-          - "--resolver lts-16.25"  # stack 8.8.4
+          - "--resolver lts-17.8"  # stack 8.10.4
+          - "--resolver lts-17.2"  # stack 8.10.3
+          - "--resolver lts-16.31"  # stack 8.8.4
           - "--resolver lts-16.11"  # stack 8.8.3
           - "--resolver lts-15.3"  # stack 8.8.2
 
