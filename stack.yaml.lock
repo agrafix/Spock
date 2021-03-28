@@ -5,6 +5,13 @@
 
 packages:
 - completed:
+    hackage: focus-1.0.2@sha256:b3f754cee10d6d1a0893ad5bffc0e614b60f5e80eda6fff7bd45b92a9df42823,2646
+    pantry-tree:
+      size: 325
+      sha256: 22a862dbf8b41c84391f95192ac18dfac6c44ad288e91cb4d2bd02785d05a42a
+  original:
+    hackage: focus-1.0.2@sha256:b3f754cee10d6d1a0893ad5bffc0e614b60f5e80eda6fff7bd45b92a9df42823,2646
+- completed:
     hackage: stm-containers-1.2@sha256:a887f2e7692b7cf20e0b081e2d66e21076e2bd4b57016ec59c484edfa2d29397,3244
     pantry-tree:
       size: 761
