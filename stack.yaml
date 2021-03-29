@@ -1,4 +1,4 @@
-resolver: lts-18.15
+resolver: lts-19.16
 
 packages:
   - Spock/
@@ -7,7 +7,10 @@ packages:
   - Spock-core/
   - reroute/
 extra-deps:
-  - stm-containers-1.2@sha256:a887f2e7692b7cf20e0b081e2d66e21076e2bd4b57016ec59c484edfa2d29397,3244
-  - stm-hamt-1.2.0.4@sha256:7957497c022554b7599e790696d1a3e56359ad99e5da36a251894c626ca1f60a,3970
-  - primitive-extras-0.8@sha256:fca0310150496867f5b9421fe1541ecda87fae17eae44885a29f9c52dd00c8ff,2963
-  - primitive-unlifted-0.1.3.0@sha256:a98f827740f5dcf097d885b3a47c32f4462204449620abc9d51b8c4f8619f9e6,1427
+  - stm-containers-1.2
+  - stm-hamt-1.2.0.7
+  - primitive-extras-0.10.1.5
+  - primitive-unlifted-0.1.3.1
+  - focus-1.0.3
+  - superbuffer-0.3.1.2
+
