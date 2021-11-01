@@ -77,7 +77,7 @@ instance RouteM SpockCtxT where
     addMiddleware = SpockCtxT . AR.middleware
     wireAny m action =
         SpockCtxT $
-        do hookLift <- lift $ asks unLiftHooked
+        do hookLift <- lift $ asks (\x -> unLiftHooked x)
            case m of
              MethodAny ->
                  do forM_ allStdMethods $ \mReg ->
@@ -103,7 +103,7 @@ withPrehookImpl hook (SpockCtxT hookBody) =
 wireRouteImpl :: forall xs ctx m ps. (HasRep xs, Monad m) => SpockMethod -> Path xs ps -> HVectElim xs (ActionCtxT ctx m ()) -> SpockCtxT ctx m ()
 wireRouteImpl m path action =
     SpockCtxT $
-    do hookLift <- lift $ asks unLiftHooked
+    do hookLift <- lift $ asks (\x -> unLiftHooked x)
        let actionPacker :: HVectElim xs (ActionCtxT ctx m ()) -> HVect xs -> ActionCtxT () m ()
            actionPacker act captures = hookLift (uncurry act captures)
        case m of
