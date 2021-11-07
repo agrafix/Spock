@@ -91,7 +91,7 @@ data SessionCfg conn a st = SessionCfg
   { -- | name of the client side cookie
     sc_cookieName :: T.Text,
     -- | how long the client side cookie should live
-    sc_cookieEOL :: CookieEOL,
+    sc_cookieSettings :: CookieSettings,
     -- | how long shoud a client session live
     sc_sessionTTL :: NominalDiffTime,
     -- | entropy of the session id sent to the client

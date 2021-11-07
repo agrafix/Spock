@@ -91,6 +91,7 @@ test-suite spocktests
                        Spock,
                        Spock-core,
                        stm,
+                       transformers,
                        text,
                        time,
                        unordered-containers,

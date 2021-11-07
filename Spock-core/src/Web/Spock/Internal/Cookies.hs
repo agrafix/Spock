@@ -85,7 +85,7 @@ generateCookieHeaderString name value cs now =
           CookieValidForSession ->
             (Nothing, Nothing)
           CookieValidForever ->
-            (Just farFuture, Just (farFuture `diffUTCTime` now))
+            (Just farFuture, Just 2147483000)
       adjustMaxAge t =
         if t < 0 then 0 else t
       cookieVal =

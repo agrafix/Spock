@@ -13,6 +13,8 @@ module Web.Spock.Config
     -- * Sessions
     defaultSessionCfg,
     SessionCfg (..),
+    CookieSettings (..),
+    CookieEOL (..),
     defaultSessionHooks,
     SessionHooks (..),
     SessionStore (..),
@@ -53,7 +55,7 @@ defaultSessionCfg emptySession =
     return
       SessionCfg
         { sc_cookieName = "spockcookie",
-          sc_cookieEOL = CookieValidForever,
+          sc_cookieSettings = defaultCookieSettings {cs_EOL = CookieValidForever, cs_HTTPOnly = True},
           sc_sessionTTL = 3600,
           sc_sessionIdEntropy = 64,
           sc_sessionExpandTTL = True,

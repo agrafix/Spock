@@ -11,6 +11,7 @@ import Control.Monad
 import Data.Monoid
 #endif
 
+import Control.Monad.Trans.Class
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import qualified Data.HashSet as HS
 import Data.IORef
@@ -19,6 +20,7 @@ import qualified Data.Text.Encoding as T
 import qualified Network.Wai.Test as Wai
 import Test.Hspec
 import qualified Test.Hspec.Wai as Test
+import qualified Test.Hspec.Wai.Internal as Test
 import Web.Spock
 import Web.Spock.Config
 import Web.Spock.TestUtils
@@ -37,7 +39,7 @@ sessionSpec =
             -- smoke test...
             replicateM_ 500 $
               do
-                --Test.WaiSession (Wai.deleteClientCookie "spockcookie")
+                Test.WaiSession $ lift $ Wai.deleteClientCookie "spockcookie"
                 res <- Test.get "/test"
                 Test.liftIO $ checkCookie ids res `shouldReturn` True
       Test.with sessionApp $
@@ -46,7 +48,9 @@ sessionSpec =
             res <- Test.get "/set/5"
             case getSessCookie res of
               Nothing ->
-                Test.liftIO $ expectationFailure "Missing spockcookie"
+                Test.liftIO $
+                  expectationFailure $
+                    "Missing spockcookie in " ++ show (Wai.simpleHeaders res)
               Just sessCookie ->
                 Test.request "GET" "/check" [("Cookie", T.encodeUtf8 $ "spockcookie=" <> sessCookie)] ""
                   `Test.shouldRespondWith` "5"
@@ -63,17 +67,24 @@ sessionSpec =
             res <- Test.get "/set/5"
             case getSessCookie res of
               Nothing ->
-                Test.liftIO $ expectationFailure "Missing spockcookie"
+                Test.liftIO $
+                  expectationFailure $
+                    "Missing spockcookie in " ++ show (Wai.simpleHeaders res)
               Just sessCookie ->
                 do
+                  Test.WaiSession $ lift $ Wai.deleteClientCookie "spockcookie"
                   res2 <- Test.request "GET" "/regenerate" [("Cookie", T.encodeUtf8 $ "spockcookie=" <> sessCookie)] ""
                   case getSessCookie res2 of
                     Nothing ->
-                      Test.liftIO $ expectationFailure "Missing new spockcookie"
+                      Test.liftIO $
+                        expectationFailure $
+                          "Missing spockcookie in " ++ show (Wai.simpleHeaders res)
                     Just sessCookie2 ->
                       do
+                        Test.WaiSession $ lift $ Wai.deleteClientCookie "spockcookie"
                         Test.request "GET" "/check" [("Cookie", T.encodeUtf8 $ "spockcookie=" <> sessCookie2)] ""
                           `Test.shouldRespondWith` "5"
+                        Test.WaiSession $ lift $ Wai.deleteClientCookie "spockcookie"
                         Test.request "GET" "/check" [("Cookie", T.encodeUtf8 $ "spockcookie=" <> sessCookie)] ""
                           `Test.shouldRespondWith` "0"
   where
@@ -105,7 +116,8 @@ sessionSpec =
         case mSessCookie of
           Nothing ->
             do
-              expectationFailure "Missing spockcookie"
+              expectationFailure $
+                "Missing spockcookie in " ++ show (Wai.simpleHeaders resp)
               return False
           Just sessionId ->
             do

@@ -15,10 +15,6 @@ module Web.Spock.Internal.SessionManager
   )
 where
 
-#if MIN_VERSION_base(4,8,0)
-#else
-import Control.Applicative
-#endif
 import Control.Concurrent
 import Control.Exception
 import Control.Monad
@@ -184,16 +180,11 @@ modifySessionImpl vK sessionRef cfg sif f =
     modifySessionBase vK sessionRef cfg sif modFun
 
 makeSessionIdCookie :: SessionCfg conn sess st -> Session conn sess st -> UTCTime -> BS.ByteString
-makeSessionIdCookie cfg sess now =
-  generateCookieHeaderString name value settings now
+makeSessionIdCookie cfg sess = generateCookieHeaderString name value settings
   where
     name = sc_cookieName cfg
     value = sess_id sess
-    settings =
-      defaultCookieSettings
-        { cs_EOL = sc_cookieEOL cfg,
-          cs_HTTPOnly = True
-        }
+    settings = sc_cookieSettings cfg
 
 readOrNewSession ::
   MonadIO m =>
