@@ -1,9 +1,9 @@
 module Main where
 
+import Test.Hspec
 import qualified Web.Routing.SafeRoutingSpec
 
-import Test.Hspec
-
 main :: IO ()
-main = hspec $
+main =
+  hspec $
     Web.Routing.SafeRoutingSpec.spec

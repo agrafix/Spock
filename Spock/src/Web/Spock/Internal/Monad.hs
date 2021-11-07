@@ -1,44 +1,45 @@
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE RankNTypes #-}
-module Web.Spock.Internal.Monad where
+{-# LANGUAGE TypeFamilies #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
-import Web.Spock.Internal.Types
+module Web.Spock.Internal.Monad where
 
 import Control.Monad.Reader
 import Control.Monad.Trans.Resource
 import Data.Pool
+import Web.Spock.Internal.Types
 
 webM :: MonadTrans t => WebStateM conn sess st a -> t (WebStateM conn sess st) a
 webM = lift
 
 instance (MonadTrans t) => HasSpock (t (WebStateM conn sess st)) where
-    type SpockConn (t (WebStateM conn sess st)) = conn
-    type SpockState (t (WebStateM conn sess st)) = st
-    type SpockSession (t (WebStateM conn sess st)) = sess
-    runQuery a = webM $ runQueryImpl a
-    getState = webM getStateImpl
-    getSessMgr = webM getSessMgrImpl
-    getSpockCfg = webM getSpockCfgImpl
+  type SpockConn (t (WebStateM conn sess st)) = conn
+  type SpockState (t (WebStateM conn sess st)) = st
+  type SpockSession (t (WebStateM conn sess st)) = sess
+  runQuery a = webM $ runQueryImpl a
+  getState = webM getStateImpl
+  getSessMgr = webM getSessMgrImpl
+  getSpockCfg = webM getSpockCfgImpl
 
 instance HasSpock (WebStateM conn sess st) where
-    type SpockConn (WebStateM conn sess st) = conn
-    type SpockState (WebStateM conn sess st) = st
-    type SpockSession (WebStateM conn sess st) = sess
-    runQuery = runQueryImpl
-    getState = getStateImpl
-    getSessMgr = getSessMgrImpl
-    getSpockCfg = getSpockCfgImpl
+  type SpockConn (WebStateM conn sess st) = conn
+  type SpockState (WebStateM conn sess st) = st
+  type SpockSession (WebStateM conn sess st) = sess
+  runQuery = runQueryImpl
+  getState = getStateImpl
+  getSessMgr = getSessMgrImpl
+  getSpockCfg = getSpockCfgImpl
 
 getSpockCfgImpl :: WebStateM conn sess st (SpockCfg conn sess st)
 getSpockCfgImpl = asks web_config
 
 runQueryImpl :: (conn -> IO a) -> WebStateM conn sess st a
 runQueryImpl query =
-    do pool <- asks web_dbConn
-       liftIO (withResource pool query)
+  do
+    pool <- asks web_dbConn
+    liftIO (withResource pool query)
 
 getStateImpl :: WebStateM conn sess st st
 getStateImpl = asks web_state
@@ -52,7 +53,7 @@ getSpockHeart = webM ask
 -- you to use 'runQuery' and 'getState'
 runSpockIO :: WebState conn sess st -> WebStateM conn sess st a -> IO a
 runSpockIO st (WebStateT action) =
-    runResourceT $
+  runResourceT $
     runReaderT action st
 
 getSessMgrImpl :: WebStateM conn sess st (SpockSessionManager conn sess st)

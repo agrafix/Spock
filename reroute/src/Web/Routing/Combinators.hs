@@ -5,14 +5,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+
 module Web.Routing.Combinators where
 
 import Data.HVect
 import Data.String
+import qualified Data.Text as T
 import Data.Typeable (Typeable)
 import Web.HttpApiData
-import qualified Data.Text as T
-
 import Web.Routing.SafeRouting
 
 data PathState = Open | Closed
@@ -39,10 +39,10 @@ var = VarCons Empty
 static :: String -> Path '[] 'Open
 static s =
   let pieces = filter (not . T.null) $ T.splitOn "/" $ T.pack s
-  in foldr StaticCons Empty pieces
+   in foldr StaticCons Empty pieces
 
 instance (a ~ '[], pathState ~ 'Open) => IsString (Path a pathState) where
-    fromString = static
+  fromString = static
 
 -- | The root of a path piece. Use to define a handler for "/"
 root :: Path '[] 'Open
@@ -69,9 +69,10 @@ renderRoute p = combineRoutePieces . renderRoute' p
 renderRoute' :: AllHave ToHttpApiData as => Path as 'Open -> HVect as -> [T.Text]
 renderRoute' Empty _ = []
 renderRoute' (StaticCons pathPiece pathXs) paramXs =
-    ( pathPiece : renderRoute' pathXs paramXs )
+  (pathPiece : renderRoute' pathXs paramXs)
 renderRoute' (VarCons pathXs) (val :&: paramXs) =
-    ( toUrlPiece val : renderRoute' pathXs paramXs)
+  (toUrlPiece val : renderRoute' pathXs paramXs)
+
 #if __GLASGOW_HASKELL__ < 800
 renderRoute' _ _ =
     error "This will never happen."
