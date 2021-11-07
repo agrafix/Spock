@@ -8,6 +8,8 @@ cradle:
         component: "Spock:spocktests"
       - path: "./Spock-api/src"
         component: "Spock-api:lib"
+      - path: "./Spock-api-server/src"
+        component: "Spock-api-server:lib"
       - path: "./reroute/src"
         component: "reroute:lib"
       - path: "./reroute/test"
