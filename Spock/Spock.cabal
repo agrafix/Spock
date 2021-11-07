@@ -24,7 +24,7 @@ license:             BSD3
 license-file:        LICENSE
 author:              Alexander Thiemann <mail@athiemann.net>
 maintainer:          Alexander Thiemann <mail@athiemann.net>
-copyright:           (c) 2013 - 2020 Alexander Thiemann
+copyright:           (c) 2013 - 2021 Alexander Thiemann
 category:            Web
 build-type:          Simple
 cabal-version:       >=2.0
