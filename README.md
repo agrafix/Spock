@@ -85,13 +85,16 @@ implementation differs from scotty's.
 
 ## Hacking
 
-Pull requests are welcome! Please consider creating an issue beforehand, so we can discuss what you would like to do. Code should be written in a consistent style throughout the project. Avoid whitespace that is sensible to conflicts. (E.g. alignment of `=` signs in functions definitions) Note that by sending a pull request you agree that your contribution can be released under the BSD3 License as part of the `Spock` package or related packages.
+Pull requests are welcome! Please consider creating an issue beforehand, so we can discuss what you would like to do. Code should be written in a consistent style throughout the project. Avoid whitespace that is sensible to conflicts. (E.g. alignment of `=` signs in functions definitions)
+
+Note that by sending a pull request you agree that your contribution can be released under the BSD3 License as part of the `Spock` package or related packages.
 
 
 ## Misc
 
 ### Officially Supported GHC Versions
 
+* 8.10.7
 * 8.8.4
 
 ### License
