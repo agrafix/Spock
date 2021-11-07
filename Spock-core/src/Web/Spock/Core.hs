@@ -23,6 +23,7 @@ module Web.Spock.Core
     Path,
     root,
     Var,
+    AltVar (..),
     var,
     static,
     (<//>),

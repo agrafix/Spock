@@ -1,7 +1,7 @@
 ---
 layout: page
 title: "Tutorials"
-date: 2016-08-26 08:36:06
+date: 2021-11-06 08:36:06
 author: Alexander Thiemann
 permalink: /tutorials/
 ---
@@ -9,6 +9,7 @@ permalink: /tutorials/
 - [Getting Started](getting-started)
 - [Building a REST API](rest-api)
 - [Automated Testing](testing)
+- [Routing](routing)
 
 ## Video tutorials
 

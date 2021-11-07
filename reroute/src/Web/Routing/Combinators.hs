@@ -31,6 +31,20 @@ toInternalPath (Wildcard p) = PI_Wildcard (toInternalPath p)
 
 type Var a = Path (a ': '[]) 'Open
 
+-- | A variant of 'Either' with a 'FromHttpApiData' definition that tries both branches without a prefix.
+-- Useful to define routes with 'var's that should work with different types.
+data AltVar a b = AvLeft a | AvRight b
+  deriving (Show, Eq, Read, Ord)
+
+instance (FromHttpApiData a, FromHttpApiData b) => FromHttpApiData (AltVar a b) where
+  parseUrlPiece val =
+    case parseUrlPiece val of
+      Left err ->
+        case parseUrlPiece val of
+          Left err2 -> Left (err <> " " <> err2)
+          Right ok -> Right (AvRight ok)
+      Right ok -> Right (AvLeft ok)
+
 -- | A route parameter
 var :: (Typeable a, FromHttpApiData a) => Path (a ': '[]) 'Open
 var = VarCons Empty

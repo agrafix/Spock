@@ -20,8 +20,8 @@ import Web.Routing.SafeRouting
 data ReturnVar
   = IntVar Int
   | StrVar T.Text
-  | BoolVar Bool
   | ListVar [ReturnVar]
+  | EitherVar (AltVar Int T.Text)
   deriving (Show, Eq, Read, Ord)
 
 defR :: (Monad m, m ReturnVar ~ x) => Path ts ps -> HVectElim ts x -> RegistryT m ReturnVar middleware Bool m ()
@@ -90,6 +90,10 @@ spec =
         do
           checkRoute "/wildcard/" [StrVar ""]
           checkRoute "/wildcard/some/additional/data" [StrVar "some/additional/data"]
+      it "correctly handles alternatives" $
+        do
+          checkRoute "/either/1" [EitherVar (AvLeft 1)]
+          checkRoute "/either/aaa" [EitherVar (AvRight "aaa")]
   where
     pieces :: T.Text -> [T.Text]
     pieces = filter (not . T.null) . T.splitOn "/"
@@ -125,7 +129,8 @@ spec =
         defR ("entry" </> var </> "rel" </> var) $ \i i2 ->
           return (ListVar [IntVar i, IntVar i2])
         defR ("bar" </> "bingo") $ return (StrVar "bar/bingo")
-        defR ("bar" </> var) $ (return . StrVar . T.pack)
+        defR ("bar" </> var) (return . StrVar)
+        defR ("either" </> var) (return . EitherVar)
         defR ("entry" </> var </> "audit") (return . IntVar)
         defSubComponent ("subcomponent" </> var) $ \name ->
           return $ \ps -> StrVar $ name <> ":" <> T.intercalate "?" ps
