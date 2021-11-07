@@ -1,11 +1,9 @@
 [Spock](https://www.spock.li)
 =====
 
-[![Build Status](https://travis-ci.org/agrafix/Spock.svg)](https://travis-ci.org/agrafix/Spock)
+![Build status](https://github.com/agrafix/Spock/actions/workflows/haskell.yml/badge.svg)
 [![Hackage](https://img.shields.io/hackage/v/Spock.svg)](http://hackage.haskell.org/package/Spock)
 [![Hackage Spock-Core](https://img.shields.io/hackage/v/Spock-core.svg)](http://hackage.haskell.org/package/Spock-core)
-
-HEAD Documentation: [Spock 0.14.0.1 (unreleased)](https://spockdocs.s3.eu-central-1.amazonaws.com/Spock-0.14.0.1/Web-Spock.html)
 
 ## Intro
 
@@ -99,4 +97,4 @@ Pull requests are welcome! Please consider creating an issue beforehand, so we c
 ### License
 
 Released under the BSD3 license.
-(c) 2013 - 2020 Alexander Thiemann
+(c) 2013 - 2021 Alexander Thiemann
