@@ -1,4 +1,4 @@
-resolver: lts-16.25
+resolver: lts-18.15
 
 packages:
   - Spock/
