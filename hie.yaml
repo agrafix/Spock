@@ -1,0 +1,16 @@
+cradle:
+  stack:
+    stackYaml: "stack.yaml"
+    components:
+      - path: "./Spock/src"
+        component: "Spock:lib"
+      - path: "./Spock/test"
+        component: "Spock:spocktests"
+      - path: "./Spock-api/src"
+        component: "Spock-api:lib"
+      - path: "./reroute/src"
+        component: "reroute:lib"
+      - path: "./reroute/test"
+        component: "reroute:reroute-test"
+      - path: "./reroute/benchmarks"
+        component: "reroute:reroute-benchmarks"
