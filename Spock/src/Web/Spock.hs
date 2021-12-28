@@ -204,7 +204,7 @@ type RouteSpec t xs ps ctx conn sess st =
 
 -- | Specify an action that will be run when a standard HTTP verb and the given route match
 hookRoute :: HV.HasRep xs => StdMethod -> RouteSpec t xs ps ctx conn sess st
-hookRoute = hookRoute' . MethodStandard . HttpMethod
+hookRoute m = hookRoute' (MethodStandard . HttpMethod $ m)
 
 -- | Specify an action that will be run regardless of the HTTP verb
 hookRouteAll :: HV.HasRep xs => RouteSpec t xs ps ctx conn sess st
@@ -240,12 +240,12 @@ patch = hookRoute PATCH
 
 -- | Specify an action that will be run when a custom HTTP verb and the given route match
 hookRouteCustom :: HV.HasRep xs => T.Text -> RouteSpec t xs ps ctx conn sess st
-hookRouteCustom = hookRoute' . MethodCustom
+hookRouteCustom t = hookRoute' (MethodCustom t)
 
 -- | Specify an action that will be run when a standard HTTP verb matches but no defined route matches.
 -- The full path is passed as an argument
 hookAny :: StdMethod -> ([T.Text] -> SpockActionCtx ctx conn sess st ()) -> RouteMonad t ctx conn sess st ()
-hookAny = hookAny' . MethodStandard . HttpMethod
+hookAny m = hookAny' (MethodStandard . HttpMethod $ m)
 
 -- | Specify an action that will be run regardless of the HTTP verb and no defined route matches.
 -- The full path is passed as an argument
@@ -255,7 +255,7 @@ hookAnyAll = hookAny' MethodAny
 -- | Specify an action that will be run when a custom HTTP verb matches but no defined route matches.
 -- The full path is passed as an argument
 hookAnyCustom :: T.Text -> ([T.Text] -> SpockActionCtx ctx conn sess st ()) -> RouteMonad t ctx conn sess st ()
-hookAnyCustom = hookAny' . MethodCustom
+hookAnyCustom t = hookAny' (MethodCustom t)
 
 -- | Specify an action that will be run when a HTTP verb matches but no defined route matches.
 -- The full path is passed as an argument
