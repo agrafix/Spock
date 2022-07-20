@@ -11,8 +11,8 @@ maintainer:          Alexander Thiemann <mail@athiemann.net>
 copyright:           (c) 2013 - 2021 Alexander Thiemann
 category:            Web
 build-type:          Simple
-cabal-version:       >=2.0
-tested-with:         GHC==8.8.4
+cabal-version:       2.0
+tested-with:         GHC==8.8.4, GHC==9.2.2
 
 extra-source-files:
     README.md
