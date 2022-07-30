@@ -46,6 +46,13 @@ packages:
     hackage: superbuffer-0.3.1.2@sha256:c2b284771df6fce69505582c3c8d705d18d30d1e7541e0e8cc4b060407a2fac9,1793
   original:
     hackage: superbuffer-0.3.1.2
+- completed:
+    pantry-tree:
+      sha256: 5bf20952472d930323766d250f5fbbe3fe6f2cd3d931e5cf7b62a238ab2099ff
+      size: 524
+    hackage: regex-posix-clib-2.7@sha256:998fca06da3d719818f0691ef0b8b9b7375afeea228cb08bd9e2db53f96b0cd7,1232
+  original:
+    hackage: regex-posix-clib-2.7
 snapshots:
 - completed:
     sha256: a27a5761890ade44d7dd21a5f5f93c87e60b9c063655fff835d69dd1071474f0

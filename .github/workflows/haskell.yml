@@ -129,6 +129,7 @@ jobs:
       run: |
         stack build ${{ matrix.stack-resolver }} --test --bench --no-run-tests --no-run-benchmarks
 
+    # Running with only one thread to avoid "openBinaryFile: resource busy (file is locked)"
     - name: Test
       run: |
-        stack test ${{ matrix.stack-resolver }}
+        stack test ${{ matrix.stack-resolver }} -j 1
