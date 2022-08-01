@@ -5,36 +5,57 @@
 
 packages:
 - completed:
-    hackage: stm-containers-1.2@sha256:a887f2e7692b7cf20e0b081e2d66e21076e2bd4b57016ec59c484edfa2d29397,3244
     pantry-tree:
-      size: 761
       sha256: 20b1076bdb121347ccc512a67df697eed34815a8e35279b6b9a0951963b1eba2
-  original:
+      size: 761
     hackage: stm-containers-1.2@sha256:a887f2e7692b7cf20e0b081e2d66e21076e2bd4b57016ec59c484edfa2d29397,3244
+  original:
+    hackage: stm-containers-1.2
 - completed:
-    hackage: stm-hamt-1.2.0.4@sha256:7957497c022554b7599e790696d1a3e56359ad99e5da36a251894c626ca1f60a,3970
     pantry-tree:
+      sha256: 2de07a746d44aebcff4b7b644373ae4aa5a505457b684ca02ae5a74605991d6b
       size: 1009
-      sha256: d9a8be48da86bd4a2ba9d52ea29b9a74f1b686d439ba1bbfba04ab1a002391da
+    hackage: stm-hamt-1.2.0.7@sha256:e8ecba11580ae2ea839cc3b7a25adcce40810aa472b544728790d28804c912ee,3972
   original:
-    hackage: stm-hamt-1.2.0.4@sha256:7957497c022554b7599e790696d1a3e56359ad99e5da36a251894c626ca1f60a,3970
+    hackage: stm-hamt-1.2.0.7
 - completed:
-    hackage: primitive-extras-0.8@sha256:fca0310150496867f5b9421fe1541ecda87fae17eae44885a29f9c52dd00c8ff,2963
     pantry-tree:
-      size: 1105
-      sha256: e7c1d26202b80d1fca2ef780ec7fe76ede1275f4d9a996c6d44c08d8de1c45db
+      sha256: 942957e3c2a505b231d32a7fc46cbd8257f35e0c606e58da5e7755fb1950ed69
+      size: 1050
+    hackage: primitive-extras-0.10.1.5@sha256:3cccdf4a2469dd83b7e5c2366ea0c9125b07ab0d1746940887a47f68c886fa61,2959
   original:
-    hackage: primitive-extras-0.8@sha256:fca0310150496867f5b9421fe1541ecda87fae17eae44885a29f9c52dd00c8ff,2963
+    hackage: primitive-extras-0.10.1.5
 - completed:
-    hackage: primitive-unlifted-0.1.3.0@sha256:a98f827740f5dcf097d885b3a47c32f4462204449620abc9d51b8c4f8619f9e6,1427
     pantry-tree:
+      sha256: c492e3caeebf476ac0ee1daaedbc2464ef5a530a0b0152a353d64b410c3c1ff3
       size: 420
-      sha256: c882dca2a96b98d02b0d21875b651edb11ac67d90e736c0de7a92c410a19eb7f
+    hackage: primitive-unlifted-0.1.3.1@sha256:3b00ca2c605168dee97d92490a018891e10f73b81ff5e2eeae48ece309d20485,1427
   original:
-    hackage: primitive-unlifted-0.1.3.0@sha256:a98f827740f5dcf097d885b3a47c32f4462204449620abc9d51b8c4f8619f9e6,1427
+    hackage: primitive-unlifted-0.1.3.1
+- completed:
+    pantry-tree:
+      sha256: 3e0247e5dfe683ec67b00bbf8582418435bbf74d9f5d5bf734149e80f70722c1
+      size: 325
+    hackage: focus-1.0.3@sha256:3d3912de7412272a76f76fa16644ac3550dbcc7fb2d504fa1d80a209dd18114f,2646
+  original:
+    hackage: focus-1.0.3
+- completed:
+    pantry-tree:
+      sha256: 09386ae9e391fa88548e03162329affb6cd12cdcd7de322b7d3ac31340331b08
+      size: 630
+    hackage: superbuffer-0.3.1.2@sha256:c2b284771df6fce69505582c3c8d705d18d30d1e7541e0e8cc4b060407a2fac9,1793
+  original:
+    hackage: superbuffer-0.3.1.2
+- completed:
+    pantry-tree:
+      sha256: 5bf20952472d930323766d250f5fbbe3fe6f2cd3d931e5cf7b62a238ab2099ff
+      size: 524
+    hackage: regex-posix-clib-2.7@sha256:998fca06da3d719818f0691ef0b8b9b7375afeea228cb08bd9e2db53f96b0cd7,1232
+  original:
+    hackage: regex-posix-clib-2.7
 snapshots:
 - completed:
-    size: 586286
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/18/15.yaml
-    sha256: 2c9cb11d7aa0656bf28672dcb2414ab21e3ba9ea83ca170c216b2c2fc7e55856
-  original: lts-18.15
+    sha256: a27a5761890ade44d7dd21a5f5f93c87e60b9c063655fff835d69dd1071474f0
+    size: 619163
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/19/16.yaml
+  original: lts-19.16
