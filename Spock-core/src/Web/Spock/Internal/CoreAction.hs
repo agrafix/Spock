@@ -149,7 +149,7 @@ jsonBody' =
 {-# INLINE jsonBody' #-}
 
 -- | Get uploaded files
-files :: MonadIO m => ActionCtxT ctx m (HM.HashMap T.Text UploadedFile)
+files :: MonadIO m => ActionCtxT ctx m (HM.HashMap T.Text [UploadedFile])
 files =
   do
     b <- asks ri_reqBody

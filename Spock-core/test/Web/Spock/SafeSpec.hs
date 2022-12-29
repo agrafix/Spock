@@ -22,6 +22,7 @@ import Data.Aeson
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
+import qualified Data.HashMap.Strict as HM
 import GHC.Generics
 import Network.HTTP.Types.Status
 import qualified Network.Wai as Wai
@@ -114,6 +115,15 @@ app =
     hookAnyCustom "MYVERB" $ text . T.intercalate "/"
     get ("wai" <//> wildcard) $ \_ ->
       respondApp dummyWai
+    post "file/upload" $
+      do
+        f <- files
+        text (T.pack $ show $ HM.size f)
+    post "file/upload/multi" $
+      do
+        f <- files
+        let uploadFiles = f HM.! "file"
+        text (T.pack $ show $ length $ uploadFiles)
 
 dummyWai :: Wai.Application
 dummyWai req respond =
