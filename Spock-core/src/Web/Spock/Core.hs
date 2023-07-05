@@ -69,6 +69,7 @@ where
 
 import Control.Applicative
 import Control.Monad.Reader
+import Data.Foldable (forM_)
 import Data.HVect hiding (head)
 import qualified Data.Text as T
 import qualified Network.HTTP.Types as Http
