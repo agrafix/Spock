@@ -1,4 +1,8 @@
-resolver: lts-19.16
+#resolver: lts-19.16
+#resolver: lts-19.33
+#resolver: lts-20.0
+#resolver: lts-21.19
+resolver: nightly-2023-10-01
 
 packages:
   - Spock/
@@ -15,6 +19,7 @@ extra-deps:
   - superbuffer-0.3.1.2
 
   - regex-posix-clib-2.7
+allow-newer: true
 
 flags:
   regex-posix:
