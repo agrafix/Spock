@@ -68,6 +68,7 @@ module Web.Spock.Core
 where
 
 import Control.Applicative
+import Control.Monad
 import Control.Monad.Reader
 import Data.HVect hiding (head)
 import qualified Data.Text as T
