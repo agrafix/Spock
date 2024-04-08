@@ -63,6 +63,7 @@ frameworkSpec app =
       actionSpec
       headerTest
       cookieTest
+      fileTest
 
 routingSpec :: SpecWith (st, Wai.Application)
 routingSpec =
@@ -233,3 +234,76 @@ matchCookie name val =
               then Nothing
               else loop xs
    in loop relevantHeaders
+
+fileTest :: SpecWith (st, Wai.Application)
+fileTest =
+  describe "" $
+    do
+      it "receives a single file" $
+        do
+          request methodPost "file/upload" headers bodySingle `shouldRespondWith` "1" {matchStatus = 200}
+      it "receives multiple files with different names" $
+        do
+          request methodPost "file/upload" headers bodyUnique `shouldRespondWith` "2" {matchStatus = 200}
+      it "receives multiple files with similar names" $
+        do
+          request methodPost "file/upload/multi" headers bodyMulti `shouldRespondWith` "2" {matchStatus = 200}
+  where
+    bodySingle = BSLC.pack $
+             boundary <> crlf
+             <> "Content-Disposition: form-data; name=\"name\"" <> crlf <> crlf
+             <> "file1.pdf" <> crlf
+             <> boundary <> crlf
+             <> "Content-Disposition: form-data; name=\"file\"; filename=\"file1.pdf\"" <> crlf
+             <> "Content-Type: application/pdf" <> crlf
+             <> "Content-Transfer-Encoding: base64" <> crlf <> crlf
+             <> "aGFza2VsbA==" <> crlf
+             <> boundary <> "--" <> crlf
+
+    bodyUnique = BSLC.pack $
+             boundary <> crlf
+             <> "Content-Disposition: form-data; name=\"names\"" <> crlf <> crlf
+             <> "file1.pdf; file2.pdf" <> crlf
+             <> boundary <> crlf
+             <> "Content-Disposition: form-data; name=\"file1\"; filename=\"file1.pdf\"" <> crlf
+             <> "Content-Type: application/pdf" <> crlf
+             <> "Content-Transfer-Encoding: base64" <> crlf <> crlf
+             <> "aGFza2VsbA==" <> crlf
+             <> boundary <> crlf
+             <> "Content-Disposition: form-data; name=\"file2\"; filename=\"file2.pdf\"" <> crlf
+             <> "Content-Type: application/pdf" <> crlf
+             <> "Content-Transfer-Encoding: base64" <> crlf <> crlf
+             <> "c3BvY2s=" <> crlf
+             <> boundary <> "--" <> crlf
+
+    bodyMulti = BSLC.pack $
+             boundary <> crlf
+             <> "Content-Disposition: form-data; name=\"name1\"" <> crlf <> crlf
+             <> "file1.pdf" <> crlf
+             <> "Content-Disposition: form-data; name=\"name2\"" <> crlf <> crlf
+             <> "file2.pdf" <> crlf
+             <> boundary <> crlf
+             <> "Content-Disposition: form-data; name=\"file\"; filename=\"file1.pdf\"" <> crlf
+             <> "Content-Type: application/pdf" <> crlf
+             <> "Content-Transfer-Encoding: base64" <> crlf <> crlf
+             <> "aGFza2VsbA==" <> crlf
+             <> boundary <> crlf
+             <> "Content-Disposition: form-data; name=\"file\"; filename=\"file2.pdf\"" <> crlf
+             <> "Content-Type: application/pdf" <> crlf
+             <> "Content-Transfer-Encoding: base64" <> crlf <> crlf
+             <> "c3BvY2s=" <> crlf
+             <> boundary <> "--" <> crlf
+
+    boundary :: String
+    boundary = "--__boundary"
+
+    crlf :: String
+    crlf = "\r\n"
+
+    headers :: [Header]
+    headers = [ mkHeader "Content-Type" "multipart/form-data; boundary=__boundary"
+              , mkHeader "Accept-Encoding" "gzip"
+              ]
+
+    mkHeader :: HeaderName -> BS.ByteString -> Header
+    mkHeader key val = (key, val)
