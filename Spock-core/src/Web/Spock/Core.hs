@@ -68,6 +68,7 @@ module Web.Spock.Core
 where
 
 import Control.Applicative
+import Control.Monad
 import Control.Monad.Reader
 import Data.Foldable (forM_)
 import Data.HVect hiding (head)

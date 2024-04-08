@@ -15,6 +15,7 @@ extra-deps:
   - superbuffer-0.3.1.2
 
   - regex-posix-clib-2.7
+allow-newer: true
 
 flags:
   regex-posix:
