@@ -121,17 +121,18 @@ spock spockCfg spockAppl =
     connectionPool <-
       case poolOrConn of
         PCNoDatabase ->
-          createPool (return ()) (const $ return ()) 5 60 5
+          newPool $ setNumStripes (Just 5) $ defaultPoolConfig (return ()) (const $ return ()) 60 25
         PCPool p ->
           return p
         PCConn cb ->
           let pc = cb_poolConfiguration cb
-           in createPool
-                (cb_createConn cb)
-                (cb_destroyConn cb)
-                (pc_stripes pc)
-                (pc_keepOpenTime pc)
-                (pc_resPerStripe pc)
+           in newPool $
+                setNumStripes (Just $ pc_stripes pc) $
+                  defaultPoolConfig
+                    (cb_createConn cb)
+                    (cb_destroyConn cb)
+                    (realToFrac $ pc_keepOpenTime pc)
+                    (pc_stripes pc * pc_resPerStripe pc)
     internalState <-
       WebState connectionPool
         <$> ( createSessionManager sessionCfg $

@@ -1,4 +1,6 @@
-resolver: lts-19.16
+# Use a fixed package set with the latest stable compiler.
+resolver: nightly-2026-09-01
+compiler: ghc-9.14.1
 
 packages:
   - Spock/
@@ -6,16 +8,3 @@ packages:
   - Spock-api-server/
   - Spock-core/
   - reroute/
-extra-deps:
-  - stm-containers-1.2
-  - stm-hamt-1.2.0.7
-  - primitive-extras-0.10.1.5
-  - primitive-unlifted-0.1.3.1
-  - focus-1.0.3
-  - superbuffer-0.3.1.2
-
-  - regex-posix-clib-2.7
-
-flags:
-  regex-posix:
-    _regex-posix-clib: true

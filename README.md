@@ -85,6 +85,34 @@ implementation differs from scotty's.
 
 ## Hacking
 
+The native packages use GHC 9.14.1. Install it with [GHCup](https://www.haskell.org/ghcup/),
+along with Cabal 3.16.0.0 or newer (CI uses 3.18.1.0):
+
+```sh
+ghcup install ghc 9.14.1
+ghcup set ghc 9.14.1
+ghcup install cabal 3.18.1.0
+ghcup set cabal 3.18.1.0
+cabal update
+cabal build all
+cabal test all --test-show-details=direct
+```
+
+The Cabal project enables all native libraries, tests, and the routing benchmark.
+To run the benchmark, use `cabal bench reroute`.
+
+Stack 3.11.1 is also supported. `stack.yaml` pins the package snapshot and overrides
+its compiler with GHC 9.14.1; `stack.yaml.lock` records the resolved dependencies:
+
+```sh
+stack build --test --bench --no-run-tests --no-run-benchmarks
+stack test -j 1
+```
+
+The historical `Spock-api-ghcjs` package and `stack-ghcjs.yaml` target the separate
+GHCJS compiler. They are excluded from the native build and CI; this GHC upgrade
+does not port the browser client to GHC's JavaScript backend.
+
 Pull requests are welcome! Please consider creating an issue beforehand, so we can discuss what you would like to do. Code should be written in a consistent style throughout the project. Avoid whitespace that is sensible to conflicts. (E.g. alignment of `=` signs in functions definitions)
 
 Note that by sending a pull request you agree that your contribution can be released under the BSD3 License as part of the `Spock` package or related packages.
@@ -94,8 +122,7 @@ Note that by sending a pull request you agree that your contribution can be rele
 
 ### Officially Supported GHC Versions
 
-* 8.10.7
-* 8.8.4
+* 9.14.1 (Linux, macOS, and Windows CI)
 
 ### License
 

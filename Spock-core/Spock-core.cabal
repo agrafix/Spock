@@ -12,7 +12,7 @@ copyright:           (c) 2013 - 2021 Alexander Thiemann
 category:            Web
 build-type:          Simple
 cabal-version:       2.0
-tested-with:         GHC==8.8.4, GHC==9.2.2
+tested-with:         GHC==9.14.1
 
 extra-source-files:
     README.md
@@ -48,14 +48,13 @@ library
                        reroute >=0.5,
                        resourcet >= 1.2.2,
                        stm >=2.4,
-                       superbuffer >= 0.2,
                        text >= 0.11.3.1,
                        time >=1.4,
                        transformers >=0.3,
                        transformers-base >=0.4,
                        unordered-containers >=0.2,
                        vault >=0.3,
-                       wai >=3.0,
+                       wai >=3.2.3,
                        wai-extra >=3.0,
                        warp >=3.0
   ghc-options: -Wall -fno-warn-orphans
@@ -86,7 +85,8 @@ test-suite spockcoretests
                        transformers >=0.3,
                        transformers-base,
                        unordered-containers,
-                       wai
+                       wai,
+                       wai-extra
 
   ghc-options: -Wall -fno-warn-orphans
   default-language:    Haskell2010

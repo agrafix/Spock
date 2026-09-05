@@ -19,12 +19,14 @@ import Control.Monad.Base
 import Control.Monad.Trans.Control
 import Control.Monad.Trans.Reader
 import Data.Aeson
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import GHC.Generics
 import Network.HTTP.Types.Status
 import qualified Network.Wai as Wai
+import qualified Network.Wai.Test as WaiTest
 import Test.Hspec
 import qualified Test.Hspec.Wai as Test
 import Web.Spock.Core
@@ -204,6 +206,43 @@ ctxSpec =
           Test.request "GET" "/test" [("X-ApiKey", "foo")] "" `Test.shouldRespondWith` "foo"
           Test.request "POST" "/test" [("X-ApiKey", "foo")] "" `Test.shouldRespondWith` "foo"
 
+requestBodySpec :: Spec
+requestBodySpec =
+  describe "Request body consumption" $
+    forM_ [("known length", Wai.KnownLength), ("chunked", const Wai.ChunkedBody)] $ \(label, bodyLength) ->
+      describe label $
+        do
+          let send chunks =
+                do
+                  application <-
+                    spockAsApp $
+                      spockConfigT (defaultSpockConfig {sc_maxRequestSize = Just 6}) id $
+                        post root $
+                          do
+                            first <- body
+                            second <- body
+                            bytes (first <> second)
+                  let req =
+                        Wai.defaultRequest
+                          { Wai.requestMethod = "POST",
+                            Wai.requestBodyLength = bodyLength (fromIntegral $ sum $ map BS.length chunks)
+                          }
+                  WaiTest.runSession (WaiTest.srequest $ WaiTest.SRequest req (BSLC.fromChunks chunks)) application
+          it "combines chunks in order and caches the body at the size limit" $
+            do
+              res <- send ["ab", "cd", "ef"]
+              WaiTest.simpleStatus res `shouldBe` status200
+              WaiTest.simpleBody res `shouldBe` "abcdefabcdef"
+          it "handles an empty body" $
+            do
+              res <- send []
+              WaiTest.simpleStatus res `shouldBe` status200
+              WaiTest.simpleBody res `shouldBe` ""
+          it "rejects a body whose chunks exceed the size limit" $
+            do
+              res <- send ["ab", "cd", "ef", "g"]
+              WaiTest.simpleStatus res `shouldBe` status413
+
 spec :: Spec
 spec =
   describe "SafeRouting" $
@@ -212,6 +251,7 @@ spec =
       ctxSpec
       instancesSpec
       routeRenderingSpec
+      requestBodySpec
       sizeLimitSpec $ \lim ->
         spockAsApp $
           spockConfigT (defaultSpockConfig {sc_maxRequestSize = Just lim}) id $

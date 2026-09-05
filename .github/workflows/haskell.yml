@@ -6,130 +6,79 @@ on:
   pull_request:
     branches: [ master ]
 
+permissions:
+  contents: read
+
 jobs:
   cabal:
-    name: ${{ matrix.os }} / ghc ${{ matrix.ghc }}
+    name: ${{ matrix.os }} / Cabal / GHC 9.14.1
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macOS-latest, windows-latest]
-        ghc:
-          # - "8.0.2"
-          # - "8.2.2"
-          # - "8.4.4"
-          - "8.6.5"
-          - "8.8.4"
-          - "8.10.7"
-          - "9.0.2"
-          - "9.2.3"
+        os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v7
 
     - name: Setup Cabal and GHC
-      uses: haskell/actions/setup@v2
+      id: setup
+      uses: haskell-actions/setup@v2
       with:
-        ghc-version: ${{ matrix.ghc }}
+        ghc-version: '9.14.1'
+        cabal-version: '3.18.1.0'
+        cabal-update: false
 
-    - name: Cache Linux/Mac
-      uses: actions/cache@v3
-      if: ${{ matrix.os != 'windows-latest' }}
+    - name: Cache Cabal packages
+      uses: actions/cache@v6
       with:
-        path: ~/.cabal
-        key: -${{ runner.os }}-${{ matrix.ghc }}-build-${{ hashFiles('**/*.cabal') }}-${{ hashFiles('**/cabal.project') }}-
+        path: ${{ steps.setup.outputs.cabal-store }}
+        key: cabal-${{ runner.os }}-${{ runner.arch }}-${{ steps.setup.outputs.ghc-version }}-${{ steps.setup.outputs.cabal-version }}-${{ hashFiles('**/*.cabal', 'cabal.project') }}
         restore-keys: |
-          -${{ runner.os }}-${{ matrix.ghc }}-build-
-          -${{ runner.os }}-
+          cabal-${{ runner.os }}-${{ runner.arch }}-${{ steps.setup.outputs.ghc-version }}-${{ steps.setup.outputs.cabal-version }}-
 
-    - name: Cache Windows
-      uses: actions/cache@v3
-      if: ${{ matrix.os == 'windows-latest' }}
-      with:
-        path: C:\sr\
-        # path: ~/AppData/Roaming/cabal
-        key: -${{ runner.os }}-${{ matrix.ghc }}-build-${{ hashFiles('**/*.cabal') }}-${{ hashFiles('**/cabal.project') }}-
-        restore-keys: |
-          -${{ runner.os }}-${{ matrix.ghc }}-build-
-          -${{ runner.os }}-
+    - name: Update package index
+      run: cabal update
 
-    - name: Install dependencies
-      run: |
-        cabal update
-        cabal build --only-dependencies --enable-tests --enable-benchmarks all
-
-    - name: Build
-      run: cabal build --enable-tests --enable-benchmarks all
+    - name: Build libraries, tests, and benchmarks
+      run: cabal build all --enable-tests --enable-benchmarks
 
     - name: Run tests
-      run: cabal test all
+      run: cabal test all --test-show-details=direct
 
   stack:
-    name: ${{ matrix.os }} / stack ${{ matrix.stack-resolver }}
+    name: ${{ matrix.os }} / Stack / GHC 9.14.1
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macOS-latest, windows-latest]
-        stack-resolver:
-          - "--resolver nightly"  # stack nightly
-          - ""  # stack default
-          - "--resolver lts-19.16"  # stack 9.0.2
-          - "--resolver lts-18.28"  # stack 8.10.7
-          - "--resolver lts-18.8"  # stack 8.10.6
-          - "--resolver lts-18.6"  # stack 8.10.4
-          - "--resolver lts-17.2"  # stack 8.10.3
-          - "--resolver lts-16.31"  # stack 8.8.4
-          - "--resolver lts-16.11"  # stack 8.8.3
-          - "--resolver lts-15.3"  # stack 8.8.2
-        exclude:
-          - os: windows-latest
-            stack-resolver: "--resolver lts-18.8"
-          - os: windows-latest
-            stack-resolver: "--resolver lts-16.11"
+        os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v7
 
-    - name: Setup Haskell Stack
-      uses: haskell/actions/setup@v2
+    - name: Setup Stack and GHC
+      id: setup
+      uses: haskell-actions/setup@v2
       with:
+        ghc-version: '9.14.1'
         enable-stack: true
-        stack-no-global: true
+        stack-version: '3.11.1'
+        cabal-update: false
 
-    - name: Cache MacOS
-      uses: actions/cache@v3
-      if: ${{ matrix.os == 'macOS-latest' }}
+    - name: Cache Stack packages
+      uses: actions/cache@v6
       with:
-        path: ~/.stack
-        key: -${{ runner.os }}-${{ matrix.stack-resolver }}-
+        path: ${{ steps.setup.outputs.stack-root }}
+        key: stack-${{ runner.os }}-${{ runner.arch }}-${{ steps.setup.outputs.ghc-version }}-${{ steps.setup.outputs.stack-version }}-${{ hashFiles('**/*.cabal', 'stack.yaml', 'stack.yaml.lock') }}
+        restore-keys: |
+          stack-${{ runner.os }}-${{ runner.arch }}-${{ steps.setup.outputs.ghc-version }}-${{ steps.setup.outputs.stack-version }}-
 
-    - name: Cache Ubuntu
-      uses: actions/cache@v3
-      if: ${{ matrix.os == 'ubuntu-latest' }}
-      with:
-        path: ~/.stack
-        key: -${{ runner.os }}-${{ matrix.stack-resolver }}-
+    - name: Build libraries, tests, and benchmarks
+      run: stack build --system-ghc --no-install-ghc --test --bench --no-run-tests --no-run-benchmarks --lock-file=error-on-write
 
-    - name: Cache Windows
-      uses: actions/cache@v3
-      if: ${{ matrix.os == 'windows-latest' }}
-      with:
-        path: C:\sr\
-        # path: ~\AppData\Local\Programs\stack
-        key: -${{ runner.os }}-${{ matrix.stack-resolver }}-
-
-    - name: Setup
-      run: |
-        stack setup ${{ matrix.stack-resolver }}
-
-    - name: Build
-      run: |
-        stack build ${{ matrix.stack-resolver }} --test --bench --no-run-tests --no-run-benchmarks
-
-    # Running with only one thread to avoid "openBinaryFile: resource busy (file is locked)"
-    - name: Test
-      run: |
-        stack test ${{ matrix.stack-resolver }} -j 1
+    # Running with only one thread avoids file locking conflicts on Windows.
+    - name: Run tests
+      run: stack test --system-ghc --no-install-ghc --lock-file=error-on-write -j 1

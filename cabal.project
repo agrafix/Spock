@@ -5,4 +5,5 @@ packages:
   Spock-core/*.cabal
   reroute/*.cabal
 
-benchmarks: False
+tests: True
+benchmarks: True

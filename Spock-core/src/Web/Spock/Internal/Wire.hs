@@ -44,7 +44,6 @@ import Control.Monad.Trans.Resource
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSLC
-import qualified Data.ByteString.SuperBuffer as SB
 import qualified Data.CaseInsensitive as CI
 import qualified Data.HashMap.Strict as HM
 import Data.Hashable
@@ -385,22 +384,7 @@ makeActionEnvironment st stdMethod req =
             }
         getParams =
           map (\(k, mV) -> (T.decodeUtf8 k, T.decodeUtf8 $ fromMaybe BS.empty mV)) $ Wai.queryString req
-    rbValue <-
-      newCacheVar $
-        do
-          let parseBody = Wai.getRequestBodyChunk req
-              bodyLength = Wai.requestBodyLength req
-              buffStart =
-                case bodyLength of
-                  Wai.ChunkedBody -> 1024
-                  Wai.KnownLength x -> fromIntegral x
-          SB.withBuffer buffStart $ \sb ->
-            do
-              let loop =
-                    do
-                      b <- parseBody
-                      if BS.null b then pure () else (SB.appendBuffer sb b >> loop)
-              loop
+    rbValue <- newCacheVar $ BSL.toStrict <$> Wai.consumeRequestBodyStrict req
     bodyTuple <-
       newCacheVar $
         case P.getRequestBodyType req of

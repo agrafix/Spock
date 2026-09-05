@@ -128,6 +128,28 @@ sessionSpec =
                   writeIORef setRef $ HS.insert sessionId set
                   return True
 
+poolSpec :: Spec
+poolSpec =
+  describe "Database pool" $
+    Test.with poolApp $
+      it "runs queries using a connection builder with multiple stripes" $
+        Test.get "/" `Test.shouldRespondWith` "connected"
+  where
+    poolApp =
+      spockAsApp $
+        do
+          let builder =
+                ConnBuilder
+                  { cb_createConn = pure ("connected" :: T.Text),
+                    cb_destroyConn = const (pure ()),
+                    cb_poolConfiguration = PoolCfg {pc_stripes = 3, pc_resPerStripe = 2, pc_keepOpenTime = 60}
+                  }
+          cfg <- defaultSpockCfg () (PCConn builder) ()
+          spock cfg $ get root $ runQuery pure >>= text
+
 spec :: Spec
 spec =
-  describe "SafeRouting" $ sessionSpec
+  describe "SafeRouting" $
+    do
+      sessionSpec
+      poolSpec

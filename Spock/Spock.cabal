@@ -27,8 +27,8 @@ maintainer:          Alexander Thiemann <mail@athiemann.net>
 copyright:           (c) 2013 - 2021 Alexander Thiemann
 category:            Web
 build-type:          Simple
-cabal-version:       >=2.0
-tested-with:         GHC==8.8.4
+cabal-version:       2.0
+tested-with:         GHC==9.14.1
 
 extra-source-files:
     README.md
@@ -50,7 +50,7 @@ library
                        base64-bytestring >=1.0,
                        bytestring >=0.10,
                        containers >=0.5,
-                       cryptonite >= 0.6,
+                       crypton >= 1.0 && < 1.2,
                        focus >=0.1,
                        hashable >=1.2,
                        hvect >=0.3,
@@ -59,7 +59,7 @@ library
                        monad-control >=1.0,
                        mtl >=2.1,
                        reroute >=0.5,
-                       resource-pool >=0.2,
+                       resource-pool >=0.4 && <0.6,
                        resourcet >= 1.2.2,
                        stm >=2.4,
                        stm-containers >= 1.1.0.2,

@@ -11,7 +11,7 @@ copyright:           (c) 2014 - 2021 Alexander Thiemann <mail@athiemann.net>, Ti
 category:            Web
 build-type:          Simple
 cabal-version:       2.0
-tested-with:         GHC==8.8.4, GHC==9.2.2
+tested-with:         GHC==9.14.1
 
 extra-source-files:
     README.md
@@ -64,18 +64,9 @@ benchmark reroute-benchmarks
     base,
     criterion,
     text,
-    mtl,
-    unordered-containers,
-    vector,
-    hashable,
-    regex-compat,
     random,
-    deepseq,
-    http-api-data,
-    graph-core,
-    hvect,
     reroute
 
 source-repository head
   type:     git
-  location: git://github.com/agrafix/Spock.git
+  location: https://github.com/agrafix/Spock.git
