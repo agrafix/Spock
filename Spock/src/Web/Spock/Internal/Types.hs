@@ -177,7 +177,10 @@ data SessionStoreInstance sess where
   SessionStoreInstance :: forall sess tx. (Monad tx, Functor tx, Applicative tx) => SessionStore sess tx -> SessionStoreInstance sess
 
 data SessionStore sess tx = SessionStore
-  { ss_runTx :: forall a. tx a -> IO a,
+  { -- | Run the entire supplied transaction atomically, isolated from other
+    -- transactions. Session lookup, expiration, renewal, and modification rely
+    -- on this guarantee to avoid lost updates or restoring deleted sessions.
+    ss_runTx :: forall a. tx a -> IO a,
     ss_loadSession :: SessionId -> tx (Maybe sess),
     ss_deleteSession :: SessionId -> tx (),
     ss_storeSession :: sess -> tx (),

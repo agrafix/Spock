@@ -28,6 +28,21 @@ everything you need to get a quick start into web hacking with haskell:
 * csrf-protection
 * typesafe contexts
 
+## File uploads
+
+Use `filesMulti` to retrieve every uploaded file, grouped by form field name.
+For example, an `<input type="file" name="documents" multiple>` can be read with:
+
+```haskell
+uploads <- filesMulti
+let documents = HM.lookupDefault [] "documents" uploads
+```
+
+Here `HM` is `Data.HashMap.Strict`. Each list preserves upload order, and each
+`UploadedFile` provides its name, content type, and temporary location. Process or
+copy the temporary files during the request; they are removed when it finishes.
+The existing `files` function continues to return the last file for each field.
+
 ## Important Links
 
 * [Tutorial](https://www.spock.li/tutorial/)

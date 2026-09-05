@@ -4,6 +4,7 @@ import Test.Hspec
 import qualified Web.Spock.Internal.CookiesSpec
 import qualified Web.Spock.Internal.UtilSpec
 import qualified Web.Spock.SafeSpec
+import qualified Web.Spock.UploadSpec
 
 main :: IO ()
 main = hspec $
@@ -11,3 +12,4 @@ main = hspec $
     Web.Spock.Internal.CookiesSpec.spec
     Web.Spock.Internal.UtilSpec.spec
     Web.Spock.SafeSpec.spec
+    Web.Spock.UploadSpec.spec

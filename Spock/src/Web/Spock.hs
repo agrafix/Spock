@@ -73,6 +73,7 @@ module Web.Spock
 where
 
 import Control.Applicative
+import Control.Monad (when)
 import Control.Monad.Reader
 import Control.Monad.Trans.Resource
 import qualified Data.HVect as HV
@@ -262,14 +263,7 @@ hookAnyCustom t = hookAny' (MethodCustom t)
 -- The full path is passed as an argument
 hookAny' :: SpockMethod -> ([T.Text] -> SpockActionCtx ctx conn sess st ()) -> RouteMonad t ctx conn sess st ()
 hookAny' m action =
-  C.hookAny' m $ \t ->
-    case m of
-      MethodStandard (HttpMethod stdMethod)
-        | shouldCheckCsrf stdMethod ->
-          do
-            cfg <- getSpockCfg
-            (if spc_csrfProtection cfg then csrfCheck else pure ()) >> action t
-      _ -> action t
+  C.hookAny' m $ \t -> csrfCheckIfEnabled >> action t
 
 -- | Specify an action that will be run when a HTTP verb and the given route match
 hookRoute' ::
@@ -278,24 +272,24 @@ hookRoute' ::
   SpockMethod ->
   RouteSpec t xs ps ctx conn sess st
 hookRoute' m path action =
-  do
-    let checkedAction =
-          case m of
-            MethodStandard (HttpMethod stdMethod)
-              | shouldCheckCsrf stdMethod ->
-                let unpackedAction :: HV.HVect xs -> SpockActionCtx ctx conn sess st ()
-                    unpackedAction args =
-                      do
-                        cfg <- getSpockCfg
-                        (if spc_csrfProtection cfg then csrfCheck else pure ()) >> HV.uncurry action args
-                 in HV.curry unpackedAction
-            _ -> action
-    C.hookRoute' m path checkedAction
+  let checkedAction :: HV.HVect xs -> SpockActionCtx ctx conn sess st ()
+      checkedAction args = csrfCheckIfEnabled >> HV.uncurry action args
+   in C.hookRoute' m path (HV.curry checkedAction)
 
-shouldCheckCsrf :: StdMethod -> Bool
+csrfCheckIfEnabled :: SpockActionCtx ctx conn sess st ()
+csrfCheckIfEnabled =
+  do
+    method <- reqMethod
+    when (shouldCheckCsrf method) $
+      do
+        cfg <- getSpockCfg
+        when (spc_csrfProtection cfg) csrfCheck
+
+-- Check the request method, including when the route accepts every method.
+shouldCheckCsrf :: SpockMethod -> Bool
 shouldCheckCsrf m =
   case m of
-    GET -> False
-    HEAD -> False
-    OPTIONS -> False
+    MethodStandard (HttpMethod GET) -> False
+    MethodStandard (HttpMethod HEAD) -> False
+    MethodStandard (HttpMethod OPTIONS) -> False
     _ -> True

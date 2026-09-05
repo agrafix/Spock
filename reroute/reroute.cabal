@@ -1,5 +1,5 @@
 name:                reroute
-version:             0.7.0.0
+version:             0.7.0.1
 synopsis:            abstract implementation of typed and untyped web routing
 description:         abstraction over how urls with/without parameters are mapped to their corresponding handlers
 homepage:            http://github.com/agrafix/Spock
@@ -41,6 +41,7 @@ test-suite reroute-test
   hs-source-dirs:      test
   main-is:             Spec.hs
   other-modules:
+                       Data.PolyMapSpec,
                        Web.Routing.SafeRoutingSpec
   build-depends:
                 base,

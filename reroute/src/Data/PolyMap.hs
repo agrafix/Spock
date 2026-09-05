@@ -192,7 +192,7 @@ zipWith' f = go
     go (PMCons v pm1') PMNil = maybeInsertHere (f (Just v) Nothing) (go pm1' PMNil)
     go pm1@(PMCons (v :: f (p -> a)) pm1') pm2@(PMCons (w :: f (q -> b)) pm2') =
       case gcast1 v of
-        Just v' -> maybeInsertHere (f (Just v') (Just w)) (go pm1 pm2)
+        Just v' -> maybeInsertHere (f (Just v') (Just w)) (go pm1' pm2')
         Nothing ->
           if typeOf (undefined :: p) < typeOf (undefined :: q)
             then maybeInsertHere (f (Just v) Nothing) (go pm1' pm2)

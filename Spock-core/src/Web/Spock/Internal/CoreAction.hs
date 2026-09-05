@@ -16,6 +16,7 @@ module Web.Spock.Internal.CoreAction
     jsonBody',
     reqMethod,
     files,
+    filesMulti,
     params,
     param,
     param',
@@ -148,13 +149,19 @@ jsonBody' =
         return val
 {-# INLINE jsonBody' #-}
 
--- | Get uploaded files
+-- | Get the last uploaded file for each form field name.
+-- Use 'filesMulti' to retrieve every file when a field has multiple uploads.
 files :: MonadIO m => ActionCtxT ctx m (HM.HashMap T.Text UploadedFile)
-files =
+files = HM.mapMaybe (listToMaybe . reverse) <$> filesMulti
+{-# INLINE files #-}
+
+-- | Get every uploaded file grouped by form field name, in upload order.
+filesMulti :: MonadIO m => ActionCtxT ctx m (HM.HashMap T.Text [UploadedFile])
+filesMulti =
   do
     b <- asks ri_reqBody
     liftIO $ loadCacheVar (rb_files b)
-{-# INLINE files #-}
+{-# INLINE filesMulti #-}
 
 -- | Get all request GET params
 paramsGet :: MonadIO m => ActionCtxT ctx m [(T.Text, T.Text)]

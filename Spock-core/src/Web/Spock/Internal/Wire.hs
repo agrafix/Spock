@@ -141,7 +141,7 @@ loadCacheVar (CacheVar lock makeVal valRef readV) =
 data RequestBody = RequestBody
   { rb_value :: CacheVar BS.ByteString,
     rb_postParams :: CacheVar [(T.Text, T.Text)],
-    rb_files :: CacheVar (HM.HashMap T.Text UploadedFile)
+    rb_files :: CacheVar (HM.HashMap T.Text [UploadedFile])
   }
 
 data RequestInfo ctx = RequestInfo
@@ -402,14 +402,14 @@ makeActionEnvironment st stdMethod req =
               (bodyParams, bodyFiles) <-
                 P.sinkRequestBody (P.tempFileBackEnd st) rbt loader
               let uploadedFiles =
-                    HM.fromList $
-                      flip map bodyFiles $ \(k, fileInfo) ->
-                        ( T.decodeUtf8 k,
-                          UploadedFile
-                            (T.decodeUtf8 $ P.fileName fileInfo)
-                            (T.decodeUtf8 $ P.fileContentType fileInfo)
-                            (P.fileContent fileInfo)
-                        )
+                    foldr addUpload HM.empty bodyFiles
+                  addUpload (k, fileInfo) =
+                    HM.insertWith (++) (T.decodeUtf8 k)
+                      [ UploadedFile
+                          (T.decodeUtf8 $ P.fileName fileInfo)
+                          (T.decodeUtf8 $ P.fileContentType fileInfo)
+                          (P.fileContent fileInfo)
+                      ]
                   postParams =
                     map (T.decodeUtf8 *** T.decodeUtf8) bodyParams
               return (postParams, uploadedFiles)

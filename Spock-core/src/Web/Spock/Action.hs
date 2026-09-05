@@ -24,6 +24,7 @@ module Web.Spock.Action
     jsonBody,
     jsonBody',
     files,
+    filesMulti,
     UploadedFile (..),
     params,
     paramsGet,

@@ -122,10 +122,27 @@ modifySessionBase vK (SessionStoreInstance sessionRef) cfg sif modFun =
         error "(3) Internal Spock Session Error. Please report this bug!"
       Just sid ->
         do
-          session <- readOrNewSession cfg vK sif (Just sid)
-          let (sessionNew, result) = modFun session
-          liftIO $ ss_runTx sessionRef $ ss_storeSession sessionRef sessionNew
-          return result
+          now <- liftIO getCurrentTime
+          mResult <-
+            liftIO $ ss_runTx sessionRef $
+              do
+                mSession <- loadSessionTx cfg sessionRef sid now
+                forM mSession $ \session ->
+                  do
+                    let (sessionNew, result) = modFun session
+                    ss_storeSession sessionRef sessionNew
+                    return result
+          case mResult of
+            Just result -> return result
+            Nothing ->
+              do
+                session <- liftIO $ createSession cfg (sc_emptySession cfg)
+                let (sessionNew, result) = modFun session
+                liftIO $ ss_runTx sessionRef $ ss_storeSession sessionRef sessionNew
+                cookieTime <- liftIO getCurrentTime
+                si_setRawMultiHeader sif MultiHeaderSetCookie (makeSessionIdCookie cfg sessionNew cookieTime)
+                si_modifyVault sif $ V.insert vK (sess_id sessionNew)
+                return result
 
 readSessionBase ::
   MonadIO m =>
@@ -267,31 +284,41 @@ loadSessionImpl ::
   SessionStoreInstance (Session conn sess st) ->
   SessionId ->
   IO (Maybe (Session conn sess st))
-loadSessionImpl sessCfg sessionRef@(SessionStoreInstance store) sid =
+loadSessionImpl sessCfg (SessionStoreInstance store) sid =
   do
-    mSess <- ss_runTx store $ ss_loadSession store sid
     now <- getCurrentTime
+    ss_runTx store $
+      do
+        mSess <- loadSessionTx sessCfg store sid now
+        when (sc_sessionExpandTTL sessCfg) $
+          forM_ mSess (ss_storeSession store)
+        return mSess
+
+-- The caller must store a renewed or modified session in this same transaction.
+loadSessionTx ::
+  Monad tx =>
+  SessionCfg conn sess st ->
+  SessionStore (Session conn sess st) tx ->
+  SessionId ->
+  UTCTime ->
+  tx (Maybe (Session conn sess st))
+loadSessionTx sessCfg store sid now =
+  do
+    mSess <- ss_loadSession store sid
     case mSess of
-      Just sess ->
-        do
-          sessWithPossibleExpansion <-
-            if sc_sessionExpandTTL sessCfg
-              then do
-                let expandedSession =
-                      sess
-                        { sess_validUntil =
-                            addUTCTime (sc_sessionTTL sessCfg) now
-                        }
-                ss_runTx store $ ss_storeSession store expandedSession
-                return expandedSession
-              else return sess
-          if sess_validUntil sessWithPossibleExpansion > now
-            then return $ Just sessWithPossibleExpansion
-            else do
-              deleteSessionImpl sessionRef sid
+      Just sess
+        | sess_validUntil sess <= now ->
+            do
+              ss_deleteSession store sid
               return Nothing
-      Nothing ->
-        return Nothing
+        | sc_sessionExpandTTL sessCfg ->
+            return $ Just $
+              sess
+                { sess_validUntil =
+                    max (sess_validUntil sess) (addUTCTime (sc_sessionTTL sessCfg) now)
+                }
+        | otherwise -> return (Just sess)
+      Nothing -> return Nothing
 
 deleteSessionImpl ::
   SessionStoreInstance (Session conn sess st) ->
