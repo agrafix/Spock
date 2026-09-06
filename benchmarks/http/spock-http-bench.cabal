@@ -1,0 +1,15 @@
+cabal-version: 2.4
+name: spock-http-bench
+version: 0.1.0.0
+synopsis: Comparable HTTP workloads for Spock, Scotty and Warp
+license: BSD-3-Clause
+build-type: Simple
+extra-source-files: README.md, run.mjs
+
+executable spock-http-bench
+  main-is: Main.hs
+  build-depends:
+    base >=4.12 && <5, bytestring, http-api-data, http-types,
+    Spock, Spock-core, scotty >=0.30 && <0.31, text, wai, warp
+  ghc-options: -Wall -O2 -threaded -rtsopts
+  default-language: Haskell2010

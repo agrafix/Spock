@@ -119,6 +119,10 @@ cabal test all --test-show-details=direct
 The Cabal project enables all native libraries, tests, and the routing benchmark.
 To run the benchmark, use `cabal bench reroute`.
 
+For session retention and HTTP performance investigations, see the
+[session soak](Spock/benchmarks/README.md) and
+[HTTP comparison benchmark](benchmarks/http/README.md).
+
 Stack 3.11.1 is also supported. `stack.yaml` pins the package snapshot and overrides
 its compiler with GHC 9.14.1; `stack.yaml.lock` records the resolved dependencies:
 

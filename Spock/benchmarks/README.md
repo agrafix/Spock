@@ -25,7 +25,8 @@ TTL and housekeeping interval and fails if sessions survive the subsequent
 cleanup window. Production defaults remain a one-hour server TTL and ten-minute
 housekeeping interval. It closes its session manager when finished.
 
-On macOS arm64, GHC 9.14.1 and crypton 1.1.5, the first 10,000-request batch gave:
+When changing the default for Spock 0.16.0.0, on macOS arm64 with GHC 9.14.1
+and crypton 1.1.5, the first 10,000-request batch gave:
 
 | Configuration | Allocated bytes | Live heap after GC | Stored sessions |
 | --- | ---: | ---: | ---: |
@@ -42,3 +43,7 @@ These are local allocation/retention measurements, not portable HTTP throughput
 claims. Use the same compiler, RTS settings and dependency plan for comparisons.
 Unit tests check the default's behavior without asserting hardware-dependent
 timings or heap thresholds.
+
+Spock 0.16.0.1 also reduces the cost of intentionally creating sessions. See the
+[HTTP benchmark](../../benchmarks/http/README.md) for that entropy optimization
+and comparisons with Scotty and Warp.

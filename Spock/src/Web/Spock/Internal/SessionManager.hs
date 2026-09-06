@@ -19,7 +19,7 @@ import Control.Concurrent
 import Control.Exception
 import Control.Monad
 import Control.Monad.Trans
-import qualified Crypto.Random as CR
+import qualified System.Entropy as Entropy
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base64 as B64
 import qualified Data.HashMap.Strict as HM
@@ -401,7 +401,7 @@ createSession sessCfg content =
 randomHash :: Int -> IO T.Text
 randomHash len =
   do
-    by <- CR.getRandomBytes len
+    by <- Entropy.getEntropy len
     return $
       T.replace "=" "" $
         T.replace "/" "_" $

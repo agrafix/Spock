@@ -12,7 +12,7 @@ module Web.Spock.Logging
   ) where
 
 import Control.Exception
-import qualified Crypto.Random as Crypto
+import qualified System.Entropy as Entropy
 import Data.Aeson (ToJSON (..), Value, object, (.=))
 import qualified Data.Aeson.Key as Key
 import qualified Data.ByteString as BS
@@ -140,7 +140,7 @@ validId value = not (BS.null value) && BS.length value <= 128 && BS.all allowed 
 
 generateId :: IO Text
 generateId = do
-  bytes <- Crypto.getRandomBytes 16 :: IO BS.ByteString
+  bytes <- Entropy.getEntropy 16
   pure $ T.decodeUtf8 $ LBS.toStrict $ Builder.toLazyByteString $
     foldMap Builder.word8HexFixed (BS.unpack bytes)
 

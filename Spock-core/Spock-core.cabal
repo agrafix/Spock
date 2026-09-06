@@ -1,5 +1,5 @@
 name:                Spock-core
-version:             0.15.0.0
+version:             0.15.0.1
 synopsis:            Another Haskell web framework for rapid development
 description:         Barebones high performance type safe web framework
 Homepage:            https://www.spock.li
@@ -38,7 +38,7 @@ library
                        case-insensitive >=1.1,
                        containers >=0.5,
                        cookie >=0.4.5,
-                       crypton >=1.0 && <1.2,
+                       entropy >=0.4.1.11 && <0.5,
                        hashable >=1.2,
                        http-types >=0.8,
                        hvect >= 0.4,

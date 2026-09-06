@@ -1,0 +1,41 @@
+name: HTTP benchmark smoke tests
+
+on:
+  push:
+    paths:
+      - 'benchmarks/http/**'
+      - 'Spock/src/**'
+      - 'Spock-core/src/**'
+      - '**/*.cabal'
+      - 'cabal.project*'
+      - '.github/workflows/benchmarks.yml'
+  pull_request:
+    paths:
+      - 'benchmarks/http/**'
+      - 'Spock/src/**'
+      - 'Spock-core/src/**'
+      - '**/*.cabal'
+      - 'cabal.project*'
+      - '.github/workflows/benchmarks.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  http:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: haskell-actions/setup@v2
+        with:
+          ghc-version: '9.14.1'
+          cabal-version: '3.18.1.0'
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - run: cabal build spock-http-bench --project-file=cabal.project.benchmarks
+      - name: Validate every framework and session mode
+        run: |
+          spock_bench_binary="$(cabal list-bin spock-http-bench --project-file=cabal.project.benchmarks)"
+          node benchmarks/http/run.mjs "$spock_bench_binary" 100 8 1

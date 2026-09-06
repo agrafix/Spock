@@ -4,12 +4,14 @@
 module Web.Spock.SessionModeSpec (spec) where
 
 import Control.Concurrent.MVar
+import Control.Concurrent.Async (mapConcurrently)
 import Control.Concurrent.STM
 import Control.Monad (replicateM_, unless)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text as T
 import Data.Time
+import Data.List (nub)
 import Network.HTTP.Types (HeaderName, status500)
 import qualified Network.Wai as Wai
 import qualified Network.Wai.Test as Wai
@@ -38,6 +40,17 @@ spec = describe "Session modes" $ do
     response <- request app "/empty" []
     getSessCookie response `shouldSatisfy` (/= Nothing)
     length <$> ss_runTx store (ss_toList store) `shouldReturn` 1
+
+  it "gives concurrent visitors independent IDs and CSRF tokens of the configured size" $ do
+    (app, store) <- modeApp SessionsAlways
+    responses <- mapConcurrently (\_ -> request app "/empty" []) [1 .. 256 :: Int]
+    let cookies = map getSessCookie responses
+    length (nub cookies) `shouldBe` 256
+    all (maybe False ((== 86) . T.length)) cookies `shouldBe` True
+    sessions <- ss_runTx store $ ss_toList store
+    length sessions `shouldBe` 256
+    length (nub $ map sess_csrfToken sessions) `shouldBe` 256
+    map (T.length . sess_csrfToken) sessions `shouldBe` replicate 256 16
 
   it "does not allocate or set a cookie for an unused on-demand session" $ do
     (app, store) <- modeApp SessionsOnDemand

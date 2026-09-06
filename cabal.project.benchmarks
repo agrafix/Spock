@@ -1,0 +1,7 @@
+import: cabal.project
+packages: benchmarks/http/*.cabal
+optimization: 2
+-- Scotty 0.30 uses the Form representation from http-api-data 0.6.
+-- Compile every framework against that same version; only its base bound lags GHC 9.14.
+constraints: http-api-data == 0.6.3
+allow-newer: http-api-data:base
