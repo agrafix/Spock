@@ -4,7 +4,9 @@
       <div class="col-md-3  col-xs-6">
         <div>
           <h5>Spock</h5>
-          <a href="https://github.com/agrafix/Spock">Github</a><br>
+          <a href="https://github.com/agrafix/Spock">GitHub</a><br>
+          <a href="https://github.com/agrafix/Spock/tree/master/docs">Website source (Jekyll)</a><br>
+          <a href="{{ '/feed.xml' | prepend: site.baseurl }}" type="application/rss+xml">Blog RSS feed</a><br>
           <a href="https://hackage.haskell.org/package/Spock">Hackage</a><br>
           <a href="https://www.stackage.org/package/Spock">Stackage</a>
         </div>
@@ -50,7 +52,7 @@
       <div class="col-md-12">
         <hr>
         <div class="copy text-center">
-          &copy; 2015 - 2018 <a href="https://www.athiemann.net">Alexander Thiemann</a>
+          &copy; 2015 - {{ site.time | date: '%Y' }} <a href="https://www.athiemann.net">Alexander Thiemann</a>
         </div>
       </div>
     </div>
