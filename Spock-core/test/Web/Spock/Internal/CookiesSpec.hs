@@ -75,6 +75,14 @@ spec =
           it "should generate the secure key" $
             g "foo" "bar" def {cs_secure = True} `shouldContainOnce` "Secure"
 
+        describe "SameSite" $ do
+          it "omits the attribute by default" $
+            g "foo" "bar" def `shouldNotContain'` "SameSite="
+          forM_ [(SameSiteLax, "Lax"), (SameSiteStrict, "Strict"), (SameSiteNone, "None")] $ \(policy, value) ->
+            it ("renders " ++ show policy) $
+              g "foo" "bar" def {cs_sameSite = Just policy, cs_secure = True}
+                `shouldContainOnce` ("SameSite=" <> value)
+
         describe "cookie value" $
           it "should be urlencoded" $
             g "foo" "most+special chars;%бисквитки" def

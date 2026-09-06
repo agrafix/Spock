@@ -212,6 +212,7 @@ data SessionManager m conn sess st = SessionManager
   { sm_getSessionId :: m SessionId,
     sm_getCsrfToken :: m T.Text,
     sm_regenerateSessionId :: m (),
+    sm_destroySession :: m (),
     sm_readSession :: m sess,
     sm_writeSession :: sess -> m (),
     sm_modifySession :: forall a. (sess -> (sess, a)) -> m a,

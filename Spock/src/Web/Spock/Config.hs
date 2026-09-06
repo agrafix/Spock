@@ -4,6 +4,7 @@
 module Web.Spock.Config
   ( SpockCfg (..),
     defaultSpockCfg,
+    defaultBrowserSpockCfg,
 
     -- * Database
     PoolOrConn (..),
@@ -16,6 +17,7 @@ module Web.Spock.Config
     SessionMode (..),
     SessionError (..),
     CookieSettings (..),
+    SameSite (..),
     CookieEOL (..),
     defaultSessionHooks,
     SessionHooks (..),
@@ -88,6 +90,25 @@ defaultSpockCfg sess conn st =
           spc_csrfHeaderName = "X-Csrf-Token",
           spc_csrfPostName = "__csrf_token"
         }
+
+-- | An opt-in configuration for HTTPS browser applications: on-demand sessions,
+-- CSRF checks, and Secure, HttpOnly, SameSite=Lax browser-session cookies.
+-- For local HTTP development, explicitly override 'cs_secure' to 'False'.
+defaultBrowserSpockCfg :: sess -> PoolOrConn conn -> st -> IO (SpockCfg conn sess st)
+defaultBrowserSpockCfg sess conn st = do
+  cfg <- defaultSpockCfg sess conn st
+  let sessions = spc_sessionCfg cfg
+  pure cfg
+    { spc_csrfProtection = True,
+      spc_sessionCfg = sessions
+        { sc_sessionMode = SessionsOnDemand,
+          sc_cookieSettings = (sc_cookieSettings sessions)
+            { cs_EOL = CookieValidForSession,
+              cs_HTTPOnly = True,
+              cs_secure = True,
+              cs_sameSite = Just SameSiteLax }
+        }
+    }
 
 errorHandler :: Status -> ActionCtxT () IO ()
 errorHandler status = html $ errorTemplate status

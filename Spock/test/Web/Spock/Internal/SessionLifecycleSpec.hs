@@ -112,6 +112,29 @@ spec =
                 sm_clearAllSessions (manager fixture)
                 sm_modifySession (manager fixture) increment `shouldReturn` 1
                 sm_readSession (manager fixture) `shouldReturn` 1
+            it "cannot recreate a session after regeneration commits and sessions are revoked" $ \fixture ->
+              withinTimeout $ do
+                pauseCommits fixture 1
+                withAsync (sm_regenerateSessionId (manager fixture)) $ \regenerator -> do
+                  awaitCommit fixture
+                  sm_clearAllSessions (manager fixture)
+                  releaseCommits fixture
+                  wait regenerator
+                length <$> atomically (ss_toList $ store fixture) `shouldReturn` 0
+            it "does not let an in-flight modification undo logout" $ \fixture ->
+              withinTimeout $ do
+                pauseCommits fixture 1
+                withAsync (sm_modifySession (manager fixture) increment) $ \writer -> do
+                  awaitCommit fixture
+                  sm_destroySession (manager fixture)
+                  releaseCommits fixture
+                  void $ wait writer
+                length <$> atomically (ss_toList $ store fixture) `shouldReturn` 0
+            it "does not preserve expired data when regenerating" $ \fixture -> do
+              seedSession fixture (-60) 42
+              sm_regenerateSessionId (manager fixture)
+              sm_readSession (manager fixture) `shouldReturn` 0
+              sm_getCsrfToken (manager fixture) `shouldNotReturn` "fake-token"
   where
     increment value = (value + 1, value + 1)
 

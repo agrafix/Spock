@@ -28,8 +28,14 @@ data CookieSettings = CookieSettings
     -- | whether the cookie should be set as HttpOnly
     cs_HTTPOnly :: Bool,
     -- | whether the cookie should be marked secure (sent over HTTPS only)
-    cs_secure :: Bool
+    cs_secure :: Bool,
+    -- | Cross-site cookie policy. 'Nothing' omits the attribute. When using
+    -- 'SameSiteNone', also enable 'cs_secure' for browser compatibility.
+    cs_sameSite :: Maybe SameSite
   }
+
+data SameSite = SameSiteLax | SameSiteStrict | SameSiteNone
+  deriving (Eq, Show)
 
 -- | Setting cookie expiration
 data CookieEOL
@@ -48,6 +54,7 @@ data CookieEOL
 -- >   { cs_EOL      = CookieValidForSession
 -- >   , cs_HTTPOnly = False
 -- >   , cs_secure   = False
+-- >   , cs_sameSite = Nothing
 -- >   , cs_domain   = Nothing
 -- >   , cs_path     = Just "/"
 -- >   }
@@ -57,6 +64,7 @@ defaultCookieSettings =
     { cs_EOL = CookieValidForSession,
       cs_HTTPOnly = False,
       cs_secure = False,
+      cs_sameSite = Nothing,
       cs_domain = Nothing,
       cs_path = Just "/"
     }
@@ -97,9 +105,14 @@ generateCookieHeaderString name value cs now =
             C.setCookieMaxAge = (fromRational . adjustMaxAge . toRational) <$> maxAge,
             C.setCookieDomain = cs_domain cs,
             C.setCookieHttpOnly = cs_HTTPOnly cs,
-            C.setCookieSecure = cs_secure cs
+            C.setCookieSecure = cs_secure cs,
+            C.setCookieSameSite = fmap sameSiteOption (cs_sameSite cs)
           }
    in renderCookie cookieVal
+  where
+    sameSiteOption SameSiteLax = C.sameSiteLax
+    sameSiteOption SameSiteStrict = C.sameSiteStrict
+    sameSiteOption SameSiteNone = C.sameSiteNone
 
 renderCookie :: C.SetCookie -> BS.ByteString
 renderCookie = BSL.toStrict . B.toLazyByteString . C.renderSetCookie

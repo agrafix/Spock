@@ -7,6 +7,7 @@ import qualified Web.Spock.Internal.SessionManagerSpec
 import qualified Web.Spock.Internal.SessionVaultSpec
 import qualified Web.Spock.SafeSpec
 import qualified Web.Spock.SessionModeSpec
+import qualified Web.Spock.SessionCookieSpec
 
 main :: IO ()
 main = hspec $
@@ -16,4 +17,5 @@ main = hspec $
     Web.Spock.Internal.SessionLifecycleSpec.spec
     Web.Spock.SafeSpec.spec
     Web.Spock.SessionModeSpec.spec
+    Web.Spock.SessionCookieSpec.spec
     Web.Spock.CsrfSpec.spec

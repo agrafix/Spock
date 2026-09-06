@@ -23,6 +23,7 @@ import qualified Crypto.Random as CR
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base64 as B64
 import qualified Data.HashMap.Strict as HM
+import Data.IORef
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import Data.Time
@@ -48,8 +49,18 @@ withSessionManager sessCfg sif =
 
 createSessionManager ::
   MonadIO m => SessionCfg conn sess st -> SessionIf m -> IO (SessionManager m conn sess st)
-createSessionManager cfg sif =
+createSessionManager cfg originalIf =
   do
+    cookieKey <- V.newKey
+    -- Share the pending cookie with the response middleware. The last session
+    -- action wins, even on the first request or when a handler falls through.
+    let sif = originalIf
+          { si_setRawMultiHeader = \header value -> do
+              pending <- si_queryVault originalIf cookieKey
+              case pending of
+                Nothing -> si_setRawMultiHeader originalIf header value
+                Just ref -> liftIO $ writeIORef ref (Just value)
+          }
     vaultKey <- si_vaultKey sif
     housekeepThread <-
       if sc_sessionMode cfg == SessionsDisabled
@@ -60,12 +71,13 @@ createSessionManager cfg sif =
         { sm_getSessionId = enabled $ getSessionIdImpl vaultKey cfg sif,
           sm_getCsrfToken = enabled $ getCsrfTokenImpl vaultKey cfg sif,
           sm_regenerateSessionId = enabled $ regenerateSessionIdImpl vaultKey store cfg sif,
+          sm_destroySession = enabled $ destroySessionImpl vaultKey store cfg sif,
           sm_readSession = enabled $ readSessionImpl vaultKey cfg sif,
           sm_writeSession = \value -> enabled $ writeSessionImpl vaultKey store cfg sif value,
           sm_modifySession = \f -> enabled $ modifySessionImpl vaultKey store cfg sif f,
           sm_clearAllSessions = enabled $ clearAllSessionsImpl store,
           sm_mapSessions = \f -> enabled $ mapAllSessionsImpl store f,
-          sm_middleware = sessionMiddleware cfg vaultKey,
+          sm_middleware = sessionMiddleware cfg vaultKey cookieKey,
           sm_closeSessionManager = mapM_ killThread housekeepThread
         }
   where
@@ -84,12 +96,28 @@ regenerateSessionIdImpl ::
   m ()
 regenerateSessionIdImpl vK sessionRef cfg sif =
   do
-    sess <- readSessionBase vK cfg sif
-    liftIO $ deleteSessionImpl sessionRef (sess_id sess)
-    newSession <- liftIO $ newSessionImpl cfg sessionRef (sess_data sess)
+    sid <- si_queryVault sif vK
+    fresh <- liftIO $ createSession cfg (sc_emptySession cfg)
     now <- liftIO getCurrentTime
+    newSession <- liftIO $ case sessionRef of
+      SessionStoreInstance store -> ss_runTx store $ do
+        previous <- maybe (pure Nothing) (\key -> loadSessionTx cfg store key now) sid
+        let replacement = fresh { sess_data = maybe (sc_emptySession cfg) sess_data previous }
+        mapM_ (ss_deleteSession store) sid
+        ss_storeSession store replacement
+        pure replacement
     si_setRawMultiHeader sif MultiHeaderSetCookie (makeSessionIdCookie cfg newSession now)
     si_modifyVault sif $ V.insert vK (sess_id newSession)
+
+destroySessionImpl :: MonadIO m => V.Key SessionId -> SessionStoreInstance (Session conn sess st) -> SessionCfg conn sess st -> SessionIf m -> m ()
+destroySessionImpl vK store cfg sif = do
+  sid <- si_queryVault sif vK
+  liftIO $ mapM_ (deleteSessionImpl store) sid
+  si_modifyVault sif $ V.delete vK
+  now <- liftIO getCurrentTime
+  let settings = (sc_cookieSettings cfg) { cs_EOL = CookieValidFor 0 }
+  si_setRawMultiHeader sif MultiHeaderSetCookie $
+    generateCookieHeaderString (sc_cookieName cfg) "" settings now
 
 getSessionIdImpl ::
   MonadIO m =>
@@ -242,35 +270,27 @@ loadOrSpanSession cfg mSid =
 sessionMiddleware ::
   SessionCfg conn sess st ->
   V.Key SessionId ->
+  V.Key (IORef (Maybe BS.ByteString)) ->
   Wai.Middleware
-sessionMiddleware cfg vK app req respond =
-  case sc_sessionMode cfg of
-    SessionsDisabled -> app req respond
-    SessionsOnDemand ->
-      let requestVault = maybe v (\sid -> V.insert vK sid v) cookieId
-       in app (req {Wai.vault = requestVault}) respond
-    SessionsAlways -> go cookieId
+sessionMiddleware cfg vK cookieKey app req respond
+  | sc_sessionMode cfg == SessionsDisabled = app req respond
+  | otherwise = do
+      (sid, pendingCookie) <- case sc_sessionMode cfg of
+        SessionsAlways -> do
+          (sess, writeCookie) <- loadOrSpanSession cfg cookieId
+          now <- getCurrentTime
+          pure (Just $ sess_id sess, if writeCookie then Just (makeSessionIdCookie cfg sess now) else Nothing)
+        _ -> pure (cookieId, Nothing)
+      pending <- newIORef pendingCookie
+      let requestVault = V.insert cookieKey pending $ maybe v (\key -> V.insert vK key v) sid
+      app (req { Wai.vault = requestVault }) $ \response -> do
+        cookie <- readIORef pending
+        respond $ maybe response (\value -> mapReqHeaders (("Set-Cookie", value) :) response) cookie
   where
     cookieId = getCookieFromReq (sc_cookieName cfg)
-    go mSid =
-      do
-        (sess, shouldWriteCookie) <- loadOrSpanSession cfg mSid
-        withSess shouldWriteCookie sess
     getCookieFromReq name =
       lookup "cookie" (Wai.requestHeaders req) >>= lookup name . parseCookies
     v = Wai.vault req
-    addCookie sess now responseHeaders =
-      let cookieContent = makeSessionIdCookie cfg sess now
-          cookieC = ("Set-Cookie", cookieContent)
-       in (cookieC : responseHeaders)
-    withSess shouldSetCookie sess =
-      app (req {Wai.vault = V.insert vK (sess_id sess) v}) $ \unwrappedResp ->
-        do
-          now <- getCurrentTime
-          respond $
-            if shouldSetCookie
-              then mapReqHeaders (addCookie sess now) unwrappedResp
-              else unwrappedResp
 
 newSessionImpl ::
   SessionCfg conn sess st ->

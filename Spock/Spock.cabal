@@ -45,7 +45,7 @@ library
                 Web.Spock.Internal.Monad,
                 Web.Spock.Internal.Types
   build-depends:
-                       Spock-core >= 0.14.1.0,
+                       Spock-core >= 0.15.0.0,
                        base >= 4 && < 5,
                        base64-bytestring >=1.0,
                        bytestring >=0.10,
@@ -82,6 +82,7 @@ test-suite spocktests
                 Web.Spock.Internal.SessionManagerSpec,
                 Web.Spock.Internal.SessionLifecycleSpec,
                 Web.Spock.SessionModeSpec,
+                Web.Spock.SessionCookieSpec,
                 Web.Spock.SafeSpec,
                 Web.Spock.CsrfSpec,
                 Web.Spock.TestUtils

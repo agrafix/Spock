@@ -9,6 +9,7 @@
 module Web.Spock.SessionActions
   ( SessionId,
     sessionRegenerateId,
+    sessionDestroy,
     getSessionId,
     readSession,
     writeSession,
@@ -31,6 +32,12 @@ sessionRegenerateId :: SpockActionCtx ctx conn sess st ()
 sessionRegenerateId =
   runInContext () $
     getSessMgr >>= sm_regenerateSessionId
+
+-- | Revoke the current server session and expire its cookie, preserving other
+-- sessions. No replacement is created until another session action is used.
+-- Call this from a CSRF-protected logout route.
+sessionDestroy :: SpockActionCtx ctx conn sess st ()
+sessionDestroy = runInContext () $ getSessMgr >>= sm_destroySession
 
 -- | Get the current users sessionId. Note that this ID should only be
 -- shown to it's owner as otherwise sessions can be hijacked.

@@ -42,6 +42,7 @@ module Web.Spock.Action
     redirect,
     jumpNext,
     CookieSettings (..),
+    SameSite (..),
     defaultCookieSettings,
     CookieEOL (..),
     setCookie,
@@ -71,4 +72,5 @@ module Web.Spock.Action
 where
 
 import Web.Spock.Internal.CoreAction
+import Web.Spock.Internal.Cookies (SameSite (..))
 import qualified Web.Spock.Internal.Wire as W
