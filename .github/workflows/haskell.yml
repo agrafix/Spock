@@ -10,6 +10,40 @@ permissions:
   contents: read
 
 jobs:
+  postgresql:
+    name: PostgreSQL session integration / GHC 9.14.1
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: spock_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: spock_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d spock_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      SPOCK_TEST_POSTGRESQL: 'host=localhost port=5432 dbname=spock_test user=postgres password=spock_test'
+    steps:
+    - uses: actions/checkout@v7
+    - uses: haskell-actions/setup@v2
+      with:
+        ghc-version: '9.14.1'
+        cabal-version: '3.18.1.0'
+        cabal-update: false
+    - name: Install libpq
+      run: sudo apt-get update && sudo apt-get install -y libpq-dev
+    - run: cabal update
+    - name: Build optional adapter and example
+      run: cabal build all --project-file=cabal.project.postgresql
+    - name: Run real database integration tests
+      run: cabal test Spock-session-postgresql --project-file=cabal.project.postgresql --test-show-details=direct
+
   cabal:
     name: ${{ matrix.os }} / Cabal / GHC 9.14.1
     runs-on: ${{ matrix.os }}

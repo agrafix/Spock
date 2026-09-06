@@ -23,6 +23,7 @@ everything you need to get a quick start into web hacking with haskell:
 * middleware
 * json
 * sessions
+* optional [persistent PostgreSQL sessions](Spock-session-postgresql/README.md)
 * cookies
 * database helper
 * csrf-protection

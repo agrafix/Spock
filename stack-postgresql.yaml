@@ -1,0 +1,15 @@
+resolver: nightly-2026-09-01
+compiler: ghc-9.14.1
+
+# postgresql-simple's published bounds lag GHC 9.14 and this snapshot's aeson.
+allow-newer: true
+allow-newer-deps:
+  - postgresql-simple
+
+packages:
+  - Spock/
+  - Spock-api/
+  - Spock-api-server/
+  - Spock-core/
+  - reroute/
+  - Spock-session-postgresql/

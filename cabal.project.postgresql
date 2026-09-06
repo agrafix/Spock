@@ -1,0 +1,7 @@
+import: cabal.project
+
+packages: Spock-session-postgresql/*.cabal
+
+-- postgresql-simple 0.7.0.1 predates GHC 9.14's boot-library bounds.
+-- Keep the exception local to the optional adapter project.
+allow-newer: postgresql-simple:base, postgresql-simple:template-haskell

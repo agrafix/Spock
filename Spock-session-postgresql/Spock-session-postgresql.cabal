@@ -1,0 +1,54 @@
+cabal-version: 2.4
+name: Spock-session-postgresql
+version: 0.1.0.0
+synopsis: Persistent PostgreSQL sessions for Spock
+description: Namespaced JSON sessions with serializable transactions and conflict retries.
+license: BSD-3-Clause
+license-file: LICENSE
+author: Alexander Thiemann
+maintainer: Alexander Thiemann <mail@athiemann.net>
+homepage: https://www.spock.li
+bug-reports: https://github.com/agrafix/Spock/issues
+category: Web, Database
+build-type: Simple
+tested-with: GHC == 9.14.1
+extra-source-files: README.md
+
+library
+  hs-source-dirs: src
+  exposed-modules: Web.Spock.Session.Postgresql
+  build-depends:
+    base >= 4.12 && < 5,
+    aeson >= 2.0 && < 2.4,
+    bytestring >= 0.10,
+    mtl >= 2.2,
+    postgresql-simple >= 0.7 && < 0.8,
+    resource-pool >= 0.4 && < 0.6,
+    Spock >= 0.15 && < 0.16,
+    text >= 1.2,
+    time >= 1.9
+  default-language: Haskell2010
+  ghc-options: -Wall
+
+executable spock-postgresql-example
+  hs-source-dirs: example
+  main-is: Main.hs
+  build-depends:
+    base, bytestring, postgresql-simple, resource-pool,
+    Spock, Spock-session-postgresql, text
+  default-language: Haskell2010
+  ghc-options: -Wall -threaded
+
+test-suite postgresql-tests
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test
+  main-is: Spec.hs
+  build-depends:
+    base, async, bytestring, hspec, postgresql-simple,
+    resource-pool, Spock, Spock-session-postgresql, text, time, vault
+  default-language: Haskell2010
+  ghc-options: -Wall -threaded
+
+source-repository head
+  type: git
+  location: https://github.com/agrafix/Spock
