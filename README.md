@@ -56,9 +56,7 @@ The existing `files` function continues to return the last file for each field.
 ### Talks
 
 * English: [ZuriHac 2016: Spock - Powerful Elegant Web Applications](https://www.youtube.com/watch?v=-b-Oz6y-n_Y) (by Alexander Thiemann)
-* English: [Spock - Powerful Elegent Web Applications using Haskell](https://www.youtube.com/watch?v=kNqsOBrCbLo) (by Alexander Thiemann)
 * English: [Beginning Web Programming in Haskell (using Spock)](https://www.youtube.com/watch?v=GobPiGL9jJ4) (by Ollie Charles)
-* German: [Moderne typsichere Web-Entwicklung mit Haskell](https://dl.dropboxusercontent.com/u/15078797/talks/typesafe-webdev-2015.pdf) (by Alexander Thiemann)
 * German: [reroute-talk](https://github.com/timjb/reroute-talk) (by Tim Baumann)
 
 ## Candy
