@@ -1,0 +1,22 @@
+name: Tutorial examples
+
+on:
+  push:
+    paths: ['docs/tutorials/**', 'docs/_includes/tutorial-stack.yaml', 'scripts/check-tutorial-setup.py', '.github/workflows/tutorials.yml']
+  pull_request:
+    paths: ['docs/tutorials/**', 'docs/_includes/tutorial-stack.yaml', 'scripts/check-tutorial-setup.py', '.github/workflows/tutorials.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: haskell-actions/setup@v2
+        with:
+          ghc-version: '9.14.1'
+          enable-stack: true
+          stack-version: '3.11.1'
+      - run: python3 scripts/check-tutorial-setup.py

@@ -1,0 +1,11 @@
+resolver: nightly-2026-09-01
+compiler: ghc-9.14.1
+packages:
+  - .
+extra-deps:
+  - git: https://github.com/agrafix/Spock.git
+    commit: 1d9bd1d6c89a2ad1bf590f53cc182d68e0ca8fd1
+    subdirs:
+      - Spock
+      - Spock-core
+      - reroute

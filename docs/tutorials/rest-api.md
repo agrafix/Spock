@@ -37,57 +37,57 @@ covers up to Adding a Database; "part2" covers up to Finishing up.
 
 # Project Setup
 
-Before using Spock, you'll need to install the Haskell toolchain on your
-machine. We recommend using the [stack](//haskellstack.org/) tool to
-quickly get started! Our guide will be `stack` based, but you can easily
-translate this to `cabal`.  Next, you can prepare a directory for your first
-Spock powered application:
+Install GHC 9.14.1 and Stack 3.11.1 with [GHCup](https://www.haskell.org/ghcup/),
+then create a project with the Cabal-only `simple` template:
 
-1. Create a new project using `stack new Spock-rest`
-2. Jump into the directory `cd Spock-rest`
+```sh
+stack new spock-rest simple --no-init
+cd spock-rest
+```
+
+The explicit template ensures that `spock-rest.cabal` owns your dependencies.
+Stack's default template uses Hpack: if your existing project contains
+`package.yaml`, edit its `dependencies` instead of the generated `.cabal` file.
 
 ### Dependencies
 
-To make sure your dependencies will match those used in this tutorial, set
-your project to use Stackage LTS 16.18: Open your `stack.yaml` file, find the
-`resolver` key and make sure it is configured correctly:
+Create `stack.yaml` with the same tested package set and source revision used
+by the [getting started guide]({{ '/tutorials/getting-started' | relative_url }}):
 
-```
-resolver:
-  url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/16/18.yaml
-```
+{% highlight yaml %}
+{% include tutorial-stack.yaml %}
+{% endhighlight %}
 
-Next, you're going to add the packages you'll be using: `Spock`, `aeson`
-and `text`. To do this, open your `Spock-rest.cabal` file, find the
-`executable Spock-rest-exe` section and add `aeson`, `Spock` and `text`
-to the `build-depends` key. There should also be a `Spock-rest` entry which
-you can remove or just ignore. The result should look something like this:
+In `spock-rest.cabal`, replace `build-depends` under `executable spock-rest` with:
 
-```
-  build-depends:         base
-                       , aeson
-                       , Spock
-                       , text
+<!-- setup:dependencies -->
+```cabal
+  build-depends: base >= 4.12 && < 5, Spock >= 0.16 && < 0.17, aeson, text
 ```
 
-During the first build via `stack build --fast --pedantic`, stack may ask you to add further entries
-to `extra-deps`. Follow these instructions.
+Add `-threaded` to the executable's `ghc-options`; Warp requires the threaded
+runtime to serve requests.
+
+Build with `stack build --fast --pedantic` and commit the generated
+`stack.yaml.lock` with your project. Later sections add database dependencies
+to this same `.cabal` file.
 
 ### Imports
 
 Let's start by adding a couple of language extensions and imports. Open
-`app/Main.hs` and replace the content with:
+`src/Main.hs` and replace the content with:
 
 {% highlight haskell %}
 
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
 
+module Main (main) where
+
 import           Web.Spock
 import           Web.Spock.Config
 
-import           Data.Aeson       hiding (json)
-import           Data.Monoid      ((<>))
+import           Data.Aeson
 import           Data.Text        (Text, pack)
 import           GHC.Generics
 

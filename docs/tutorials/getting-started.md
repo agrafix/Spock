@@ -11,45 +11,55 @@ redirect_from:
 
 ## Setup
 
-Before using Spock, you'll need to install the Haskell toolchain on your machine. We recommend using the
-[stack](http://haskellstack.org/) tool to quickly get started! Our guide will be `stack` based, but you can
-easily translate this to `cabal`.
-Next, you can prepare a directory for your first Spock powered application:
+Install GHC 9.14.1 and Stack 3.11.1 with [GHCup](https://www.haskell.org/ghcup/).
+This guide uses Stack's **Cabal-only `simple` template**:
 
-1. Create a new project using `stack new Spock-example`
-1. Jump into the directory `cd Spock-example`
+```sh
+stack new spock-example simple --no-init
+cd spock-example
+```
+
+The explicit template matters: Stack's default template uses Hpack and
+`package.yaml`. In an existing Hpack project, edit `dependencies` in
+`package.yaml`; the `.cabal` file is generated. In this tutorial there is no
+`package.yaml`, so edit the `.cabal` file directly. See Stack's
+[project template documentation](https://docs.haskellstack.org/en/stable/commands/new_command/).
 
 ## Dependencies
 
-First we will add `Spock` to our dependencies by opening `Spock-example.cabal` and adding `Spock >=0.14`, `mtl` and `text` to `build-depends` in the
-`executable Spock-example-exe` section. Also, the `extra-deps:` section in the generated `stack.yaml` file to:
+In `spock-example.cabal`, replace `build-depends` under
+`executable spock-example` with:
 
-```
-extra-deps:
-  - Spock-0.14.0.0
-  - Spock-core-0.14.0.0
-  - reroute-0.6.0.0
-  - stm-containers-1.2
-  - focus-1.0.1.4
-  - stm-hamt-1.2.0.4
-  - primitive-extras-0.8
-  - primitive-unlifted-0.1.3.0
+<!-- setup:dependencies -->
+```cabal
+  build-depends: base >= 4.12 && < 5, Spock >= 0.16 && < 0.17, text, transformers
 ```
 
-Next we build everything once: `stack build --fast --pedantic`. 
+Add `-threaded` to the executable's `ghc-options`; Warp requires the threaded
+runtime to serve requests.
+
+Create `stack.yaml` with the following tested package set and Spock source
+revision. This uses the GHC 9.14-compatible packages from the repository:
+
+{% highlight yaml %}
+{% include tutorial-stack.yaml %}
+{% endhighlight %}
+
+Run `stack build --fast --pedantic`. Stack creates `stack.yaml.lock`; commit it
+with your project so later builds use the same resolved dependencies.
 
 ## Hello world
 
-Now it is time to write some Haskell code. Open `app/Main.hs` in your favorite editor and replace the content with:
+Now it is time to write some Haskell code. Open `src/Main.hs` in your favorite editor and replace the content with:
 
 {% highlight haskell %}
 {% raw %}{-# LANGUAGE OverloadedStrings #-}{% endraw %}
-module Main where
+module Main (main) where
 
 import Web.Spock
 import Web.Spock.Config
 
-import Control.Monad.Trans
+import Control.Monad.IO.Class (liftIO)
 import Data.IORef
 import qualified Data.Text as T
 
@@ -72,7 +82,7 @@ app =
               text ("Hello " <> name <> ", you are visitor number " <> T.pack (show visitorNumber))
 {% endhighlight %}
 
-Next, run `stack build --fast --pedantic` again to build the project. `stack exec Spock-example-exe` should start the executable - you may now point your browser to `http://localhost:8080` and `http://localhost:8080/hello/[YOUR_NAME]`.
+Next, run `stack build --fast --pedantic` again to build the project. `stack exec spock-example` should start the executable - you may now point your browser to `http://localhost:8080` and `http://localhost:8080/hello/[YOUR_NAME]`.
 
 ## Code explained
 
