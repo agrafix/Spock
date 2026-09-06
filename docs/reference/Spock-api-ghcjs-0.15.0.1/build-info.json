@@ -1,0 +1,6 @@
+{
+  "compiler": "ghc-9.12.2",
+  "target": "javascript",
+  "Spock-api": "0.17.0.0",
+  "source": "GHC JavaScript .hi/.hie interfaces"
+}

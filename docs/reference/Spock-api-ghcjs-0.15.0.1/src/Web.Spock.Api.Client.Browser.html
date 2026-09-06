@@ -1,0 +1,187 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE JavaScriptFFI #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE InterruptibleFFI #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- | Browser Fetch transport for GHC's JavaScript backend. Same-origin cookies</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- are the default. Supply CSRF headers explicitly for unsafe cookie-authenticated</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- endpoints. Cross-origin calls require the server's CORS policy and, for</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- cross-origin cookies, IncludeCredentials. Redirects are rejected.</span><span>
+</span><span id="line-9"></span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Web.Spock.Api.Client.Browser.html"><span class="hs-identifier">Web.Spock.Api.Client.Browser</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Api.Client.Browser.html#browserClient"><span class="hs-identifier">browserClient</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-10"></span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">encode</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">object</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-operator">(.=)</span></span><span class="hs-special">)</span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString.Lazy</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">BL</span></span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text.Encoding</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.JS.Prim</span></span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Web.Spock.Api.Client.html"><span class="hs-identifier">Web.Spock.Api.Client</span></a></span><span>
+</span><span id="line-17"></span><span>
+</span><span id="line-18"></span><span class="hs-comment">-- | Create a client with an AbortController timeout and a streaming response</span><span>
+</span><span id="line-19"></span><span class="hs-comment">-- limit. Network failures, timeout, response size, HTTP status and JSON errors</span><span>
+</span><span id="line-20"></span><span class="hs-comment">-- are distinct ClientError values. No response data or credentials are logged.</span><span>
+</span><span id="line-21"></span><span class="annot"><a href="Web.Spock.Api.Client.Browser.html#browserClient"><span class="hs-identifier hs-type">browserClient</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Spock.Api.Client.html#ClientConfig"><span class="hs-identifier hs-type">ClientConfig</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="Web.Spock.Api.Client.html#ClientError"><span class="hs-identifier hs-type">ClientError</span></a></span><span> </span><span class="annot"><a href="Web.Spock.Api.Client.html#Client"><span class="hs-identifier hs-type">Client</span></a></span><span>
+</span><span id="line-22"></span><span id="browserClient"><span class="annot"><span class="annottext">browserClient :: ClientConfig -&gt; Either ClientError Client
+</span><a href="Web.Spock.Api.Client.Browser.html#browserClient"><span class="hs-identifier hs-var hs-var">browserClient</span></a></span></span><span> </span><span id="local-6989586621679052654"><span class="annot"><span class="annottext">ClientConfig
+</span><a href="#local-6989586621679052654"><span class="hs-identifier hs-var">cfg</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ClientConfig -&gt; Transport -&gt; Either ClientError Client
+</span><a href="Web.Spock.Api.Client.html#newClient"><span class="hs-identifier hs-var">newClient</span></a></span><span> </span><span class="annot"><span class="annottext">ClientConfig
+</span><a href="#local-6989586621679052654"><span class="hs-identifier hs-var">cfg</span></a></span><span> </span><span class="annot"><span class="annottext">Transport
+</span><a href="Web.Spock.Api.Client.Browser.html#browserTransport"><span class="hs-identifier hs-var">browserTransport</span></a></span><span>
+</span><span id="line-23"></span><span>
+</span><span id="line-24"></span><span class="annot"><a href="Web.Spock.Api.Client.Browser.html#browserTransport"><span class="hs-identifier hs-type">browserTransport</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Spock.Api.Client.html#Transport"><span class="hs-identifier hs-type">Transport</span></a></span><span>
+</span><span id="line-25"></span><span id="browserTransport"><span class="annot"><span class="annottext">browserTransport :: Transport
+</span><a href="Web.Spock.Api.Client.Browser.html#browserTransport"><span class="hs-identifier hs-var hs-var">browserTransport</span></a></span></span><span> </span><span id="local-6989586621679052657"><span class="annot"><span class="annottext">Request
+</span><a href="#local-6989586621679052657"><span class="hs-identifier hs-var">request</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-26"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679052691"><span class="annot"><span class="annottext">configuration :: Value
+</span><a href="#local-6989586621679052691"><span class="hs-identifier hs-var hs-var hs-var">configuration</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Pair] -&gt; Value
+</span><span class="hs-identifier hs-var">object</span></span><span>
+</span><span id="line-27"></span><span>        </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;method&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Text -&gt; Pair
+forall v. ToJSON v =&gt; Key -&gt; v -&gt; Pair
+forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">Request -&gt; Text
+</span><a href="Web.Spock.Api.Client.html#rq_method"><span class="hs-identifier hs-var">rq_method</span></a></span><span> </span><span class="annot"><span class="annottext">Request
+</span><a href="#local-6989586621679052657"><span class="hs-identifier hs-var">request</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;url&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Text -&gt; Pair
+forall v. ToJSON v =&gt; Key -&gt; v -&gt; Pair
+forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">Request -&gt; Text
+</span><a href="Web.Spock.Api.Client.html#rq_url"><span class="hs-identifier hs-var">rq_url</span></a></span><span> </span><span class="annot"><span class="annottext">Request
+</span><a href="#local-6989586621679052657"><span class="hs-identifier hs-var">request</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-28"></span><span>          </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;headers&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; [(Text, Text)] -&gt; Pair
+forall v. ToJSON v =&gt; Key -&gt; v -&gt; Pair
+forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; Text
+</span><span class="hs-identifier hs-var">T.decodeLatin1</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679052695"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Text
+</span><span class="hs-identifier hs-var">T.decodeLatin1</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679052696"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">|</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679052695"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679052695"><span class="hs-identifier hs-var">n</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679052696"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679052696"><span class="hs-identifier hs-var">v</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Request -&gt; [(ByteString, ByteString)]
+</span><a href="Web.Spock.Api.Client.html#rq_headers"><span class="hs-identifier hs-var">rq_headers</span></a></span><span> </span><span class="annot"><span class="annottext">Request
+</span><a href="#local-6989586621679052657"><span class="hs-identifier hs-var">request</span></a></span><span class="hs-special">]</span><span class="hs-special">,</span><span>
+</span><span id="line-29"></span><span>          </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;body&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Maybe Text -&gt; Pair
+forall v. ToJSON v =&gt; Key -&gt; v -&gt; Pair
+forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Text) -&gt; Maybe ByteString -&gt; Maybe Text
+forall a b. (a -&gt; b) -&gt; Maybe a -&gt; Maybe b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Text
+</span><span class="hs-identifier hs-var">T.decodeUtf8</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Request -&gt; Maybe ByteString
+</span><a href="Web.Spock.Api.Client.html#rq_body"><span class="hs-identifier hs-var">rq_body</span></a></span><span> </span><span class="annot"><span class="annottext">Request
+</span><a href="#local-6989586621679052657"><span class="hs-identifier hs-var">request</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-30"></span><span>          </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;credentials&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Text -&gt; Pair
+forall v. ToJSON v =&gt; Key -&gt; v -&gt; Pair
+forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">Credentials -&gt; Text
+</span><a href="#local-6989586621679052700"><span class="hs-identifier hs-var">credentials</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Request -&gt; Credentials
+</span><a href="Web.Spock.Api.Client.html#rq_credentials"><span class="hs-identifier hs-var">rq_credentials</span></a></span><span> </span><span class="annot"><span class="annottext">Request
+</span><a href="#local-6989586621679052657"><span class="hs-identifier hs-var">request</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-31"></span><span>          </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;timeout&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Int -&gt; Pair
+forall v. ToJSON v =&gt; Key -&gt; v -&gt; Pair
+forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">Request -&gt; Int
+</span><a href="Web.Spock.Api.Client.html#rq_timeoutMilliseconds"><span class="hs-identifier hs-var">rq_timeoutMilliseconds</span></a></span><span> </span><span class="annot"><span class="annottext">Request
+</span><a href="#local-6989586621679052657"><span class="hs-identifier hs-var">request</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-32"></span><span>          </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;maxBytes&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Int -&gt; Pair
+forall v. ToJSON v =&gt; Key -&gt; v -&gt; Pair
+forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">Request -&gt; Int
+</span><a href="Web.Spock.Api.Client.html#rq_maxResponseBytes"><span class="hs-identifier hs-var">rq_maxResponseBytes</span></a></span><span> </span><span class="annot"><span class="annottext">Request
+</span><a href="#local-6989586621679052657"><span class="hs-identifier hs-var">request</span></a></span><span> </span><span class="hs-special">]</span><span>
+</span><span id="line-33"></span><span>      </span><span id="local-6989586621679052706"><span class="annot"><span class="annottext">argument :: JSVal
+</span><a href="#local-6989586621679052706"><span class="hs-identifier hs-var hs-var hs-var">argument</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; JSVal
+</span><span class="hs-identifier hs-var">toJSString</span></span><span> </span><span class="annot"><span class="annottext">(String -&gt; JSVal) -&gt; String -&gt; JSVal
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; String
+</span><span class="hs-identifier hs-var">T.unpack</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; String) -&gt; Text -&gt; String
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Text
+</span><span class="hs-identifier hs-var">T.decodeUtf8</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Text) -&gt; ByteString -&gt; Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">LazyByteString -&gt; ByteString
+</span><span class="hs-identifier hs-var">BL.toStrict</span></span><span> </span><span class="annot"><span class="annottext">(LazyByteString -&gt; ByteString) -&gt; LazyByteString -&gt; ByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Value -&gt; LazyByteString
+forall a. ToJSON a =&gt; a -&gt; LazyByteString
+</span><span class="hs-identifier hs-var">encode</span></span><span> </span><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679052691"><span class="hs-identifier hs-var">configuration</span></a></span><span>
+</span><span id="line-34"></span><span>  </span><span id="local-6989586621679052710"><span class="annot"><a href="#local-6989586621679052710"><span class="hs-identifier hs-var">result</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">JSVal -&gt; IO JSVal
+</span><a href="Web.Spock.Api.Client.Browser.html#js_fetch"><span class="hs-identifier hs-var">js_fetch</span></a></span><span> </span><span class="annot"><span class="annottext">JSVal
+</span><a href="#local-6989586621679052706"><span class="hs-identifier hs-var">argument</span></a></span><span>
+</span><span id="line-35"></span><span>  </span><span id="local-6989586621679052712"><span class="annot"><a href="#local-6989586621679052712"><span class="hs-identifier hs-var">errorCode</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="hs-identifier hs-type">fromJSString</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">getProp</span></span><span> </span><span class="annot"><a href="#local-6989586621679052710"><span class="hs-identifier hs-type">result</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;error&quot;</span></span><span>
+</span><span id="line-36"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><a href="#local-6989586621679052712"><span class="hs-identifier hs-type">errorCode</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-37"></span><span>    </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;timeout&quot;</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Either ClientError Response -&gt; IO (Either ClientError Response)
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">(Either ClientError Response -&gt; IO (Either ClientError Response))
+-&gt; Either ClientError Response -&gt; IO (Either ClientError Response)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ClientError -&gt; Either ClientError Response
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="annottext">ClientError
+</span><a href="Web.Spock.Api.Client.html#RequestTimedOut"><span class="hs-identifier hs-var">RequestTimedOut</span></a></span><span>
+</span><span id="line-38"></span><span>    </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;large&quot;</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Either ClientError Response -&gt; IO (Either ClientError Response)
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">(Either ClientError Response -&gt; IO (Either ClientError Response))
+-&gt; Either ClientError Response -&gt; IO (Either ClientError Response)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ClientError -&gt; Either ClientError Response
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="annottext">ClientError
+</span><a href="Web.Spock.Api.Client.html#ResponseTooLarge"><span class="hs-identifier hs-var">ResponseTooLarge</span></a></span><span>
+</span><span id="line-39"></span><span>    </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;decode&quot;</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Either ClientError Response -&gt; IO (Either ClientError Response)
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">(Either ClientError Response -&gt; IO (Either ClientError Response))
+-&gt; Either ClientError Response -&gt; IO (Either ClientError Response)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ClientError -&gt; Either ClientError Response
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="annottext">ClientError
+</span><a href="Web.Spock.Api.Client.html#DecodeFailure"><span class="hs-identifier hs-var">DecodeFailure</span></a></span><span>
+</span><span id="line-40"></span><span>    </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;&quot;</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-41"></span><span>      </span><span id="local-6989586621679052719"><span class="annot"><a href="#local-6989586621679052719"><span class="hs-identifier hs-var">status</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">JSVal -&gt; Int
+</span><span class="hs-identifier hs-var">fromJSInt</span></span><span> </span><span class="annot"><span class="annottext">(JSVal -&gt; Int) -&gt; IO JSVal -&gt; IO Int
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">JSVal -&gt; String -&gt; IO JSVal
+</span><span class="hs-identifier hs-var">getProp</span></span><span> </span><span class="annot"><span class="annottext">JSVal
+</span><a href="#local-6989586621679052710"><span class="hs-identifier hs-var">result</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;status&quot;</span></span><span>
+</span><span id="line-42"></span><span>      </span><span id="local-6989586621679052721"><span class="annot"><a href="#local-6989586621679052721"><span class="hs-identifier hs-var">body</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="hs-identifier hs-type">fromJSString</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">getProp</span></span><span> </span><span class="annot"><a href="#local-6989586621679052710"><span class="hs-identifier hs-type">result</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;body&quot;</span></span><span>
+</span><span id="line-43"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">pure</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Right</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="annot"><a href="Web.Spock.Api.Client.html#Response"><span class="hs-identifier hs-type">Response</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679052719"><span class="hs-identifier hs-type">status</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">T.encodeUtf8</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.pack</span></span><span> </span><span class="annot"><a href="#local-6989586621679052721"><span class="hs-identifier hs-type">body</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-44"></span><span>    </span><span class="annot"><span class="annottext">String
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Either ClientError Response -&gt; IO (Either ClientError Response)
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">(Either ClientError Response -&gt; IO (Either ClientError Response))
+-&gt; Either ClientError Response -&gt; IO (Either ClientError Response)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ClientError -&gt; Either ClientError Response
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="annottext">ClientError
+</span><a href="Web.Spock.Api.Client.html#NetworkFailure"><span class="hs-identifier hs-var">NetworkFailure</span></a></span><span>
+</span><span id="line-45"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-46"></span><span>    </span><span class="annot"><a href="#local-6989586621679052700"><span class="hs-identifier hs-type">credentials</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Spock.Api.Client.html#Credentials"><span class="hs-identifier hs-type">Credentials</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span>
+</span><span id="line-47"></span><span>    </span><span id="local-6989586621679052700"><span class="annot"><span class="annottext">credentials :: Credentials -&gt; Text
+</span><a href="#local-6989586621679052700"><span class="hs-identifier hs-var hs-var">credentials</span></a></span></span><span> </span><span class="annot"><span class="annottext">Credentials
+</span><a href="Web.Spock.Api.Client.html#SameOrigin"><span class="hs-identifier hs-var">SameOrigin</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;same-origin&quot;</span></span><span>
+</span><span id="line-48"></span><span>    </span><span class="annot"><a href="#local-6989586621679052700"><span class="hs-identifier hs-var">credentials</span></a></span><span> </span><span class="annot"><span class="annottext">Credentials
+</span><a href="Web.Spock.Api.Client.html#OmitCredentials"><span class="hs-identifier hs-var">OmitCredentials</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;omit&quot;</span></span><span>
+</span><span id="line-49"></span><span>    </span><span class="annot"><a href="#local-6989586621679052700"><span class="hs-identifier hs-var">credentials</span></a></span><span> </span><span class="annot"><span class="annottext">Credentials
+</span><a href="Web.Spock.Api.Client.html#IncludeCredentials"><span class="hs-identifier hs-var">IncludeCredentials</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;include&quot;</span></span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span class="hs-keyword">foreign</span><span> </span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-keyword">javascript</span></span><span> </span><span class="annot"><span class="hs-keyword">interruptible</span></span><span> </span><span class="annot"><span class="hs-string">&quot;h$spock_fetch&quot;</span></span><span>
+</span><span id="line-52"></span><span>  </span><span id="js_fetch"><span class="annot"><a href="Web.Spock.Api.Client.Browser.html#js_fetch"><span class="hs-identifier hs-var">js_fetch</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">JSVal</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">JSVal</span></span><span>
+</span><span id="line-53"></span></pre></body></html>

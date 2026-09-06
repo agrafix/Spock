@@ -41,6 +41,25 @@ def check(root, current=False):
     if not documents:
         raise AssertionError(f"No HTML documentation under {root}")
     failures = []
+    versions = json.loads((root / "versions.json").read_text())
+    client_version = versions.get("Spock-api-ghcjs")
+    if not client_version:
+        failures.append("Missing Spock-api-ghcjs from the published reference")
+    else:
+        client = root / ("Spock-api-ghcjs-" + client_version)
+        expected = {"Web-Spock-Api-Client.html": ["callEndpoint", "callDocumentedEndpoint", "newClient"],
+                    "Web-Spock-Api-Client-Browser.html": ["browserClient"]}
+        for name, symbols in expected.items():
+            page = documents.get(client / name)
+            if page is None or any("v:" + symbol not in page.anchors for symbol in symbols):
+                failures.append(f"Missing browser API page or anchors: {name}")
+        info = client / "build-info.json"
+        if not info.is_file() or json.loads(info.read_text()).get("target") != "javascript":
+            failures.append("Client reference must be built from JavaScript interfaces")
+        page = documents.get(client / "Web-Spock-Api-Client.html")
+        if page and not any("Spock-api-" + versions["Spock-api"] + "/Web-Spock-Api.html#t:Endpoint" in href
+                            and not urlsplit(href).scheme for href in page.links):
+            failures.append("Missing local browser-client link to the shared Endpoint type")
     for source, document in documents.items():
         for href in document.links:
             url = urlsplit(href)

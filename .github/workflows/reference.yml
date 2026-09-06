@@ -2,9 +2,9 @@ name: API reference
 
 on:
   push:
-    paths: ['**/*.hs', '**/*.cabal', 'cabal.project*', 'docs/**', 'scripts/*reference.py', '.github/workflows/reference.yml']
+    paths: ['**/*.hs', '**/*.cabal', 'cabal.project*', 'docs/**', 'scripts/*reference.py', 'scripts/*javascript*', '.github/workflows/reference.yml']
   pull_request:
-    paths: ['**/*.hs', '**/*.cabal', 'cabal.project*', 'docs/**', 'scripts/*reference.py', '.github/workflows/reference.yml']
+    paths: ['**/*.hs', '**/*.cabal', 'cabal.project*', 'docs/**', 'scripts/*reference.py', 'scripts/*javascript*', '.github/workflows/reference.yml']
 
 permissions:
   contents: read
@@ -27,8 +27,15 @@ jobs:
           key: reference-${{ runner.os }}-${{ steps.haskell.outputs.ghc-version }}-${{ hashFiles('**/*.cabal', 'scripts/build-reference.py') }}
           restore-keys: reference-${{ runner.os }}-${{ steps.haskell.outputs.ghc-version }}-
       - run: sudo apt-get update && sudo apt-get install -y libpq-dev
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Install JavaScript compiler and matching Haddock
+        run: python3 scripts/setup-javascript.py --prefix "$RUNNER_TEMP/spock-javascript" --haddock
       - name: Build and check current Haddocks
-        run: python3 scripts/build-reference.py --output "$RUNNER_TEMP/reference"
+        run: |
+          source "$RUNNER_TEMP/spock-javascript/env.sh"
+          python3 scripts/build-reference.py --output "$RUNNER_TEMP/reference"
       - name: Check published reference
         run: python3 scripts/check-reference.py docs/reference --current
       - uses: ruby/setup-ruby@v1

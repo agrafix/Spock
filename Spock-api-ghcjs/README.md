@@ -5,6 +5,12 @@ its historical name, but no longer requires the separate GHCJS compiler.
 It supports `Spock-api` 0.17 and all five endpoint methods: GET, POST, PUT,
 PATCH and DELETE, including typed path extensions, query parameters and headers.
 
+Browse the versioned [client API](https://www.spock.li/reference/Spock-api-ghcjs-0.15.0.1/Web-Spock-Api-Client.html#v:callEndpoint)
+and [browser transport](https://www.spock.li/reference/Spock-api-ghcjs-0.15.0.1/Web-Spock-Api-Client-Browser.html#v:browserClient).
+Both are built from GHC JavaScript 9.12.2 interfaces and link to the compatible
+Spock-api 0.17 reference. See [the reference build guide](../docs/README.md)
+to regenerate them.
+
 Use the [shared/server/client example](../examples/browser/README.md) for the
 pinned compiler installation, development loop, Chromium tests and deployment.
 The protocol module also compiles with native GHC for testing/custom transports;

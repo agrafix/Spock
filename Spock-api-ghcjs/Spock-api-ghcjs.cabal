@@ -1,5 +1,5 @@
 name:                Spock-api-ghcjs
-version:             0.15.0.0
+version:             0.15.0.1
 synopsis:            Typed Spock API clients for GHC's JavaScript backend
 description:         Shared typed request encoding, explicit errors and a bounded browser Fetch transport.
 Homepage:            https://www.spock.li

@@ -38,16 +38,20 @@ import Web.Spock.Api.Document
 -- and CR/LF or control bytes are rejected before invoking the transport.
 type Header = (T.Text, T.Text)
 
+-- | Fetch cookie credentials policy. Cross-origin credentials also require
+-- server CORS and cookie policies permitting the requesting origin.
 data Credentials = SameOrigin | OmitCredentials | IncludeCredentials
   deriving (Eq, Show)
 
+-- | Request defaults validated by 'newClient'. Start with 'defaultClientConfig'
+-- and change the fields your application needs.
 data ClientConfig = ClientConfig
-  { cc_baseUrl :: T.Text,
-    cc_headers :: [Header],
-    cc_credentials :: Credentials,
-    cc_timeoutMilliseconds :: Int,
-    cc_maxResponseBytes :: Int,
-    cc_slashPolicy :: SlashPolicy
+  { cc_baseUrl :: T.Text, -- ^ Empty for same origin, an absolute path prefix, or HTTP(S) URL.
+    cc_headers :: [Header], -- ^ Headers added to every request; keep secrets out of logs.
+    cc_credentials :: Credentials, -- ^ Browser cookie policy.
+    cc_timeoutMilliseconds :: Int, -- ^ Positive timeout, at most 2147483647 milliseconds.
+    cc_maxResponseBytes :: Int, -- ^ Positive limit on decoded response bytes.
+    cc_slashPolicy :: SlashPolicy -- ^ Must agree with the server's routing policy.
   } deriving (Eq)
 
 -- | Same-origin URLs and cookies, a 30-second timeout and 1 MiB response limit.
@@ -72,10 +76,15 @@ data Request = Request
     rq_maxResponseBytes :: Int
   }
 
+-- | Raw custom-transport result. HTTP errors are classified before JSON decoding.
 data Response = Response { rs_status :: Int, rs_body :: B.ByteString }
 
+-- | Send a prepared request, returning structured transport failures. Custom
+-- implementations must enforce the requested timeout and credential policy.
 type Transport = Request -> IO (Either ClientError Response)
 
+-- | Validated configuration and transport. Construct with 'newClient', or
+-- @browserClient@ from @Web.Spock.Api.Client.Browser@ in JavaScript builds.
 data Client = Client ClientConfig Transport
 
 -- | Validate configuration before any request. Base URLs may be an empty
@@ -111,6 +120,7 @@ callDocumentedEndpoint :: (HasRep p, HasRep q, HasRep (MaybeToList i), AllHave T
   Client -> DocumentedEndpoint p q i o -> HVectElim p (HVectElim q (HVectElim (MaybeToList i) (IO (Either ClientError o))))
 callDocumentedEndpoint client endpoint = callDocumentedEndpoint' client endpoint []
 
+-- | As 'callDocumentedEndpoint', with extra per-call headers (for example CSRF).
 callDocumentedEndpoint' :: forall p q i o. (HasRep p, HasRep q, HasRep (MaybeToList i), AllHave ToHttpApiData p) =>
   Client -> DocumentedEndpoint p q i o -> [Header] -> HVectElim p (HVectElim q (HVectElim (MaybeToList i) (IO (Either ClientError o))))
 callDocumentedEndpoint' client@(Client cfg _) endpoint extra =
@@ -137,6 +147,8 @@ prepareEndpoint cfg endpoint extra path body = case endpoint of
       unless (validBaseUrl url) $ Left InvalidRequest
       pure $ Request method url headers payload (cc_credentials cfg) (cc_timeoutMilliseconds cfg) (cc_maxResponseBytes cfg)
 
+-- | Validate endpoint metadata and encode typed path/query/header/body values
+-- without sending a request. Arguments follow the shared declaration's order.
 prepareDocumentedEndpoint :: AllHave ToHttpApiData p => ClientConfig -> DocumentedEndpoint p q i o -> [Header] ->
   HVect p -> HVect q -> HVect (MaybeToList i) -> Either ClientError Request
 prepareDocumentedEndpoint cfg endpoint extra path parameters body = do

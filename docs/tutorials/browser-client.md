@@ -22,6 +22,12 @@ The three packages are deliberately small:
 - [Server](https://github.com/agrafix/Spock/blob/master/examples/browser/server/src/BrowserServer.hs) registers handlers and explicitly validates CSRF tokens for unsafe API routes.
 - [Client](https://github.com/agrafix/Spock/blob/master/examples/browser/client/src/Main.hs) calls those declarations and renders responses using DOM `textContent`.
 
+The versioned API reference includes
+[`callEndpoint`](/reference/Spock-api-ghcjs-0.15.0.1/Web-Spock-Api-Client.html#v:callEndpoint),
+[`callDocumentedEndpoint`](/reference/Spock-api-ghcjs-0.15.0.1/Web-Spock-Api-Client.html#v:callDocumentedEndpoint)
+and [`browserClient`](/reference/Spock-api-ghcjs-0.15.0.1/Web-Spock-Api-Client-Browser.html#v:browserClient).
+These pages are generated from the JavaScript build, including its browser-only module.
+
 The client accepts configurable URL prefixes, credentials, timeouts and response
 limits. It returns typed `Either ClientError` results for network, status, size
 and decoding failures. Read the [client API and migration guide](https://github.com/agrafix/Spock/tree/master/Spock-api-ghcjs)

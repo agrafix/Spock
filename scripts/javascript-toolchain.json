@@ -3,6 +3,13 @@
   "emscripten": "3.1.74",
   "emsdk_commit": "3d6d8ee910466516a53e665b86458faa81dae9ba",
   "base_url": "https://downloads.haskell.org/~ghcup/unofficial-bindists/ghc/javascript-unknown-ghcjs-9.12.2/",
+  "haddock_base_url": "https://downloads.haskell.org/ghc/9.12.2/",
+  "haddock_archives": {
+    "Darwin-arm64": ["ghc-9.12.2-aarch64-apple-darwin.tar.xz", "4b61b933028c63ace950236ea3382d02e51a3d9cbd1ca3f6cf4fe14c71ff436c"],
+    "Darwin-x86_64": ["ghc-9.12.2-x86_64-apple-darwin.tar.xz", "e7a40e39059dd3619d7884b7382f357e79a0f4e430181b805bdd57b3be9a7300"],
+    "Linux-x86_64": ["ghc-9.12.2-x86_64-deb12-linux.tar.xz", "447ec2fcc773ae9ebc3f39766c719641631274f9b765d7426a8cbe9241677c9f"],
+    "Linux-aarch64": ["ghc-9.12.2-aarch64-deb12-linux.tar.xz", "bee95bc91a621d8a2e9a9d86dac28ff839605e87316518dae12c779709bd58f1"]
+  },
   "archives": {
     "Darwin-arm64": ["ghc-javascript-unknown-ghcjs-9.12.2-aarch64-darwin.tar.xz", "7807dd0a84f9fba12ee4e9cded3dccba3704090d64cc37bae65e9723e50cd500"],
     "Darwin-x86_64": ["ghc-javascript-unknown-ghcjs-9.12.2-x86_64-darwin.tar.xz", "d3c1abb6db4008b8ad247763b996cd79f49483369286fb2040c069c86e14bfee"],
