@@ -1,5 +1,5 @@
 name:                Spock-api-server
-version:             0.14.0.1
+version:             0.15.0.0
 synopsis:            Another Haskell web framework for rapid development
 description:         Server wiring for Spock-api APIs
 Homepage:            https://www.spock.li
@@ -13,18 +13,44 @@ category:            Web
 build-type:          Simple
 cabal-version:       2.0
 tested-with:         GHC==9.14.1
+extra-source-files:  README.md
 
 library
   hs-source-dirs:      src
   exposed-modules:     Web.Spock.Api.Server
   build-depends:
                 base >= 4 && < 5,
-                Spock-core >= 0.14,
-                Spock-api,
+                Spock-core >= 0.15,
+                Spock-api >= 0.15 && < 0.16,
+                aeson >= 2.0,
+                bytestring,
+                case-insensitive,
+                http-api-data,
+                http-types,
+                text,
+                wai,
                 hvect >= 0.3.1,
                 mtl
   ghc-options: -Wall
   default-language:    Haskell2010
+
+test-suite api-server-tests
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test
+  main-is: Spec.hs
+  build-depends: base, aeson, bytestring, hspec, http-types,
+    Spock-core, Spock-api, Spock-api-server, text, wai, wai-extra
+  default-language: Haskell2010
+  ghc-options: -Wall
+
+executable spock-api-example
+  hs-source-dirs: example
+  main-is: Main.hs
+  other-modules: ApiDefinitions
+  build-depends: base, aeson, bytestring, Spock-core, Spock-api,
+    Spock-api-server, text
+  default-language: Haskell2010
+  ghc-options: -Wall -threaded
 
 source-repository head
   type:     git

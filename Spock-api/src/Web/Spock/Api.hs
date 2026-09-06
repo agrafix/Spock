@@ -43,3 +43,9 @@ data Endpoint (p :: [*]) (i :: Maybe *) (o :: *) where
     Proxy (i -> o) ->
     Path p 'Open ->
     Endpoint p ('Just i) o
+  MethodPatch ::
+    (ToJSON i, FromJSON i, ToJSON o, FromJSON o) =>
+    Proxy (i -> o) ->
+    Path p 'Open ->
+    Endpoint p ('Just i) o
+  MethodDelete :: (ToJSON o, FromJSON o) => Path p 'Open -> Endpoint p 'Nothing o

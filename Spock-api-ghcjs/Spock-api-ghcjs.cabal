@@ -1,5 +1,5 @@
 name:                Spock-api-ghcjs
-version:             0.14.0.1
+version:             0.14.0.2
 synopsis:            Another Haskell web framework for rapid development
 description:         GHCJS client side wiring for Spock-api APIs
 Homepage:            https://www.spock.li
@@ -23,7 +23,7 @@ library
                 aeson,
                 bytestring,
                 text,
-                Spock-api,
+                Spock-api < 0.15,
                 hvect >= 0.3.1
   ghc-options: -Wall
   default-language:    Haskell2010

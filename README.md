@@ -29,6 +29,7 @@ everything you need to get a quick start into web hacking with haskell:
 * database helper
 * csrf-protection
 * typesafe contexts
+* [typed JSON APIs and OpenAPI generation](Spock-api/README.md)
 
 ## File uploads
 
@@ -129,6 +130,8 @@ stack test -j 1
 The historical `Spock-api-ghcjs` package and `stack-ghcjs.yaml` target the separate
 GHCJS compiler. They are excluded from the native build and CI; this GHC upgrade
 does not port the browser client to GHC's JavaScript backend.
+The historical client is constrained to `Spock-api < 0.15`; the expanded native
+API DSL is documented in [Spock-api/README.md](Spock-api/README.md).
 
 Pull requests are welcome! Please consider creating an issue beforehand, so we can discuss what you would like to do. Code should be written in a consistent style throughout the project. Avoid whitespace that is sensible to conflicts. (E.g. alignment of `=` signs in functions definitions)
 

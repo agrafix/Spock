@@ -1,8 +1,10 @@
 flags: {}
 packages:
-  - Spock-api/
   - Spock-api-ghcjs/
   - reroute/
+# The historical client implements the pre-0.15 Endpoint constructors.
+extra-deps:
+  - Spock-api-0.14.0.1
 resolver: lts-6.13
 compiler: ghcjs-0.2.0.20160414_ghc-7.10.3
 compiler-check: match-exact
