@@ -90,6 +90,9 @@ import qualified Web.Spock.Internal.Wire as W
 import Web.Spock.Routing
 import Prelude hiding (curry, head, uncurry)
 
+-- | Register routes with empty context. @m@ is the base monad used by both
+-- registration and request actions; the final result is normally @()@.
+-- Pass a runner for @m@ to 'spockT' to build the middleware.
 type SpockT = SpockCtxT ()
 
 newtype LiftHooked ctx m = LiftHooked {unLiftHooked :: forall a. ActionCtxT ctx m a -> ActionCtxT () m a}
@@ -98,6 +101,10 @@ injectHook :: LiftHooked ctx m -> (forall a. ActionCtxT ctx' m a -> ActionCtxT c
 injectHook (LiftHooked baseHook) nextHook =
   LiftHooked $ baseHook . nextHook
 
+-- | Register routes whose handlers use 'ActionCtxT' @ctx m@. Registration runs
+-- when the application is built, while the registered handlers and prehooks
+-- run for matching requests. @ctx@ is supplied by 'prehook', @m@ provides base
+-- effects, and @a@ is the registration result. @lift@ enters @m@ at setup time.
 newtype SpockCtxT ctx m a = SpockCtxT
   { runSpockT :: W.SpockAllT m (ReaderT (LiftHooked ctx m) m) a
   }

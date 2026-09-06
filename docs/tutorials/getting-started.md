@@ -125,7 +125,8 @@ After having defined the application, you can create a [`Wai.Middleware`](https:
 
 ## Next Steps
 
-- Read the documentation on [Hackage](https://hackage.haskell.org/package/Spock)
+- Learn about [Spock's monads and type parameters](monads)
+- Read the [API reference](/reference/)
 - Check out and/or contribute to the [example project](https://github.com/agrafix/funblog)
 - Contribute on [Github](https://github.com/agrafix/Spock) by reporting or pull-requesting missing features and bugs
 - Check out the *Addons* and *Works great with* section in the pages footer

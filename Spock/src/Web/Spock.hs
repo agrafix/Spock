@@ -128,8 +128,23 @@ import Web.Spock.Routing
 import Web.Spock.SessionActions
 import Prelude hiding (head)
 
+-- | Register routes and middleware when the application starts. The handler
+-- passed to a route runs later, once per matching request, in 'SpockAction'.
+--
+-- @conn@ is a database connection, @sess@ is one visitor's session value, and
+-- @st@ is application-wide state. The final result parameter is usually @()@.
+-- This is 'SpockCtxM' with an empty request context. Use 'SpockCtxM' inside a
+-- 'prehook' that supplies a typed context.
 type SpockM conn sess st = SpockCtxM () conn sess st
 
+-- | Route registration with handlers that receive context @ctx@. A 'prehook'
+-- produces this context per request; 'getContext' reads it in the handler.
+-- Context belongs to the selected request and hook scope, while @st@ is shared
+-- by the entire application and @sess@ belongs to a visitor's session.
+--
+-- The underlying monad is 'WebStateM': @lift helper@ runs a shared-state or
+-- database helper during registration. Inside a handler, the same expression
+-- runs it for that request. Use @liftIO@ for an ordinary IO operation.
 type SpockCtxM ctx conn sess st = SpockCtxT ctx (WebStateM conn sess st)
 
 -- | Create a spock application using a given db storageLayer and an initial state.

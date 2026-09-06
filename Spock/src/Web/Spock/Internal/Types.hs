@@ -33,11 +33,19 @@ import Web.Spock.Core
 -- | Inside the SpockAllM monad, you may define routes and middleware.
 type SpockAllM conn sess st a = SpockT (WebStateM conn sess st) a
 
--- | The 'SpockActionCtx' is the monad of all route-actions. You have access
--- to the context of the request and database, session and state of your application.
+-- | A per-request action with typed context @ctx@, database connection @conn@,
+-- session value @sess@, and shared application state @st@. The final type
+-- parameter is the action's result. Use @getContext@ for the value supplied by
+-- a prehook, 'getState' for shared state, and session actions for this visitor.
+--
+-- This is 'ActionCtxT' over 'WebStateM'. @lift helper@ enters 'WebStateM';
+-- @liftIO operation@ runs IO. Sending a response finishes the action even
+-- though response helpers have a polymorphic result type.
 type SpockActionCtx ctx conn sess st = ActionCtxT ctx (WebStateM conn sess st)
 
--- | The 'SpockAction' is a specialisation of 'SpockActionCtx' with a '()' context.
+-- | A per-request 'SpockActionCtx' with context @()@. This is the usual handler
+-- type outside a prehook. Its @conn@, @sess@, and @st@ parameters have the same
+-- meanings as in the application's route-registration type.
 type SpockAction conn sess st = SpockActionCtx () conn sess st
 
 -- | Spock configuration, use 'defaultSpockCfg' and change single values if needed
@@ -129,6 +137,8 @@ data SessionHooks a = SessionHooks
   { sh_removed :: HM.HashMap SessionId a -> IO ()
   }
 
+-- | The application environment: connection pool, session manager,
+-- configuration, and shared state. It does not contain a particular request.
 data WebState conn sess st = WebState
   { web_dbConn :: Pool conn,
     web_sessionMgr :: SpockSessionManager conn sess st,
@@ -136,6 +146,9 @@ data WebState conn sess st = WebState
     web_config :: SpockCfg conn sess st
   }
 
+-- | Access application services in 'WebStateM' and Spock's registration/action
+-- layers. Helpers polymorphic in this class can use 'getState' and 'runQuery'
+-- without committing to either of those layers.
 class HasSpock m where
   type SpockConn m :: *
   type SpockState m :: *
@@ -155,6 +168,13 @@ class HasSpock m where
   -- | Get the Spock configuration
   getSpockCfg :: m (SpockCfg (SpockConn m) (SpockSession m) (SpockState m))
 
+-- | Add the application's 'WebState' environment to an underlying monad @m@.
+-- @conn@, @sess@, and @st@ select the connection, session value, and shared state
+-- types; @a@ is the computation's result. This is a reader of an existing
+-- environment, not a mutable state transformer. Put an @IORef@ or @TVar@ in
+-- @st@ when shared state needs to change, with suitable synchronization.
+--
+-- Applications normally use 'WebStateM', the resource-managed IO specialization.
 newtype WebStateT conn sess st m a = WebStateT {runWebStateT :: ReaderT (WebState conn sess st) m a}
   deriving
     ( Monad,
@@ -178,6 +198,12 @@ instance MonadBaseControl b m => MonadBaseControl b (WebStateT conn sess st m) w
   restoreM = defaultRestoreM
   liftBaseWith = defaultLiftBaseWith
 
+-- | Shared application services over @ResourceT IO@. This is the base monad
+-- underneath both route registration and request actions in full Spock.
+-- Helpers here can use 'getState' and 'runQuery', but have no request body,
+-- response, hook context, or current visitor's session. Those require the
+-- action layer. Lift such a helper into an action or registration block with
+-- @lift@; use @runSpockIO@ with an existing environment to run it from IO.
 type WebStateM conn sess st = WebStateT conn sess st (ResourceT IO)
 
 type SessionId = T.Text

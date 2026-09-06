@@ -265,8 +265,19 @@ instance Error ActionInterupt where
     strMsg = ActionError
 #endif
 
+-- | A request action with context @()@. @m@ supplies the application's base
+-- effects and @a@ is the result. For a core application @m@ can be @IO@ or a
+-- custom transformer stack; full Spock uses its @WebStateM@ base monad.
 type ActionT = ActionCtxT ()
 
+-- | A per-request computation: it reads the request and typed hook context
+-- @ctx@, accumulates response metadata, and can finish with a response or
+-- continue routing. @m@ is the base monad and @a@ is the result.
+--
+-- @getContext@ reads the value supplied by a prehook. @lift@ runs a computation
+-- in @m@; @liftIO@ runs IO when @m@ supports it. Neither changes the hook
+-- context. Response helpers finish the action, so statements after @text@,
+-- @json@, or another response helper are not executed.
 newtype ActionCtxT ctx m a = ActionCtxT
   {runActionCtxT :: ErrorT ActionInterupt (RWST (RequestInfo ctx) () ResponseState m) a}
   deriving

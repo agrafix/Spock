@@ -76,9 +76,11 @@ library
 
 test-suite spocktests
   type:                exitcode-stdio-1.0
-  hs-source-dirs:      test
+  hs-source-dirs:      test, example
   main-is:             Spec.hs
   other-modules:
+                Monads,
+                Web.Spock.MonadTypesSpec,
                 Web.Spock.Internal.SessionVaultSpec,
                 Web.Spock.Internal.SessionManagerSpec,
                 Web.Spock.Internal.SessionLifecycleSpec,
@@ -94,6 +96,7 @@ test-suite spocktests
                        hspec >= 2.0,
                        hspec-wai >= 0.6,
                        http-types,
+                       mtl,
                        Spock,
                        Spock-core,
                        stm,
@@ -107,6 +110,14 @@ test-suite spocktests
 
   ghc-options: -Wall -fno-warn-orphans
   default-language:    Haskell2010
+
+executable spock-monads-example
+  hs-source-dirs: example
+  main-is: Main.hs
+  other-modules: Monads
+  build-depends: base, mtl, Spock, Spock-core, text, transformers
+  default-language: Haskell2010
+  ghc-options: -Wall -threaded
 
 source-repository head
   type:     git
