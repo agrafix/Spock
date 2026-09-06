@@ -34,9 +34,7 @@ jobs:
         with:
           node-version: '22'
           package-manager-cache: false
-      - run: cabal build spock-http-bench --project-file=cabal.project.benchmarks
       - name: Validate every framework and session mode
         run: |
-          spock_bench_binary="$(cabal list-bin spock-http-bench --project-file=cabal.project.benchmarks)"
-          node benchmarks/http/run.mjs "$spock_bench_binary" 100 8 1
-          SPOCK_BENCH_COOKIES=reuse node benchmarks/http/run.mjs "$spock_bench_binary" 100 8 1
+          sh benchmarks/http/run.sh 100 8 1
+          SPOCK_BENCH_COOKIES=reuse sh benchmarks/http/run.sh 100 8 1

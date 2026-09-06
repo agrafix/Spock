@@ -11,10 +11,11 @@ The optional project keeps Scotty out of Spock's library dependencies. Scotty
 therefore uses 0.6.3 consistently across all applications, with only that
 package's `base` upper bound relaxed for GHC 9.14. Libraries are built with `-O2`.
 
+The wrapper builds into `dist-newstyle-benchmarks`, keeping in-place package
+registrations separate from the native project's different dependency set.
+
 ```sh
-cabal build spock-http-bench --project-file=cabal.project.benchmarks
-spock_bench_binary="$(cabal list-bin spock-http-bench --project-file=cabal.project.benchmarks)"
-node benchmarks/http/run.mjs "$spock_bench_binary" 10000 64 3
+sh benchmarks/http/run.sh 10000 64 3
 ```
 
 The Node 22 client uses persistent HTTP connections and discards cookies by
@@ -26,7 +27,7 @@ Set `SPOCK_BENCH_PORT` to change the default local port 18083. Optional trailing
 mode arguments select a subset. For a quick correctness smoke check:
 
 ```sh
-node benchmarks/http/run.mjs "$spock_bench_binary" 100 8 1
+sh benchmarks/http/run.sh 100 8 1
 ```
 
 Keep the same hardware, compiler, dependency plan, RTS capabilities, concurrency
@@ -76,8 +77,8 @@ disables all session actions. To measure the cost of sessions, compare these two
 client behaviors using the same binary and configuration:
 
 ```sh
-node benchmarks/http/run.mjs "$spock_bench_binary" 10000 64 3 always
-SPOCK_BENCH_COOKIES=reuse node benchmarks/http/run.mjs "$spock_bench_binary" 10000 64 3 always
+sh benchmarks/http/run.sh 10000 64 3 always
+SPOCK_BENCH_COOKIES=reuse sh benchmarks/http/run.sh 10000 64 3 always
 ```
 
 The CSV includes `cookie_policy` and `cookies_issued`. With discarded cookies,

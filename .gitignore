@@ -12,3 +12,4 @@
 .stack-work/
 _site/
 dist-newstyle/
+dist-newstyle-benchmarks/
