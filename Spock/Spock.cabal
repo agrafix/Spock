@@ -79,7 +79,9 @@ test-suite spocktests
   hs-source-dirs:      test, example
   main-is:             Spec.hs
   other-modules:
+                FAQ,
                 Monads,
+                Web.Spock.FAQSpec,
                 Web.Spock.MonadTypesSpec,
                 Web.Spock.Internal.SessionVaultSpec,
                 Web.Spock.Internal.SessionManagerSpec,
@@ -95,8 +97,10 @@ test-suite spocktests
                        bytestring,
                        hspec >= 2.0,
                        hspec-wai >= 0.6,
+                       http-api-data,
                        http-types,
                        mtl,
+                       regex-tdfa >= 1.3 && < 1.4,
                        Spock,
                        Spock-core,
                        stm,
@@ -116,6 +120,14 @@ executable spock-monads-example
   main-is: Main.hs
   other-modules: Monads
   build-depends: base, mtl, Spock, Spock-core, text, transformers
+  default-language: Haskell2010
+  ghc-options: -Wall -threaded
+
+executable spock-faq-example
+  hs-source-dirs: example
+  main-is: FAQMain.hs
+  other-modules: FAQ
+  build-depends: base, http-api-data, http-types, regex-tdfa >= 1.3 && < 1.4, Spock, text
   default-language: Haskell2010
   ghc-options: -Wall -threaded
 

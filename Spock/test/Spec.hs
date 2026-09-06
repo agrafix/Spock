@@ -9,6 +9,7 @@ import qualified Web.Spock.SafeSpec
 import qualified Web.Spock.SessionModeSpec
 import qualified Web.Spock.SessionCookieSpec
 import qualified Web.Spock.MonadTypesSpec
+import qualified Web.Spock.FAQSpec
 
 main :: IO ()
 main = hspec $
@@ -21,3 +22,4 @@ main = hspec $
     Web.Spock.SessionCookieSpec.spec
     Web.Spock.CsrfSpec.spec
     Web.Spock.MonadTypesSpec.spec
+    Web.Spock.FAQSpec.spec

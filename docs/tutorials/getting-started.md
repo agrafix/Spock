@@ -126,6 +126,7 @@ After having defined the application, you can create a [`Wai.Middleware`](https:
 ## Next Steps
 
 - Learn about [Spock's monads and type parameters](monads)
+- Read the [FAQ on routing, sessions, and CSRF](/faq/)
 - Read the [API reference](/reference/)
 - Check out and/or contribute to the [example project](https://github.com/agrafix/funblog)
 - Contribute on [Github](https://github.com/agrafix/Spock) by reporting or pull-requesting missing features and bugs

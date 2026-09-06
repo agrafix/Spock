@@ -8,6 +8,10 @@ permalink: /tutorials/routing
 
 This page contains a collection of routing cookbooks.
 
+For custom capture parsers, regular expressions, and wildcards, see the
+[routing FAQ](/faq/#can-i-use-regular-expressions-or-custom-types-in-routes)
+and its compiled example.
+
 # `var` matching on multiple types
 
 You can use the `AltVar` `Either` alternative to allow a `var` that can match on different types:
