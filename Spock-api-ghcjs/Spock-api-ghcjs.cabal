@@ -1,7 +1,7 @@
 name:                Spock-api-ghcjs
-version:             0.14.0.2
-synopsis:            Another Haskell web framework for rapid development
-description:         GHCJS client side wiring for Spock-api APIs
+version:             0.15.0.0
+synopsis:            Typed Spock API clients for GHC's JavaScript backend
+description:         Shared typed request encoding, explicit errors and a bounded browser Fetch transport.
 Homepage:            https://www.spock.li
 Bug-reports:         https://github.com/agrafix/Spock/issues
 license:             BSD3
@@ -11,22 +11,37 @@ maintainer:          Alexander Thiemann <mail@athiemann.net>
 copyright:           (c) 2013 - 2021 Alexander Thiemann
 category:            Web
 build-type:          Simple
-cabal-version:       >=2.0
-tested-with:         GHC==8.8.4
+cabal-version:       2.0
+tested-with:         GHC==9.12.2, GHC==9.14.1
+extra-source-files:  README.md, js/transport.js
 
 library
   hs-source-dirs:      src
   exposed-modules:     Web.Spock.Api.Client
   build-depends:
-                base >= 4 && < 5,
-                ghcjs-base,
-                aeson,
+                base >= 4.21 && < 5,
+                aeson >= 2.0 && < 2.4,
                 bytestring,
                 text,
-                Spock-api < 0.15,
-                hvect >= 0.3.1
+                Spock-api >= 0.17 && < 0.18,
+                hvect >= 0.4,
+                http-api-data >= 0.6,
+                http-types >= 0.12,
+                network-uri >= 2.6 && < 2.7
+  if arch(javascript)
+    exposed-modules: Web.Spock.Api.Client.Browser
+    js-sources: js/transport.js
   ghc-options: -Wall
   default-language:    Haskell2010
+
+test-suite client-tests
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test
+  main-is: Spec.hs
+  build-depends: base, aeson, bytestring, hspec, http-api-data, hvect,
+                 Spock-api, Spock-api-ghcjs, text
+  default-language: Haskell2010
+  ghc-options: -Wall
 
 source-repository head
   type:     git

@@ -1,0 +1,5 @@
+import: cabal.project
+
+packages:
+  examples/browser/shared/*.cabal
+  examples/browser/server/*.cabal

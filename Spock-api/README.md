@@ -68,9 +68,12 @@ Accept, Content-Type, and Authorization header parameter names; use content or
 security descriptions for them. See the
 [OpenAPI 3.1.1 specification](https://spec.openapis.org/oas/v3.1.1.html).
 
-The historical GHCJS client remains on `Spock-api < 0.15`; its dependency bound
-prevents accepting constructors it does not implement. Porting that client to
-modern JavaScript GHC remains separate work.
+`Spock-api-ghcjs` 0.15 implements these declarations with GHC's JavaScript backend.
+See the [shared browser/server example](../examples/browser/README.md).
+In API 0.17, query/header parameter constructors require both `FromHttpApiData`
+and `ToHttpApiData`, carrying the parser and encoder in the shared definition.
+Add an encoder instance when migrating a custom parameter type that previously
+provided only a parser. Standard parameter types already supply both.
 
 `openApiDocumentWith` and `renderRouteWith` accept the server's `SlashPolicy`
 when using strict or canonical trailing-slash routing. Existing entry points

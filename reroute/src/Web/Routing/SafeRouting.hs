@@ -21,7 +21,13 @@ import Data.Monoid (Monoid (..), (<>))
 import Control.DeepSeq (NFData (..))
 import Data.HVect hiding (length, null, reverse)
 import qualified Data.HVect as HV
+#if defined(javascript_HOST_ARCH)
+-- hashable's Text instance calls CApiFFI symbols absent from the JS runtime.
+-- Ordered lookup is portable and preserves the registry's matching order.
+import qualified Data.Map.Strict as HM
+#else
 import qualified Data.HashMap.Strict as HM
+#endif
 import Data.List (findIndices, sortBy)
 import Data.Maybe
 import qualified Data.PolyMap as PM
@@ -83,7 +89,11 @@ data PathInternal (as :: [*]) where
 data PathMap x = PathMap
   { pm_subComponents :: [[T.Text] -> x],
     pm_here :: [x],
+#if defined(javascript_HOST_ARCH)
+    pm_staticMap :: HM.Map T.Text (PathMap x),
+#else
     pm_staticMap :: HM.HashMap T.Text (PathMap x),
+#endif
     pm_polyMap :: PM.PolyMap FromHttpApiData PathMap x,
     pm_wildcards :: [T.Text -> x],
     pm_patterns :: [(Int, [T.Text] -> [x])]

@@ -12,6 +12,7 @@ module Web.Spock.Api
     var,
     trailingSlash,
     Path (..),
+    PathState (..),
     renderRoute,
     renderRouteWith,
     renderRouteEncoded,

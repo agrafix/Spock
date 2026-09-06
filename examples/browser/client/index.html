@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shared Haskell API example</title>
+<style>body { font: 1rem system-ui; max-width: 48rem; margin: 3rem auto; padding: 1rem; }
+input, button { font: inherit; margin: .3rem 0; padding: .4rem; } pre { white-space: pre-wrap; overflow-wrap: anywhere; }</style>
+<script defer src="/all.js"></script></head>
+<body><main>
+<h1>Your note</h1><p id="note">Loading…</p>
+<label for="input">Note text</label><br><input id="input" maxlength="200" value="Hello from Haskell">
+<div><button id="create" disabled>Create</button> <button id="replace" disabled>Replace</button>
+<button id="append" disabled>Append</button> <button id="delete" disabled>Delete</button>
+<button id="load" disabled>Reload note</button></div>
+<p id="status" role="status" data-error=""></p>
+<details><summary>Typed path, query and header example</summary>
+<button id="echo" disabled>Run echo</button><pre id="echo-output"></pre></details>
+<p>This example keeps your note in a server session. Restarting the demo server clears it.</p>
+</main></body></html>

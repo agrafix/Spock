@@ -5,6 +5,10 @@ date:   2016-08-25 13:00:00
 author: Alexander Thiemann
 ---
 
+> This is a historical release announcement. For current GHC JavaScript builds,
+> typed clients and a deployable shared/server/browser example, use the
+> [browser tutorial](/tutorials/browser-client).
+
 I'm happy to announce the next [Spock release][spock-hackage]! This release comes with several cool new features:
 
 * "Shareable" API definitions

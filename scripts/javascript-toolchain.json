@@ -1,0 +1,12 @@
+{
+  "ghc": "9.12.2",
+  "emscripten": "3.1.74",
+  "emsdk_commit": "3d6d8ee910466516a53e665b86458faa81dae9ba",
+  "base_url": "https://downloads.haskell.org/~ghcup/unofficial-bindists/ghc/javascript-unknown-ghcjs-9.12.2/",
+  "archives": {
+    "Darwin-arm64": ["ghc-javascript-unknown-ghcjs-9.12.2-aarch64-darwin.tar.xz", "7807dd0a84f9fba12ee4e9cded3dccba3704090d64cc37bae65e9723e50cd500"],
+    "Darwin-x86_64": ["ghc-javascript-unknown-ghcjs-9.12.2-x86_64-darwin.tar.xz", "d3c1abb6db4008b8ad247763b996cd79f49483369286fb2040c069c86e14bfee"],
+    "Linux-x86_64": ["ghc-javascript-unknown-ghcjs-9.12.2-x86_64-linux-rocky-8.tar.xz", "953bc9e76583ada1be8f05a33954227a9e16525e3d456d55de33d8d7d517deb5"],
+    "Linux-aarch64": ["ghc-javascript-unknown-ghcjs-9.12.2-aarch64-linux-rocky-8.tar.xz", "681e71b9fdaa3a1a142a91bcae61c226dc83cac1fad764fe718bf8c63feb78ca"]
+  }
+}

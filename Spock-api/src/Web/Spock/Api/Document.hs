@@ -28,7 +28,7 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import Network.HTTP.Types.URI (urlEncode)
-import Web.HttpApiData (FromHttpApiData)
+import Web.HttpApiData (FromHttpApiData, ToHttpApiData)
 import Web.Routing.Combinators (PathState (Open), normalizePath, joinWithDot)
 import Web.Spock.Api
 
@@ -66,12 +66,12 @@ data PathParameters (p :: [Type]) where
   PathParameter :: ParameterInfo a -> PathParameters p -> PathParameters (a ': p)
 
 data Parameter a where
-  QueryParam :: FromHttpApiData a => ParameterInfo a -> Parameter a
-  OptionalQueryParam :: FromHttpApiData a => ParameterInfo a -> Parameter (Maybe a)
+  QueryParam :: (FromHttpApiData a, ToHttpApiData a) => ParameterInfo a -> Parameter a
+  OptionalQueryParam :: (FromHttpApiData a, ToHttpApiData a) => ParameterInfo a -> Parameter (Maybe a)
   -- | Repeated @?name=one&name=two@ values, preserving order. Missing means [].
-  QueryList :: FromHttpApiData a => ParameterInfo a -> Parameter [a]
-  HeaderParam :: FromHttpApiData a => ParameterInfo a -> Parameter a
-  OptionalHeaderParam :: FromHttpApiData a => ParameterInfo a -> Parameter (Maybe a)
+  QueryList :: (FromHttpApiData a, ToHttpApiData a) => ParameterInfo a -> Parameter [a]
+  HeaderParam :: (FromHttpApiData a, ToHttpApiData a) => ParameterInfo a -> Parameter a
+  OptionalHeaderParam :: (FromHttpApiData a, ToHttpApiData a) => ParameterInfo a -> Parameter (Maybe a)
 
 data Parameters (q :: [Type]) where
   NoParameters :: Parameters '[]

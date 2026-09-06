@@ -1,5 +1,5 @@
 name:                reroute
-version:             0.9.0.0
+version:             0.9.0.1
 synopsis:            abstract implementation of typed and untyped web routing
 description:         abstraction over how urls with/without parameters are mapped to their corresponding handlers
 homepage:            http://github.com/agrafix/Spock
@@ -11,7 +11,7 @@ copyright:           (c) 2014 - 2021 Alexander Thiemann <mail@athiemann.net>, Ti
 category:            Web
 build-type:          Simple
 cabal-version:       2.0
-tested-with:         GHC==9.14.1
+tested-with:         GHC==9.12.2, GHC==9.14.1
 
 extra-source-files:
     README.md
@@ -33,6 +33,8 @@ library
                        unordered-containers >=0.2,
                        hvect >=0.4
   hs-source-dirs:      src
+  if arch(javascript)
+    build-depends: containers
   default-language:    Haskell2010
   ghc-options: -Wall -fno-warn-orphans
 

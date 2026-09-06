@@ -31,3 +31,8 @@ cabal run -v0 spock-api-example -- --openapi > openapi.json
 
 You can load that document into OpenAPI tooling. The custom `Item` schema in
 `example/ApiDefinitions.hs` demonstrates a record schema with a nullable field.
+
+The [shared Haskell browser/server example](../examples/browser/README.md) adds
+a real JavaScript client, session state, explicit CSRF validation, browser tests
+and a deployment recipe. API-server 0.17 pairs with Spock-api 0.17; custom shared
+query/header types now need `ToHttpApiData` alongside `FromHttpApiData`.

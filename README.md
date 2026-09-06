@@ -31,6 +31,7 @@ everything you need to get a quick start into web hacking with haskell:
 * csrf-protection
 * typesafe contexts
 * [typed JSON APIs and OpenAPI generation](Spock-api/README.md)
+* [shared Haskell browser/server applications](examples/browser/README.md)
 
 ## File uploads
 
@@ -131,11 +132,11 @@ stack build --test --bench --no-run-tests --no-run-benchmarks
 stack test -j 1
 ```
 
-The historical `Spock-api-ghcjs` package and `stack-ghcjs.yaml` target the separate
-GHCJS compiler. They are excluded from the native build and CI; this GHC upgrade
-does not port the browser client to GHC's JavaScript backend.
-The historical client is constrained to `Spock-api < 0.15`; the expanded native
-API DSL is documented in [Spock-api/README.md](Spock-api/README.md).
+`Spock-api-ghcjs` now targets GHC's JavaScript backend. Its protocol tests also
+run in the native build. `cabal.project.javascript` replaces the historical
+`stack-ghcjs.yaml`; the [browser example](examples/browser/README.md) installs
+the pinned GHC JavaScript 9.12.2/Emscripten toolchain and builds a shared Haskell
+client and server. CI runs its compiled client in Chromium.
 
 Pull requests are welcome! Please consider creating an issue beforehand, so we can discuss what you would like to do. Code should be written in a consistent style throughout the project. Avoid whitespace that is sensible to conflicts. (E.g. alignment of `=` signs in functions definitions)
 
@@ -147,6 +148,7 @@ Note that by sending a pull request you agree that your contribution can be rele
 ### Officially Supported GHC Versions
 
 * 9.14.1 (Linux, macOS, and Windows CI)
+* 9.12.2 JavaScript backend (browser packages; Linux CI and macOS validation)
 
 ### License
 

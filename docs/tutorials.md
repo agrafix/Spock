@@ -12,6 +12,7 @@ permalink: /tutorials/
 - [Securing browser applications](security)
 - [Encrypted cookie sessions and server backend migration](cookie-sessions)
 - [Building a REST API](rest-api)
+- [A shared Haskell browser and server API](browser-client)
 - [Request cookbook: headers, forms, middleware, uploads, and logging](requests)
 - [Automated Testing](testing)
 - [Routing, slash policies, and canonical redirects](routing)

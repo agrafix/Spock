@@ -6,6 +6,7 @@ packages:
   - Spock/
   - Spock-api/
   - Spock-api-server/
+  - Spock-api-ghcjs/
   - Spock-core/
   - reroute/
   - examples/rendering/

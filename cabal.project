@@ -2,6 +2,7 @@ packages:
   Spock/*.cabal
   Spock-api/*.cabal
   Spock-api-server/*.cabal
+  Spock-api-ghcjs/*.cabal
   Spock-core/*.cabal
   reroute/*.cabal
   examples/rendering/*.cabal

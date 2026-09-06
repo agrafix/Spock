@@ -1,0 +1,39 @@
+name: Haskell browser client
+
+on:
+  push:
+    paths: ['Spock*/**', 'reroute/**', 'examples/browser/**', 'cabal.project*', 'scripts/*browser*', 'scripts/*javascript*', '.github/workflows/browser.yml']
+  pull_request:
+    paths: ['Spock*/**', 'reroute/**', 'examples/browser/**', 'cabal.project*', 'scripts/*browser*', 'scripts/*javascript*', '.github/workflows/browser.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: haskell-actions/setup@v2
+        with:
+          ghc-version: '9.14.1'
+          cabal-version: '3.18.1.0'
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Install the pinned cross compiler and Emscripten
+        run: python3 scripts/setup-javascript.py --prefix "$RUNNER_TEMP/spock-javascript"
+      - name: Build shared Haskell for both targets and run tests
+        run: |
+          source "$RUNNER_TEMP/spock-javascript/env.sh"
+          python3 scripts/build-browser.py --test
+      - name: Install Chromium
+        run: |
+          npm install --prefix "$RUNNER_TEMP/browser" playwright@1.61.1
+          "$RUNNER_TEMP/browser/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Exercise the compiled Haskell client against Spock
+        run: PLAYWRIGHT_MODULE="$RUNNER_TEMP/browser/node_modules/playwright" node examples/browser/test/browser.cjs "$PWD/dist-browser/spock-browser-server" "$PWD/dist-browser/public"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: haskell-browser-demo-linux
+          path: dist-browser
