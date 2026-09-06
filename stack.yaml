@@ -9,3 +9,4 @@ packages:
   - Spock-core/
   - reroute/
   - examples/rendering/
+  - examples/security/

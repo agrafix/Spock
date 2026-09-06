@@ -1,0 +1,31 @@
+cabal-version: 2.0
+name: spock-security-example
+version: 0.1.0.0
+build-type: Simple
+license: BSD3
+synopsis: Tested browser security tutorial for Spock
+extra-source-files: README.md
+
+library
+  hs-source-dirs: src
+  exposed-modules: BrowserSecurity
+  build-depends: base, bytestring, http-types, lucid, password >= 3.1 && < 3.2,
+                 Spock >= 0.16 && < 0.17, Spock-api, Spock-api-server, text, transformers, wai
+  default-language: Haskell2010
+  ghc-options: -Wall
+
+executable spock-security-example
+  hs-source-dirs: app
+  main-is: Main.hs
+  build-depends: base, password >= 3.1 && < 3.2, spock-security-example, text, warp
+  default-language: Haskell2010
+  ghc-options: -Wall -threaded
+
+test-suite security-tests
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test
+  main-is: Spec.hs
+  build-depends: base, aeson, bytestring, cookie, hspec, http-types, password,
+                 spock-security-example, text, wai, wai-extra
+  default-language: Haskell2010
+  ghc-options: -Wall -threaded

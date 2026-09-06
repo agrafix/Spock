@@ -145,3 +145,5 @@ disables the Secure flag. Preserve it in production. Rotate the session ID
 with `sessionRegenerateId` when signing in and use a CSRF-protected POST route
 calling `sessionDestroy` for logout. See the
 [session configuration reference](/reference/Spock-0.16.0.1/Web-Spock-Config.html).
+For a complete tested login, form, JSON, and logout flow, follow the
+[browser security guide](/tutorials/security).

@@ -9,6 +9,7 @@ permalink: /tutorials/
 - [Getting Started](getting-started)
 - [Spock's monads and type parameters](monads)
 - [FAQ: routing, sessions, and CSRF](/faq/)
+- [Securing browser applications](security)
 - [Building a REST API](rest-api)
 - [Automated Testing](testing)
 - [Routing](routing)

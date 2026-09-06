@@ -5,6 +5,7 @@ packages:
   Spock-core/*.cabal
   reroute/*.cabal
   examples/rendering/*.cabal
+  examples/security/*.cabal
 
 tests: True
 benchmarks: True
