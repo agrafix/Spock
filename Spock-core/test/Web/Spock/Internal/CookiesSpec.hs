@@ -5,6 +5,8 @@ module Web.Spock.Internal.CookiesSpec (spec) where
 
 import Control.Monad
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as BSC
+import Data.Char (isHexDigit, toUpper)
 import Data.Time
 import Test.Hspec
 import Web.Spock.Internal.Cookies
@@ -85,8 +87,8 @@ spec =
 
         describe "cookie value" $
           it "should be urlencoded" $
-            g "foo" "most+special chars;%бисквитки" def
-              `shouldContainOnce` "foo=most%2Bspecial%20chars%3B%25%D0%B1%D0%B8%D1%81%D0%BA%D0%B2%D0%B8%D1%82%D0%BA%D0%B8"
+            normalizeEscapes (g "foo" "MoSt+special chars;%бисквитки" def)
+              `shouldContainOnce` "foo=MoSt%2Bspecial%20chars%3B%25%D0%B1%D0%B8%D1%81%D0%BA%D0%B2%D0%B8%D1%82%D0%BA%D0%B8"
 
     describe "Parsing cookies" $
       do
@@ -99,6 +101,12 @@ spec =
 
         it "should parse urlencoded utf-8 content" $
           parseCookies "foo=%D0%B1%D0%B8%D1%81%D0%BA%D0%B2%D0%B8%D1%82%D0%BA%D0%B8" `shouldBe` [("foo", "бисквитки")]
+        it "accepts lowercase percent escapes without changing literal letter case" $
+          parseCookies "foo=MoSt%2bspecial%20chars%3b%25%d0%b1%d0%b8%d1%81%d0%ba%d0%b2%d0%b8%d1%82%d0%ba%d0%b8"
+            `shouldBe` [("foo", "MoSt+special chars;%бисквитки")]
+        forM_ ["AaZz", "+", "%", ";", " ", "бисквитки", "AaZz +%;бисквитки"] $ \value ->
+          it ("round trips " ++ show value) $
+            parseCookies (BSC.takeWhile (/= ';') $ g "foo" value def) `shouldBe` [("foo", value)]
   where
     g n v cs = generateCookieHeaderString n v cs t
     def = defaultCookieSettings
@@ -111,3 +119,14 @@ spec =
        in snd (BS.breakSubstring needle haystack) `snb` BS.empty
     shouldNotContain' haystack needle =
       snd (BS.breakSubstring needle haystack) `shouldBe` BS.empty
+
+-- http-types 0.11 renders lowercase hexadecimal. Both spellings are valid;
+-- only normalize escapes so the assertion still checks literal case and
+-- requires reserved characters and UTF-8 bytes to be escaped.
+normalizeEscapes :: BS.ByteString -> BS.ByteString
+normalizeEscapes = BSC.pack . go . BSC.unpack
+  where
+    go ('%' : a : b : rest)
+      | isHexDigit a && isHexDigit b = '%' : toUpper a : toUpper b : go rest
+    go (c : rest) = c : go rest
+    go [] = []
