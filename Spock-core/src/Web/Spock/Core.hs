@@ -194,13 +194,15 @@ spockConfigT ::
   (forall a. m a -> IO a) ->
   SpockT m () ->
   IO Wai.Middleware
-spockConfigT (SpockConfig maxRequestSize errorAction logError) liftFun app =
+spockConfigT cfg liftFun app = do
+  logger <- traverse newRequestLogger (sc_logging cfg)
+  let internalConfig = W.SpockConfigInternal (sc_maxRequestSize cfg) (errorHandler logger) (sc_logError cfg) logger
   W.buildMiddleware internalConfig liftFun (baseAppHook app)
   where
-    internalConfig = W.SpockConfigInternal maxRequestSize errorHandler logError
-    errorHandler status = spockAsApp $ W.buildMiddleware W.defaultSpockConfigInternal id $ baseAppHook $ errorApp status
+    errorHandler logger status = spockAsApp $ W.buildMiddleware
+      (W.defaultSpockConfigInternal { W.sci_requestLogger = logger }) id $ baseAppHook $ errorApp status
     errorApp status = mapM_ (\method -> hookAny method $ \_ -> errorAction' status) [minBound .. maxBound]
-    errorAction' status = setStatus status >> errorAction status
+    errorAction' status = setStatus status >> sc_errorHandler cfg status
 
 baseAppHook :: forall m. MonadIO m => SpockT m () -> W.SpockAllT m m ()
 baseAppHook app =

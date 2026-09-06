@@ -24,19 +24,21 @@ library
                        Web.Spock.Action,
                        Web.Spock.Routing,
                        Web.Spock.Internal.Cookies,
+                       Web.Spock.Logging,
                        Web.Spock.Internal.Util
   other-modules:
                        Web.Spock.Internal.Config,
                        Web.Spock.Internal.CoreAction,
                        Web.Spock.Internal.Wire
   build-depends:
-                       aeson >= 0.7,
-                       base >= 4 && < 5,
+                       aeson >= 2.0,
+                       base >= 4.12 && < 5,
                        base64-bytestring >=1.0,
                        bytestring >=0.10,
                        case-insensitive >=1.1,
                        containers >=0.5,
                        cookie >=0.4.5,
+                       crypton >=1.0 && <1.2,
                        hashable >=1.2,
                        http-types >=0.8,
                        hvect >= 0.4,
@@ -69,9 +71,11 @@ test-suite spockcoretests
                        Web.Spock.Internal.CookiesSpec,
                        Web.Spock.Internal.UtilSpec,
                        Web.Spock.UploadSpec,
+                       Web.Spock.LoggingSpec,
                        Web.Spock.SafeSpec
   build-depends:
                        aeson,
+                       async,
                        base,
                        bytestring,
                        base64-bytestring >=1.0,
@@ -92,6 +96,13 @@ test-suite spockcoretests
 
   ghc-options: -Wall -fno-warn-orphans
   default-language:    Haskell2010
+
+executable spock-logging-example
+  hs-source-dirs: example
+  main-is: Logging.hs
+  build-depends: base, aeson, fast-logger >= 2.4, Spock-core
+  default-language: Haskell2010
+  ghc-options: -Wall -threaded
 
 source-repository head
   type:     git

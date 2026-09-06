@@ -28,6 +28,8 @@ module Web.Spock.Internal.CoreAction
     setRawMultiHeader,
     MultiHeader (..),
     CookieSettings (..),
+    getRequestId,
+    logMessage,
     CookieEOL (..),
     defaultCookieSettings,
     setCookie,
@@ -84,6 +86,8 @@ import Web.HttpApiData
 import Web.Spock.Internal.Cookies
 import Web.Spock.Internal.Util
 import Web.Spock.Internal.Wire
+import Web.Spock.Logging
+import Data.Foldable (forM_)
 import Prelude hiding (head)
 
 -- | Get the original Wai Request object
@@ -410,6 +414,18 @@ withBasicAuthData handler =
 getContext :: MonadIO m => ActionCtxT ctx m ctx
 getContext = asks ri_context
 {-# INLINE getContext #-}
+
+-- | Request ID, when structured logging has been enabled.
+getRequestId :: MonadIO m => ActionCtxT ctx m (Maybe T.Text)
+getRequestId = asks $ fmap (rc_requestId . fst) . ri_requestLogger
+
+-- | Emit a message with structured fields through the configured request
+-- logger. With logging disabled this is a no-op. Fields are nested in JSON
+-- under @fields@ so they cannot overwrite the request ID or other metadata.
+logMessage :: MonadIO m => LogLevel -> T.Text -> [(T.Text, A.Value)] -> ActionCtxT ctx m ()
+logMessage level message fields = do
+  logger <- asks ri_requestLogger
+  liftIO $ forM_ logger $ \(_, emit) -> emit (MessageLog level message fields)
 
 -- | Run an Action in a different context
 runInContext :: MonadIO m => ctx' -> ActionCtxT ctx' m a -> ActionCtxT ctx m a

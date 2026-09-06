@@ -21,6 +21,7 @@ everything you need to get a quick start into web hacking with haskell:
 
 * fast typesafe routing
 * middleware
+* [request IDs and structured logging](Spock-core/README.md)
 * json
 * sessions
 * optional [persistent PostgreSQL sessions](Spock-session-postgresql/README.md)

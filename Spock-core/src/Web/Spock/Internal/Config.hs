@@ -8,6 +8,7 @@ import Data.Word
 import Network.HTTP.Types.Status
 import System.IO
 import Web.Spock.Internal.CoreAction
+import Web.Spock.Logging
 import qualified Web.Spock.Internal.Wire as W
 
 data SpockConfig = SpockConfig
@@ -17,13 +18,15 @@ data SpockConfig = SpockConfig
     -- can always override it with `setStatus`
     sc_errorHandler :: Status -> W.ActionCtxT () IO (),
     -- | Function that should be called to log errors.
-    sc_logError :: T.Text -> IO ()
+    sc_logError :: T.Text -> IO (),
+    -- | Optional request IDs and structured handler/access/error events.
+    sc_logging :: Maybe LoggingConfig
   }
 
 -- | Default Spock configuration. No restriction on maximum request size; error
 -- handler simply prints status message as plain text and all errors are logged
 -- to stderr.
 defaultSpockConfig :: SpockConfig
-defaultSpockConfig = SpockConfig Nothing defaultHandler (T.hPutStrLn stderr)
+defaultSpockConfig = SpockConfig Nothing defaultHandler (T.hPutStrLn stderr) Nothing
   where
     defaultHandler = bytes . statusMessage

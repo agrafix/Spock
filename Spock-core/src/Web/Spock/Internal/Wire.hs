@@ -24,6 +24,7 @@ import Control.Concurrent.MVar
 import Control.Concurrent.STM
 import Control.Exception
 import Control.Monad.Base
+import Control.Monad (forM_)
 #if MIN_VERSION_mtl(2,2,0)
 import Control.Monad.Except
 #else
@@ -64,6 +65,7 @@ import qualified Network.Wai as Wai
 import qualified Network.Wai.Parse as P
 import System.IO
 import Web.Routing.Router
+import Web.Spock.Logging
 
 newtype HttpMethod = HttpMethod {unHttpMethod :: StdMethod}
   deriving (Show, Eq, Bounded, Enum, Generic)
@@ -150,7 +152,8 @@ data RequestInfo ctx = RequestInfo
     ri_getParams :: ![(T.Text, T.Text)],
     ri_reqBody :: !RequestBody,
     ri_vaultIf :: !VaultIf,
-    ri_context :: !ctx
+    ri_context :: !ctx,
+    ri_requestLogger :: Maybe (RequestContext, LogEventType -> IO ())
   }
 
 newtype ResponseBody = ResponseBody (Status -> ResponseHeaders -> Wai.Response)
@@ -303,12 +306,13 @@ instance MonadBaseControl b m => MonadBaseControl b (ActionCtxT ctx m) where
 data SpockConfigInternal = SpockConfigInternal
   { sci_maxRequestSize :: Maybe Word64,
     sci_errorHandler :: Status -> IO Wai.Application,
-    sci_logError :: T.Text -> IO ()
+    sci_logError :: T.Text -> IO (),
+    sci_requestLogger :: Maybe RequestLogger
   }
 
 defaultSpockConfigInternal :: SpockConfigInternal
 defaultSpockConfigInternal =
-  SpockConfigInternal Nothing defaultErrorHandler (T.hPutStrLn stderr)
+  SpockConfigInternal Nothing defaultErrorHandler (T.hPutStrLn stderr) Nothing
   where
     defaultErrorHandler status = return $ \_ respond ->
       do
@@ -373,8 +377,8 @@ middlewareToApp mw =
     notFound = respStateToResponse $ errorResponse status404 "404 - File not found"
 
 makeActionEnvironment ::
-  InternalState -> SpockMethod -> Wai.Request -> IO (RequestInfo (), TVar V.Vault)
-makeActionEnvironment st stdMethod req =
+  SpockConfigInternal -> InternalState -> SpockMethod -> Wai.Request -> IO (RequestInfo (), TVar V.Vault)
+makeActionEnvironment config st stdMethod req =
   do
     vaultVar <- liftIO $ newTVarIO (Wai.vault req)
     let vaultIf =
@@ -426,6 +430,7 @@ makeActionEnvironment st stdMethod req =
             ri_getParams = getParams,
             ri_reqBody = reqBody,
             ri_vaultIf = vaultIf,
+            ri_requestLogger = sci_requestLogger config >>= (\logger -> lookupRequestLogger logger req),
             ri_context = ()
           },
         vaultVar
@@ -460,7 +465,7 @@ applyAction config req env (selectedAction : xs) =
       Left (ActionError errorMsg) ->
         do
           liftIO $
-            sci_logError config $
+            logRequestError config req $
               T.pack $
                 "Spock Error while handling "
                   ++ show (Wai.pathInfo req)
@@ -513,7 +518,7 @@ handleRequest' ::
 handleRequest' config stdMethod registryLift allActions st coreApp req respond =
   do
     actEnv <-
-      (Left <$> makeActionEnvironment st stdMethod req)
+      (Left <$> makeActionEnvironment config st stdMethod req)
         `catch` \(_ :: SizeException) ->
           return (Right $ getErrorHandler config status413)
     case actEnv of
@@ -525,7 +530,10 @@ handleRequest' config stdMethod registryLift allActions st coreApp req respond =
                             return (Just $ getErrorHandler config status413),
                           Handler $ \(e :: SomeException) ->
                             do
-                              sci_logError config $
+                              case fromException e :: Maybe SomeAsyncException of
+                                Just _ -> throwIO e
+                                Nothing -> pure ()
+                              logRequestError config req $
                                 T.pack $
                                   "Spock Error while handling " ++ show (Wai.pathInfo req)
                                     ++ ": "
@@ -547,6 +555,12 @@ handleRequest' config stdMethod registryLift allActions st coreApp req respond =
 
 getErrorHandler :: SpockConfigInternal -> Status -> ResponseVal
 getErrorHandler config = ResponseHandler . sci_errorHandler config
+
+logRequestError :: SpockConfigInternal -> Wai.Request -> T.Text -> IO ()
+logRequestError config req message = do
+  forM_ (sci_requestLogger config >>= (\logger -> lookupRequestLogger logger req)) $ \(_, emit) ->
+    emit (ErrorLog message)
+  sci_logError config message
 
 data SizeException
   = SizeException
@@ -593,7 +607,8 @@ buildMiddleware config registryLift spockActions =
                 runResourceT $
                   withInternalState $ \st ->
                     handleRequest config method registryLift allActions st coreApp req respond
-    return $ spockMiddleware . app
+    let logging = maybe id requestLoggingMiddleware (sci_requestLogger config)
+    return $ logging . spockMiddleware . app
 
 withSpockMethod :: forall t. Method -> (SpockMethod -> t) -> t
 withSpockMethod method cnt =

@@ -55,6 +55,8 @@ data SpockCfg conn sess st = SpockCfg
     spc_errorHandler :: Status -> ActionCtxT () IO (),
     -- | Function that should be called to log errors.
     spc_logError :: T.Text -> IO (),
+    -- | Optional request IDs and structured handler/access/error logging.
+    spc_logging :: Maybe LoggingConfig,
     -- | When set to true, all non GET request will require
     -- either an HTTP-Header 'spc_csrfHeaderName' or a
     -- POST-Parameter 'spc_csrfPostName' to be set to the value aquired by 'getCsrfToken'

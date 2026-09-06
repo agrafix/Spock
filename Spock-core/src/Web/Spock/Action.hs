@@ -16,6 +16,9 @@ module Web.Spock.Action
     header,
     rawHeader,
     cookies,
+    getRequestId,
+    logMessage,
+    module Web.Spock.Logging,
     cookie,
     reqMethod,
     preferredFormat,
@@ -73,4 +76,5 @@ where
 
 import Web.Spock.Internal.CoreAction
 import Web.Spock.Internal.Cookies (SameSite (..))
+import Web.Spock.Logging
 import qualified Web.Spock.Internal.Wire as W

@@ -85,6 +85,7 @@ defaultSpockCfg sess conn st =
           spc_sessionCfg = defSess,
           spc_maxRequestSize = Just (5 * 1024 * 1024),
           spc_logError = T.hPutStrLn stderr,
+          spc_logging = Nothing,
           spc_errorHandler = errorHandler,
           spc_csrfProtection = False,
           spc_csrfHeaderName = "X-Csrf-Token",

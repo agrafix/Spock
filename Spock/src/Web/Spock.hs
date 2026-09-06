@@ -153,7 +153,8 @@ spock spockCfg spockAppl =
           defaultSpockConfig
             { sc_maxRequestSize = spc_maxRequestSize spockCfg,
               sc_errorHandler = spc_errorHandler spockCfg,
-              sc_logError = spc_logError spockCfg
+              sc_logError = spc_logError spockCfg,
+              sc_logging = spc_logging spockCfg
             }
     spockConfigT coreConfig (\m -> runResourceT $ runReaderT (runWebStateT m) internalState) $
       do

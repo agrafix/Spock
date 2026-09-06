@@ -153,3 +153,15 @@ spec =
     do
       sessionSpec
       poolSpec
+      describe "Full Spock logging" $
+        it "passes the logging configuration to handlers and access logs" $ do
+          events <- newIORef []
+          cfg <- defaultSpockCfg () PCNoDatabase ()
+          let logger = defaultLoggingConfig (\event -> modifyIORef' events (++ [event]))
+          app <- spockAsApp $ spock (cfg { spc_logging = Just logger }) $
+            get root $ do
+              logMessage LogInfo "full Spock" []
+              getRequestId >>= text . maybe "missing" id
+          result <- Wai.runSession (Wai.srequest $ Wai.SRequest (Wai.setPath Wai.defaultRequest "/") "") app
+          Just (BSLC.toStrict $ Wai.simpleBody result) `shouldBe` lookup "X-Request-Id" (Wai.simpleHeaders result)
+          length <$> readIORef events `shouldReturn` 2
