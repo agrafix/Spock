@@ -1,5 +1,5 @@
 name:                Spock
-version:             0.14.1.0
+version:             0.15.0.0
 synopsis:            Another Haskell web framework for rapid development
 description:         This toolbox provides everything you need to get a quick start into web hacking with haskell:
                      .
@@ -81,6 +81,7 @@ test-suite spocktests
                 Web.Spock.Internal.SessionVaultSpec,
                 Web.Spock.Internal.SessionManagerSpec,
                 Web.Spock.Internal.SessionLifecycleSpec,
+                Web.Spock.SessionModeSpec,
                 Web.Spock.SafeSpec,
                 Web.Spock.CsrfSpec,
                 Web.Spock.TestUtils
@@ -90,6 +91,7 @@ test-suite spocktests
                        bytestring,
                        hspec >= 2.0,
                        hspec-wai >= 0.6,
+                       http-types,
                        Spock,
                        Spock-core,
                        stm,

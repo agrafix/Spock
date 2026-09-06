@@ -23,7 +23,9 @@ import Web.Spock.TestUtils
 
 spec :: Spec
 spec =
-  describe "Csrf" $
+  forM_ [SessionsAlways, SessionsOnDemand] $ \mode ->
+  let testApp = testAppWithMode mode
+   in describe ("Csrf (" ++ show mode ++ ")") $
     do
       Test.with (testApp False) $
         it "should not step in if turned of" $
@@ -97,11 +99,11 @@ spec =
             forM_ ["GET", "HEAD", "OPTIONS"] $ \method ->
               Test.request method path [] "" `Test.shouldRespondWith` 200
 
-testApp :: Bool -> IO Wai.Application
-testApp protect =
+testAppWithMode :: SessionMode -> Bool -> IO Wai.Application
+testAppWithMode mode protect =
   spockAsApp $
     spockCfg protect >>= \cfg ->
-      spock cfg $
+      spock (cfg { spc_sessionCfg = (spc_sessionCfg cfg) { sc_sessionMode = mode } }) $
         do
           get "no-token" $ text "ok"
           get "my-token" $ getCsrfToken >>= text

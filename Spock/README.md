@@ -15,3 +15,24 @@ Another Haskell web framework for rapid development. To get started with Spock, 
 or take a quick look at our example projects.
 
 For more information please visit our homepage at [www.spock.li](https://www.spock.li)
+
+## Session modes (0.15)
+
+Full Spock supports on-demand sessions while retaining database pooling and
+application state:
+
+```haskell
+cfg <- defaultSpockCfg initialSession database initialState
+let sessions = (spc_sessionCfg cfg) { sc_sessionMode = SessionsOnDemand }
+spock (cfg { spc_sessionCfg = sessions }) routes
+```
+
+`SessionsAlways` remains the default. `SessionsOnDemand` loads, renews, or creates
+a session only when a session action or CSRF check needs it; unused requests do
+not set session cookies. `SessionsDisabled` bypasses session middleware and
+housekeeping entirely. Session actions then raise `SessionUseWhenDisabled`.
+Combining disabled sessions with CSRF protection raises `CsrfRequiresSessions`
+at startup. CSRF protection works normally with on-demand sessions.
+
+This release adds `sc_sessionMode` to `SessionCfg`; applications constructing the
+record directly must supply it. Prefer updating `defaultSessionCfg`.

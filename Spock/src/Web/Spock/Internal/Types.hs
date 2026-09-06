@@ -17,6 +17,7 @@ module Web.Spock.Internal.Types where
 import Control.Applicative
 #endif
 import Control.Monad.Base
+import Control.Exception (Exception)
 import Control.Monad.Reader
 import Control.Monad.Trans.Control
 import Control.Monad.Trans.Resource
@@ -88,7 +89,9 @@ data PoolOrConn a where
 
 -- | Configuration for the session manager
 data SessionCfg conn a st = SessionCfg
-  { -- | name of the client side cookie
+  { -- | When to load or create a session. Defaults to 'SessionsAlways'.
+    sc_sessionMode :: SessionMode,
+    -- | name of the client side cookie
     sc_cookieName :: T.Text,
     -- | how long the client side cookie should live
     sc_cookieSettings :: CookieSettings,
@@ -107,6 +110,17 @@ data SessionCfg conn a st = SessionCfg
     -- | hooks into the session manager
     sc_hooks :: SessionHooks a
   }
+
+-- | On-demand sessions are loaded only by session actions (including CSRF
+-- checks). Disabled sessions leave database pooling and application state usable.
+data SessionMode = SessionsAlways | SessionsOnDemand | SessionsDisabled
+  deriving (Eq, Show)
+
+-- | Configuration or use of sessions that have explicitly been disabled.
+data SessionError = SessionUseWhenDisabled | CsrfRequiresSessions
+  deriving (Eq, Show)
+
+instance Exception SessionError
 
 -- | Hook into the session manager to trigger custom behavior
 data SessionHooks a = SessionHooks

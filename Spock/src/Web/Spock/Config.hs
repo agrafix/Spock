@@ -13,6 +13,8 @@ module Web.Spock.Config
     -- * Sessions
     defaultSessionCfg,
     SessionCfg (..),
+    SessionMode (..),
+    SessionError (..),
     CookieSettings (..),
     CookieEOL (..),
     defaultSessionHooks,
@@ -54,7 +56,8 @@ defaultSessionCfg emptySession =
     store <- SV.newStmSessionStore
     return
       SessionCfg
-        { sc_cookieName = "spockcookie",
+        { sc_sessionMode = SessionsAlways,
+          sc_cookieName = "spockcookie",
           sc_cookieSettings = defaultCookieSettings {cs_EOL = CookieValidForever, cs_HTTPOnly = True},
           sc_sessionTTL = 3600,
           sc_sessionIdEntropy = 64,

@@ -73,6 +73,7 @@ module Web.Spock
 where
 
 import Control.Applicative
+import Control.Exception (throwIO)
 import Control.Monad (when)
 import Control.Monad.Reader
 import Control.Monad.Trans.Resource
@@ -119,6 +120,8 @@ type SpockCtxM ctx conn sess st = SpockCtxT ctx (WebStateM conn sess st)
 spock :: forall conn sess st. SpockCfg conn sess st -> SpockM conn sess st () -> IO Wai.Middleware
 spock spockCfg spockAppl =
   do
+    when (sc_sessionMode sessionCfg == SessionsDisabled && spc_csrfProtection spockCfg) $
+      throwIO CsrfRequiresSessions
     connectionPool <-
       case poolOrConn of
         PCNoDatabase ->

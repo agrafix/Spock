@@ -51,22 +51,29 @@ createSessionManager ::
 createSessionManager cfg sif =
   do
     vaultKey <- si_vaultKey sif
-    housekeepThread <- forkIO (forever (housekeepSessions cfg))
+    housekeepThread <-
+      if sc_sessionMode cfg == SessionsDisabled
+        then pure Nothing
+        else Just <$> forkIO (forever (housekeepSessions cfg))
     return
       SessionManager
-        { sm_getSessionId = getSessionIdImpl vaultKey cfg sif,
-          sm_getCsrfToken = getCsrfTokenImpl vaultKey cfg sif,
-          sm_regenerateSessionId = regenerateSessionIdImpl vaultKey store cfg sif,
-          sm_readSession = readSessionImpl vaultKey cfg sif,
-          sm_writeSession = writeSessionImpl vaultKey store cfg sif,
-          sm_modifySession = modifySessionImpl vaultKey store cfg sif,
-          sm_clearAllSessions = clearAllSessionsImpl store,
-          sm_mapSessions = mapAllSessionsImpl store,
+        { sm_getSessionId = enabled $ getSessionIdImpl vaultKey cfg sif,
+          sm_getCsrfToken = enabled $ getCsrfTokenImpl vaultKey cfg sif,
+          sm_regenerateSessionId = enabled $ regenerateSessionIdImpl vaultKey store cfg sif,
+          sm_readSession = enabled $ readSessionImpl vaultKey cfg sif,
+          sm_writeSession = \value -> enabled $ writeSessionImpl vaultKey store cfg sif value,
+          sm_modifySession = \f -> enabled $ modifySessionImpl vaultKey store cfg sif f,
+          sm_clearAllSessions = enabled $ clearAllSessionsImpl store,
+          sm_mapSessions = \f -> enabled $ mapAllSessionsImpl store f,
           sm_middleware = sessionMiddleware cfg vaultKey,
-          sm_closeSessionManager = killThread housekeepThread
+          sm_closeSessionManager = mapM_ killThread housekeepThread
         }
   where
     store = sc_store cfg
+    enabled :: MonadIO n => n a -> n a
+    enabled action
+      | sc_sessionMode cfg == SessionsDisabled = liftIO $ throwIO SessionUseWhenDisabled
+      | otherwise = action
 
 regenerateSessionIdImpl ::
   MonadIO m =>
@@ -117,32 +124,27 @@ modifySessionBase ::
 modifySessionBase vK (SessionStoreInstance sessionRef) cfg sif modFun =
   do
     mValue <- si_queryVault sif vK
-    case mValue of
-      Nothing ->
-        error "(3) Internal Spock Session Error. Please report this bug!"
-      Just sid ->
+    now <- liftIO getCurrentTime
+    mResult <-
+      liftIO $ ss_runTx sessionRef $
         do
-          now <- liftIO getCurrentTime
-          mResult <-
-            liftIO $ ss_runTx sessionRef $
-              do
-                mSession <- loadSessionTx cfg sessionRef sid now
-                forM mSession $ \session ->
-                  do
-                    let (sessionNew, result) = modFun session
-                    ss_storeSession sessionRef sessionNew
-                    return result
-          case mResult of
-            Just result -> return result
-            Nothing ->
-              do
-                session <- liftIO $ createSession cfg (sc_emptySession cfg)
-                let (sessionNew, result) = modFun session
-                liftIO $ ss_runTx sessionRef $ ss_storeSession sessionRef sessionNew
-                cookieTime <- liftIO getCurrentTime
-                si_setRawMultiHeader sif MultiHeaderSetCookie (makeSessionIdCookie cfg sessionNew cookieTime)
-                si_modifyVault sif $ V.insert vK (sess_id sessionNew)
-                return result
+          mSession <- maybe (pure Nothing) (\sid -> loadSessionTx cfg sessionRef sid now) mValue
+          forM mSession $ \session ->
+            do
+              let (sessionNew, result) = modFun session
+              ss_storeSession sessionRef sessionNew
+              return result
+    case mResult of
+      Just result -> return result
+      Nothing ->
+        do
+          session <- liftIO $ createSession cfg (sc_emptySession cfg)
+          let (sessionNew, result) = modFun session
+          liftIO $ ss_runTx sessionRef $ ss_storeSession sessionRef sessionNew
+          cookieTime <- liftIO getCurrentTime
+          si_setRawMultiHeader sif MultiHeaderSetCookie (makeSessionIdCookie cfg sessionNew cookieTime)
+          si_modifyVault sif $ V.insert vK (sess_id sessionNew)
+          return result
 
 readSessionBase ::
   MonadIO m =>
@@ -153,11 +155,7 @@ readSessionBase ::
 readSessionBase vK cfg sif =
   do
     mValue <- si_queryVault sif vK
-    case mValue of
-      Nothing ->
-        error "(1) Internal Spock Session Error. Please report this bug!"
-      Just sid ->
-        readOrNewSession cfg vK sif (Just sid)
+    readOrNewSession cfg vK sif mValue
 
 readSessionImpl ::
   MonadIO m =>
@@ -246,8 +244,14 @@ sessionMiddleware ::
   V.Key SessionId ->
   Wai.Middleware
 sessionMiddleware cfg vK app req respond =
-  go $ getCookieFromReq (sc_cookieName cfg)
+  case sc_sessionMode cfg of
+    SessionsDisabled -> app req respond
+    SessionsOnDemand ->
+      let requestVault = maybe v (\sid -> V.insert vK sid v) cookieId
+       in app (req {Wai.vault = requestVault}) respond
+    SessionsAlways -> go cookieId
   where
+    cookieId = getCookieFromReq (sc_cookieName cfg)
     go mSid =
       do
         (sess, shouldWriteCookie) <- loadOrSpanSession cfg mSid
