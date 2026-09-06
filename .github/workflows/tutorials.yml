@@ -2,9 +2,9 @@ name: Tutorial examples
 
 on:
   push:
-    paths: ['docs/tutorials/**', 'docs/_includes/tutorial-stack.yaml', 'scripts/check-tutorial-setup.py', '.github/workflows/tutorials.yml']
+    paths: ['Spock/**', 'Spock-core/**', 'reroute/**', 'cabal.project', 'stack.yaml', 'docs/tutorials/**', 'docs/_includes/**', 'examples/cookbook/**', 'examples/rest-api/**', 'scripts/*tutorial*', 'cabal.project.tutorials', 'stack-tutorials.yaml', 'stack-tutorials.yaml.lock', '.github/workflows/tutorials.yml']
   pull_request:
-    paths: ['docs/tutorials/**', 'docs/_includes/tutorial-stack.yaml', 'scripts/check-tutorial-setup.py', '.github/workflows/tutorials.yml']
+    paths: ['Spock/**', 'Spock-core/**', 'reroute/**', 'cabal.project', 'stack.yaml', 'docs/tutorials/**', 'docs/_includes/**', 'examples/cookbook/**', 'examples/rest-api/**', 'scripts/*tutorial*', 'cabal.project.tutorials', 'stack-tutorials.yaml', 'stack-tutorials.yaml.lock', '.github/workflows/tutorials.yml']
 
 permissions:
   contents: read
@@ -20,3 +20,17 @@ jobs:
           enable-stack: true
           stack-version: '3.11.1'
       - run: python3 scripts/check-tutorial-setup.py
+
+  database:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: haskell-actions/setup@v2
+        with:
+          ghc-version: '9.14.1'
+          cabal-version: '3.18.1.0'
+          enable-stack: true
+          stack-version: '3.11.1'
+      - run: cabal build spock-rest-example --project-file=cabal.project.tutorials --builddir=dist-newstyle-tutorials
+      - run: cabal test spock-rest-example --project-file=cabal.project.tutorials --builddir=dist-newstyle-tutorials --test-show-details=direct
+      - run: stack test spock-rest-example --stack-yaml stack-tutorials.yaml --system-ghc --no-install-ghc --lock-file=error-on-write

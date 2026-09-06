@@ -6,6 +6,7 @@ packages:
   reroute/*.cabal
   examples/rendering/*.cabal
   examples/security/*.cabal
+  examples/cookbook/*.cabal
 
 tests: True
 benchmarks: True

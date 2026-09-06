@@ -189,7 +189,8 @@ params =
     return $ g ++ p
 {-# INLINE params #-}
 
--- | Read a request param. Spock looks POST variables first and then in GET variables
+-- | Read a request parameter, searching query (GET) values before form (POST)
+-- values. Use 'paramsPost' or 'paramsGet' when the source matters.
 param :: (FromHttpApiData p, MonadIO m) => T.Text -> ActionCtxT ctx m (Maybe p)
 param k =
   do

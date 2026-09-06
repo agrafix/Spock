@@ -11,6 +11,7 @@ permalink: /tutorials/
 - [FAQ: routing, sessions, and CSRF](/faq/)
 - [Securing browser applications](security)
 - [Building a REST API](rest-api)
+- [Request cookbook: headers, forms, middleware, uploads, and logging](requests)
 - [Automated Testing](testing)
 - [Routing](routing)
 - [Rendering HTML with Blaze and Lucid](rendering)

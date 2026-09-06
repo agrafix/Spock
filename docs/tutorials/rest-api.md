@@ -4,7 +4,6 @@ title: "Building a REST API"
 date: 2017-05-01 10:52:00
 author: Bryn Edwards
 permalink: /tutorials/rest-api
-hackage_base: //hackage.haskell.org/package
 ---
 
 * TOC
@@ -27,13 +26,12 @@ $ curl localhost:8080/people
 [{"age":50,"name":"Walter","id":1},{"age":22,"name":"Jesse","id":2}]
 ```
 
-We'll be using [curl](//curl.haxx.se/) to interact with our API so you should have
+We'll be using [curl](https://curl.se/) to interact with our API so you should have
 that or another way to perform HTTP requests. `curl` examples are provided throughout
 the tutorial.
 
-You can find the finished code
-[here](//github.com/brynedwards/spock-tutorials/tree/9076c2e0f887dab0bd1758b937d630cdcb9555df/rest-api). "part1"
-covers up to Adding a Database; "part2" covers up to Finishing up. 
+The [finished database example and tests](https://github.com/agrafix/Spock/tree/master/examples/rest-api)
+are maintained in the Spock repository.
 
 # Project Setup
 
@@ -96,7 +94,7 @@ import           GHC.Generics
 We'll be using the `DeriveGeneric` extension along with `GHC.Generics`
 to create `FromJSON` and `ToJSON` instances of our API type.
 The `Data.Aeson` library provides our JSON type conversion; you can view its
-[documentation]({{ page.hackage_base }}/aeson-1.1.2.0/docs/Data-Aeson.html#g:1)
+[documentation](https://hackage.haskell.org/package/aeson/docs/Data-Aeson.html)
 to learn more.
 
 # API Type
@@ -138,8 +136,8 @@ Aeson's `decode` type signature is:
 FromJSON a => ByteString -> Maybe a
 {% endhighlight %}
 
-So we have to tell GHCi what we want type we want it to try decode our bytestring as,
-otherwise it will default to (). We can also decode it as Aeson's generic `Value` type:
+Give the result a type so GHC knows which parser to use. We can also decode
+it as Aeson's generic `Value` type:
 
 ```
 λ> decode "{ \"name\": \"Amy\", \"age\": 30 }" :: Maybe Value
@@ -169,7 +167,7 @@ app = do
 
 {% endhighlight %}
 
-Our `Api` type represents our application's configuration. In the second
+Our `Api` type represents route registration. In the second
 part we'll be modifying it to add a database backend, but for now we'll
 leave all the types as Unit. Our `ApiAction` type is similar and represents
 actions in our application which are functions performed by route matches
@@ -184,14 +182,14 @@ the `:reload` command then running your `main` function:
 
 ```
 λ> :reload
-[2 of 2] Compiling Main
-Ok, modules loaded: Lib, Main.
+[1 of 1] Compiling Main
+Ok, modules loaded: Main.
 
 λ> main
 Spock is running on port 8080 
 ```
 
-Go to [localhost:8080/people](//localhost:8080/people) and you should
+Go to [localhost:8080/people](http://localhost:8080/people) and you should
 see your `Person` object in JSON.
 
 REST APIs also need to serve lists of items; since `aeson` includes a `ToJSON
@@ -235,325 +233,119 @@ age and seeing what happens.
 
 # Adding a Database
 
-Now that we've seen how to do some simple REST-style requests, we'll add
-a database to our application so we can provide proper API functionality.
-We're going to be using the Persistent library and SQLite. The [Persistent
-chapter](//www.yesodweb.com/book/persistent) in the Yesod Book covers
-a lot of what we'll be using Persistent for and much more, so make sure to
-refer to it while following this section.
+The complete database example uses Persistent 2.18 and SQLite. It keeps the
+same JSON fields, adds stable numeric IDs, and returns appropriate HTTP status
+codes. The [Persistent book](https://www.yesodweb.com/book/persistent) explains
+the schema declaration and generated types in more detail.
 
-To use Persistent, we're first going to add its dependencies to our
-cabal file. Add these entries to your `build-depends` key:
+From the repository you can run the finished application directly:
 
-```
-                     , monad-logger
-                     , persistent
-                     , persistent-sqlite
-                     , persistent-template
+```sh
+cabal run spock-rest-example --project-file=cabal.project.tutorials --builddir=dist-newstyle-tutorials -- api.db 8080
 ```
 
-You'll have to restart GHCi so it can build these new dependencies.
-Exit GHCi with `:quit` and run `stack ghci` again. Stack should
-rebuild your project and show you the GHCi prompt.
+Or continue in the `spock-rest` project created above. Replace its executable
+dependencies with:
 
-We'll have to add quite a few more language extensions and imports.
-At the top of your `Main.hs`, add the following lines below your current
-extensions:
-
-{% highlight haskell %}
-
-{-# LANGUAGE EmptyDataDecls             #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE GADTs                      #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE QuasiQuotes                #-}
-{-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE TypeFamilies               #-}
-
-{% endhighlight %}
-
-And these imports below your existing ones:
-
-{% highlight haskell %}
-
-import           Control.Monad.Logger    (LoggingT, runStdoutLoggingT)
-import           Database.Persist        hiding (get) -- To avoid a naming clash with Web.Spock.get
-import qualified Database.Persist        as P         -- We'll be using P.get later for GET /people/<id>.
-import           Database.Persist.Sqlite hiding (get)
-import           Database.Persist.TH
-
-{% endhighlight %}
-
-Next, we're going to replace our existing `Person` declaration with a
-Persistent-specific one. This new one will generate code at compile time
-that will allow us to serialise our datatype to SQLite with ease. Find and
-remove your `data Person = ...` declaration along with `instance FromJSON`
-and `instance ToJSON` and replace them with the following:
-
-{% highlight haskell %}
-
-share [mkPersist sqlSettings, mkMigrate "migrateAll"] [persistLowerCase|
-Person json -- The json keyword will make Persistent generate sensible ToJSON and FromJSON instances for us.
-  name Text
-  age Int
-  deriving Show
-|]
-
-{% endhighlight %}
-
-This code will (among other things) generate record names for `Person`
-that are slightly different to our initial ones: `name` becomes `personName`
-and `age` becomes `personAge`. If you change your `Person` definitions in
-your `get` function accordingly:
-
-{% highlight haskell %}
-
-    json
-      [ Person {personName = "Fry", personAge = 25}
-      , Person {personName = "Bender", personAge = 4}
-      ]
-      
-{% endhighlight %}
-
-Then your code should still compile and behave similarly to how it did before the
-change. 
-
-## Creating the Connection Pool
-
-Spock's [configuration]({{ page.hackage_base
-}}/Spock-0.12.0.0/docs/Web-Spock-Config.html#t:SpockCfg) type includes
-a database helper that manages connection pools.  Let's create a SQLite
-connection pool and add it to our Spock configuration.  Replace the `spockCfg`
-assignment (the `spockCfg <- ...` line) in your `main` function with the
-following:
-
-{% highlight haskell %}
-
-  pool <- runStdoutLoggingT $ createSqlitePool "api.db" 5
-  spockCfg <- defaultSpockCfg () (PCPool pool) ()
-
-{% endhighlight %}
-
-If we look at [createSqlitePool]({{ page.hackage_base
-}}/persistent-sqlite-2.6.2/docs/Database-Persist-Sqlite.html#v:createSqlitePool)'s
-type signature, we can see the `MonadLogger m` constraint. This means that
-`createSqlitePool` needs to be in a monad that provides logging, so we run
-it inside `runStdoutLoggingT` which will print the function's log messages to
-standard output, allowing us to see its debug messages in our console.
-
-Because we've changed the structure of our application to contain a
-connection pool, we'll have to change our Spock application's types to
-reflect this. Change your `Api` type:
-
-{% highlight haskell %}
-
-type Api = SpockM SqlBackend () () ()
-
-{% endhighlight %}
-
-and your `ApiAction` type:
-
-{% highlight haskell %}
-
-type ApiAction a = SpockAction SqlBackend () () a
-
-{% endhighlight %}
-
-
-## Creating the Schema
-
-Our new `Person` declaration also includes functionality for Persistent to
-migrate our schema.  We'll call Persistent's `runMigration` function which
-will create our schema for us. Insert this line right below the `spockCfg`
-definition:
-
-{% highlight haskell %}
-
-  runStdoutLoggingT $ runSqlPool (do runMigration migrateAll) pool
-
-{% endhighlight %}
-
-The [runSqlPool]({{ page.hackage_base
-}}/persistent-2.6.1/docs/src/Database-Persist-Sql-Run.html#runSqlPool)
-function, which also needs to be in a `MonadLogger` monad, takes two arguments:
-a function that performs actions using a connection from a pool (which here
-is wrapped in parentheses), and the pool itself.
-
-# Running Queries
-
-We'll use a small helper function for running queries in our server.
-Add the following function to your `Main.hs`:
-
-{% highlight haskell %}
-
-runSQL
-  :: (HasSpock m, SpockConn m ~ SqlBackend)
-  => SqlPersistT (LoggingT IO) a -> m a
-runSQL action = runQuery $ \conn -> runStdoutLoggingT $ runSqlConn action conn
-
-{% endhighlight %}
-
-If you compare the right side of the `runSQL` definition to the migration code in the last
-section, you'll see some similarities:
-
-{% highlight haskell %}
-
-  runQuery $ \conn -> runStdoutLoggingT $ runSqlConn action conn                       -- runSQL
-                      runStdoutLoggingT $ runSqlPool (do runMigration migrateAll) pool -- migration
-
-{% endhighlight %}
-
-So, our `runSQL` function really just calls `runQuery` and uses the connection it provides
-to perform some database actions.
-
-## Adding People
-
-Now we're ready to use our database in our application. Let's change our
-`POST /people` function to insert the parsed `Person` into our database and
-show an appropriate JSON response. First though, add one one more helper
-function to generate simple JSON errors:
-
-{% highlight haskell %}
-
-errorJson :: Int -> Text -> ApiAction ()
-errorJson code message =
-  json $
-    object
-    [ "result" .= String "failure"
-    , "error" .= object ["code" .= code, "message" .= message]
-    ]
-
-{% endhighlight %}
-
-Because it's good practice for an API to always respond with JSON (or your
-preferred data format), we'll use this instead of just plain text when
-reporting errors. Returning error codes is another good practice that
-allows users to troubleshoot issues more easily.
-
-Now change your `post` action to use the `errorJson` function and insert
-a person into the database:
-
-{% highlight haskell %}
-
-  post "people" $ do
-    maybePerson <- jsonBody :: ApiAction (Maybe Person)
-    case maybePerson of
-      Nothing -> errorJson 1 "Failed to parse request body as Person"
-      Just thePerson -> do
-        newId <- runSQL $ insert thePerson
-        json $ object ["result" .= String "success", "id" .= newId]
-
-{% endhighlight %}
-
-Reload your project and start the server again. Try adding a couple of people:
-
-```
-$ curl -H "Content-Type: application/json" -d '{ "name": "Walter", "age": 50 }' localhost:8080/people
-{"result":"success","id":1}
-$ curl -H "Content-Type: application/json" -d '{ "name": "Jesse", "age": 22 }' localhost:8080/people
-{"result":"success","id":2}
+<!-- database:dependencies -->
+```cabal
+  build-depends: base >= 4.12 && < 5, Spock >= 0.16 && < 0.17, aeson, text, http-types, monad-logger, persistent >= 2.18.1 && < 2.19, persistent-sqlite >= 2.13.3 && < 2.14, transformers, wai, warp
 ```
 
-## Listing People
+Add `other-modules: People` to that executable stanza. `Database.Persist.TH`
+is included in `persistent`; the former `persistent-template` dependency is
+unnecessary.
 
-Now we'll change our `get` action to return a list of all the people in our table:
+Keep using the `stack.yaml` above: its fixed snapshot includes Persistent and
+SQLite. Stack trusts the snapshot's dependency versions, so no `allow-newer`
+setting is needed. For Cabal users, the repository's optional
+`cabal.project.tutorials` relaxes only Persistent 2.18.1's Aeson and Template
+Haskell upper bounds, which predate Aeson 2.3 and GHC 9.14. Both builds are tested.
 
-{% highlight haskell %}
+## The database application
 
-  get "people" $ do
-    allPeople <- runSQL $ selectList [] [Asc PersonId]
-    json allPeople
-
-{% endhighlight %}
-
-Reload and start the server and go to
-[localhost:8080/people](//localhost:8080/people) to see your list.
-
-## Getting a Specific Person
-
-If you look at the JSON response for
-[localhost:8080/people](//localhost:8080/people), you should see that your
-`Person` objects now have `id` keys.  These values are automatically inserted
-by Persistent: we'll use them to get a person by their id. Add the following
-route function to your `app`:
+Create `src/People.hs` with this complete module. The code below is copied
+automatically from the compiled and tested repository source.
 
 {% highlight haskell %}
-
-  get ("people" <//> var) $ \personId -> do
-    maybePerson <- runSQL $ P.get personId :: ApiAction (Maybe Person)
-    case maybePerson of
-      Nothing -> errorJson 2 "Could not find a person with matching id"
-      Just thePerson -> json thePerson
-      
+{% include examples/People.hs %}
 {% endhighlight %}
 
-And again, reload and try it out: [localhost:8080/people/1](//localhost:8080/people/1).
+`PersonInput` describes the incoming JSON; Persistent generates `Person` and
+its database field accessors from the schema declaration. Keeping the HTTP
+representation explicit avoids coupling clients to generated record names.
+Typed route captures parse `Int64` IDs, and `toSqlKey` turns them into database
+keys. Invalid captures and missing rows both produce JSON 404 responses.
 
-# Finishing Up: Exercises
+`withPeopleApp` brackets a one-connection pool, migrates the demo database, and
+closes the pool when its caller finishes. `runSQL` borrows a connection through
+Spock's `runQuery` and runs a Persistent transaction on it. The update and
+delete handlers check existence and modify the row within that transaction.
+The example suppresses SQL debug logging, which may contain application data.
 
-We've implemented the foundation of our API and some of the basic
-functionality. Practice adding some features yourself by trying out these
-exercises:
+Use a new database file while learning. Review migrations and run them once
+during deployment before changing a production schema. This example has no
+authentication and disables sessions; add the authorization appropriate to
+your application before exposing private data. See the
+[browser security guide](security) when introducing cookie authentication.
 
-1. Try adding PUT and DELETE routes yourself. Note that we hid
-`Database.Persist.delete` to avoid a naming clash with `Web.Spock.delete`,
-so you'll have to use the `P` namespace qualifier.
-    <details>
-    <summary>
-    <strong>Click for hints</strong>
-    </summary>
-    For the PUT action you'll want to use <code>Web.Spock.put</code> and
-    <code>Database.Persist.Class.replace</code>. The Persistent chapter
-    in the Yesod Book has an example of using both <code>replace</code>
-    and <code>delete</code>.
+## Start the server
 
-    For the DELETE action, you may have to explicitly declare your route
-    variable as a <code>PersonId</code> so that GHC knows which type of
-    database object you want to delete. We've explicitly declared values a
-    couple of times in our tutorial, such as decoding to <code>Person</code>
-    and <code>Value</code> and when using Spock actions.
-    </details>
-    <br>
+Replace `src/Main.hs` with:
 
-2. It is good practice to set appropriate HTTP status codes, for example:
-   - `201 Created` for successful POST and PUT actions
-   - `400 Bad Request` for failed POST and PUT actions
-   - `404 Not Found` for `GET /people/<id>` route
+{% highlight haskell %}
+{% include examples/PeopleMain.hs %}
+{% endhighlight %}
 
-    Try setting appropriate HTTP status codes for your actions
-    <details>
-    <summary>
-    <strong>Click for hints</strong>
-    </summary>
-    Look at the type of <code>Web.Spock.Action.setStatus</code>: it takes
-    a single argument of type <code>Status</code> and needs to be called
-    in a Spock action context. You'll have to add <code>http-types</code>
-    to your project dependencies and import its Status module to use the
-    <code>Status</code> definitions.
-    </details>
-    <br>
+The executable takes a database file and port, and binds to loopback:
 
-3. Spock has a error handler for generic errors such missing routes,
-runtime exceptions, etc. By default, this returns generic HTML pages. Use
-`Web.Spock.Config.spc_errorHandler` to change your application to
-return generic JSON error responses. You can try any other route like
-[localhost:8080/](//localhost:8080/) to see the default 404 error response.
-    <details>
-    <summary>
-    <strong>Click for hints</strong>
-    </summary>
-    Your current config datatype is being constructed by passing arguments
-    to <code>defaultSpockCfg</code>. You'll want to change this to use the
-    records listed in <code>Web.Spock.Config</code> documentation.
-    <br>
-    The <code>spc_errorHandler</code> type signature shows that it
-    takes a <code>Status</code> and returns a Spock action, so you'll
-    need write a function that pattern matches on <code>Status</code>
-    types introduced in the last exercise and returns JSON errors. If you
-    want to use <code>errorJson</code>, you'll have to change its type
-    signature to allow both <code>IO</code> and <code>WebStateM</code>
-    (<code>SpockAction</code>'s) monads.
-    </details>
-    <br>
+```sh
+stack build --fast --pedantic
+stack exec spock-rest -- api.db 8080
+```
+
+Reusing `api.db` after restarting preserves its people. Commit your source and
+`stack.yaml.lock`, not the local database file.
+
+## Exercise the API
+
+```sh
+curl -i -H 'Content-Type: application/json' \
+  -d '{"name":"Walter","age":50}' http://localhost:8080/people
+curl -i http://localhost:8080/people
+curl -i http://localhost:8080/people/1
+curl -i -X PUT -H 'Content-Type: application/json' \
+  -d '{"name":"Walter","age":51}' http://localhost:8080/people/1
+curl -i -X DELETE http://localhost:8080/people/1
+curl -i http://localhost:8080/people/1
+```
+
+| Request | Result |
+| --- | --- |
+| Create a valid person | 201, `Location: /people/1`, and `{"result":"success","id":1}` for the first row in a new database |
+| List people or get one | 200 with JSON including `id`, `name`, and `age` |
+| Update an existing person | 200 with the updated JSON representation |
+| Delete an existing person | 204 with an empty body |
+| Malformed JSON, blank name, or invalid age | 400 with a JSON error |
+| Missing person or unmatched route | 404 with a JSON error |
+| Consumed body larger than 16 KiB | 413 with a JSON error |
+
+For example, after deleting person 1, the final GET responds with 404 rather
+than returning an error object under a success status. `errorJson` sets the
+HTTP status before calling `json`; a numeric code inside JSON alone does not
+change the response status.
+
+The configured `spc_errorHandler` receives a `Status` for generic framework
+errors. It does not receive an exception or your database/session state. Use
+error logging for diagnostics, and return an appropriate generic response to
+the caller. Errors sent explicitly by a route are already responses; they do
+not automatically pass through the generic error handler.
+
+# Continue learning
+
+- Follow the [request cookbook](requests) for headers, form bodies, uploads,
+  middleware, CORS, and structured logging.
+- Add HTTP tests with the [testing guide](testing). The
+  [database example tests](https://github.com/agrafix/Spock/blob/master/examples/rest-api/test/Spec.hs)
+  cover CRUD, validation, error statuses, limits, and persistence across reopen.
+- Read the [security guide](security) before adding authentication or private data.

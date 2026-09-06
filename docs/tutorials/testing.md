@@ -1,165 +1,135 @@
 ---
 layout: page
-title: Automated Testing
-date: 2017-07-03 15:33:06
-author: Louis Pilfold
+title: "Automated testing"
 permalink: /tutorials/testing
 ---
 
-Thanks to Haskell's type system we can avoid most the errors that we might
-encounter when using less safe languages, but some automated tests can still
-help verify our code is correct. Let's explore how we can write unit tests for
-our HTTP service built with Spock.
+HTTP tests check response status, headers, bodies, and state changes through
+the real WAI application. Types help compose handlers, but runtime exceptions,
+incorrect responses, and authorization mistakes still need testing.
 
-## Hello world
+The application and specs below are compiled in the repository's
+[cookbook example](https://github.com/agrafix/Spock/tree/master/examples/cookbook).
+You can run them there with `cabal test spock-cookbook-example`, or create a
+small standalone project as follows.
 
+## Project files
+
+Create a directory named `spock-testing-example` with `src`, `app`, and `test`
+subdirectories. Put this in `spock-testing-example.cabal`:
+
+<!-- testing:cabal -->
+```cabal
+cabal-version: 2.0
+name: spock-testing-example
+version: 0.1.0.0
+build-type: Simple
+
+library
+  hs-source-dirs: src
+  exposed-modules: Hello
+  build-depends: base >= 4.12 && < 5, Spock >= 0.16 && < 0.17, wai
+  default-language: Haskell2010
+  ghc-options: -Wall
+
+executable spock-testing-example
+  hs-source-dirs: app
+  main-is: Main.hs
+  build-depends: base, Spock, spock-testing-example
+  default-language: Haskell2010
+  ghc-options: -Wall -threaded
+
+test-suite http-tests
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test
+  main-is: Spec.hs
+  other-modules: HelloSpec
+  build-depends: base, Spock, spock-testing-example, hspec, hspec-wai
+  default-language: Haskell2010
+  ghc-options: -Wall -threaded
+```
+
+Use the same `stack.yaml` as [Getting Started](getting-started):
+
+{% highlight yaml %}
+{% include tutorial-stack.yaml %}
+{% endhighlight %}
+
+This is a Cabal-only project. If adapting an Hpack project, put its dependencies
+in `package.yaml` instead of editing the generated Cabal file.
+
+## Separate configuration from routes
+
+Create `src/Hello.hs`:
+
+{% highlight haskell %}
+{% include examples/Hello.hs %}
+{% endhighlight %}
+
+`app` builds middleware; `routes` registers handlers. Passing `routes` to
+`spock` keeps setup separate from serving requests. Put the executable's entry
+point in `app/Main.hs`:
+
+<!-- testing:main -->
 ```haskell
-{-# LANGUAGE OverloadedStrings #-}
-module Main where
+module Main (main) where
 
-import Web.Spock
-import Web.Spock.Config
+import Hello (app)
+import Web.Spock (runSpock)
 
 main :: IO ()
-main =
-    do spockCfg <- defaultSpockCfg () PCNoDatabase ()
-       runSpock 8080 (spock spockCfg app)
-
-app :: SpockM () () () ()
-app =
-    do get root $
-           text "Hello World!"
-       get ("hello" <//> var) $ \name ->
-           do text ("Hello " <> name)
+main = runSpock 8080 app
 ```
 
-Here is a simple Spock application, similar to the one from the
-[Hello World][hw-tut]. It has two routes, `/` which responds with "Hello,
-world!", and `/hello/:name`, which responds with "Hello `$NAME`", where name
-is the value of the second path segment.
+## Exercise the WAI application
 
-It type checks, so we are confident that the application will run without
-crashing, but we might want some tests to check that the business logic has
-been correctly implemented. We can do this with a little help from the
-[Hspec][hspec] and [Hspec-Wai][hspec-wai] libraries.
+Create `test/HelloSpec.hs`:
 
-Add Hspec and Hspec-Wai to your tests dependencies in your project's
- Cabal file in the test-suite section:
+{% highlight haskell %}
+{% include examples/HelloSpec.hs %}
+{% endhighlight %}
 
+Then create `test/Spec.hs`:
+
+<!-- testing:driver -->
 ```haskell
--- snip
-test-suite app-test
-  build-depends:   Spock >=0.14
-                 , base >=4.7 && <5
-                 , hspec
-                 , hspec-wai
--- snip
-```
+module Main (main) where
 
-## Creating tests
-
-Now we create a file test/Spec.hs, start with the test setup and add a basic
-test.
-
-```haskell
-module Spec where
-
-import Test.Hspec
+import qualified HelloSpec
+import Test.Hspec (hspec)
 
 main :: IO ()
-main = hspec spec
-
-spec :: Spec
-spec =
-  describe "the universe" $
-  it "behaves the way we expect it to" $ do
-    1 `shouldBe` 1
+main = hspec HelloSpec.spec
 ```
 
-We can run this with `stack test`, and providing mathematics hasn't changed
-since last time we used it we should see something like this printed to the
-console:
+`spockAsApp app` converts middleware to an `IO Application`.
+`Test.Hspec.Wai.with` builds an application for each example, and
+`shouldRespondWith` checks its response. Match the exact body when it matters:
+the home page here sends `Hello World!`, including the exclamation mark.
+Use `matchHeaders` to assert response headers and `matchStatus` for status codes.
 
-```
-Spec
-  the universe
-    behaves the way we expect it to
-
-Finished in 0.0050 seconds
-1 examples, 0 failures
+```sh
+stack test --fast --pedantic
 ```
 
-Now that the tests run we can start testing the web application using
-Hspec-Wai. This library tests our application as an `IO Application`, where
-`Application` is defined in `Network.Wai`. We'll need to restructure our
-application slightly to expose this to the tests.
+These tests run in process without opening a network port. Commit the generated
+`stack.yaml.lock` to retain the resolved dependencies.
 
-```haskell
-{-# LANGUAGE OverloadedStrings #-}
-module Main (main, app) where
+## Test failures and separate clients
 
-import Web.Spock
-import Web.Spock.Config
-import Network.Wai (Middleware)
+Add invalid input, missing resources, denied access, and repeated updates to
+your tests. The [REST example tests](https://github.com/agrafix/Spock/blob/master/examples/rest-api/test/Spec.hs)
+use disposable SQLite databases and check persistence after closing and reopening
+the pool. The [security example tests](https://github.com/agrafix/Spock/blob/master/examples/security/test/Spec.hs)
+cover tokens, old session IDs, logout, and escaping.
 
-main :: IO ()
-main =
-    runSpock 8080 app
+WAI's test client remembers cookies inside a session and prepends them to later
+requests. Omitting an explicit `Cookie` header therefore does not necessarily
+simulate another visitor. For tests involving distinct clients, use separate
+`Network.Wai.Test.runSession` calls against the same application and supply only
+the selected client's cookies, or explicitly clear the client jar. The security
+example uses separate calls to verify that one visitor's token cannot be used
+by another visitor.
 
-app :: IO Middleware
-app =
-    do spockCfg <- defaultSpockCfg () PCNoDatabase ()
-       spock spockCfg app
-
-routes :: SpockM () () () ()
-routes =
-    do get root $
-           text "Hello World!"
-       get ("hello" <//> var) $ \name ->
-           do text ("Hello " <> name)
-```
-
-`app` has been renamed to `routes`, and the `main` function has been split
-into two. The new `main` is responsible for only the running of the
-application, with the new `app` function being responsible for configuring the
-application. Through the new `app` we can access an `IO Middleware` which we
-can convert into an `IO Application` in the tests using `spockAsApp`.
-
-```haskell
-{-# LANGUAGE OverloadedStrings #-}
-module Spec where
-
-import Main (app)
-import Test.Hspec
-import Test.Hspec.Wai
-import Web.Spock (spockAsApp)
-
-main :: IO ()
-main = hspec spec
-
-spec :: Spec
-spec =
-    with (spockAsApp app) $
-        do describe "GET /" $
-               do it "serves the home page" $
-                      get "/" `shouldRespondWith` "Hello World" {matchStatus = 200}
-           describe "GET /hello/:name" $
-               do it "returns hello to spock" $
-                      get "/hello/spock" `shouldRespondWith` "Hello spock"
-                  it "returns hello to uhura" $
-                      get "/hello/uhura" `shouldRespondWith` "Hello uhura"
-```
-
-The `shouldRespondWith` function is used to make assertions about the status
-code, headers and body content of the HTTP response from the Spock
-application. `get "/hello/spock" `shouldRespondWith` "Hello spock"` asserts
-that a GET request to `/hello/spock` will result in a HTTP response with the
-body content "Hello spock".
-
-For more information on testing check out [Hspec-Wai's documentation on
-Hackage][hspec-wai-hackage].
-
-[hw-tut]: {{ "/tutorials/getting-started" | prepend: site.baseurl }}
-[hspec]: https://github.com/hspec/hspec
-[hspec-wai]: https://github.com/hspec/hspec-wai
-[hspec-wai-hackage]: https://hackage.haskell.org/package/hspec-wai
+See [hspec-wai's documentation](https://github.com/hspec/hspec-wai) for additional
+matchers and setup helpers, then continue with the [request cookbook](requests).

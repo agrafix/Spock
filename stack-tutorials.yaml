@@ -1,0 +1,8 @@
+resolver: nightly-2026-09-01
+compiler: ghc-9.14.1
+
+packages:
+  - Spock/
+  - Spock-core/
+  - reroute/
+  - examples/rest-api/

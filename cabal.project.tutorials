@@ -1,0 +1,7 @@
+import: cabal.project
+
+packages: examples/rest-api/*.cabal
+
+-- Persistent 2.18.1 predates Aeson 2.3 and GHC 9.14's Template Haskell bound.
+-- Keep the compatibility exception in this optional SQLite tutorial project.
+allow-newer: persistent:aeson, persistent:template-haskell

@@ -125,6 +125,8 @@ After having defined the application, you can create a [`Wai.Middleware`](https:
 
 ## Next Steps
 
+- Build a database-backed service with the [REST API tutorial](rest-api)
+- Explore [headers, forms, uploads, middleware, and logging](requests)
 - Learn about [Spock's monads and type parameters](monads)
 - Read the [FAQ on routing, sessions, and CSRF](/faq/)
 - Follow the [browser security guide](security) for login, forms, JSON, and logout

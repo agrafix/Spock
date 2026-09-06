@@ -10,3 +10,4 @@ packages:
   - reroute/
   - examples/rendering/
   - examples/security/
+  - examples/cookbook/

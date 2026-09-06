@@ -1,0 +1,32 @@
+cabal-version: 2.0
+name: spock-rest-example
+version: 0.1.0.0
+build-type: Simple
+license: BSD3
+synopsis: Tested Persistent and SQLite REST tutorial for Spock
+extra-source-files: README.md
+
+library
+  hs-source-dirs: src
+  exposed-modules: People
+  build-depends: base, aeson, http-types, monad-logger,
+                 persistent >= 2.18.1 && < 2.19, persistent-sqlite >= 2.13.3 && < 2.14,
+                 Spock, text, transformers, wai
+  default-language: Haskell2010
+  ghc-options: -Wall
+
+executable spock-rest-example
+  hs-source-dirs: app
+  main-is: Main.hs
+  build-depends: base, spock-rest-example, text, warp
+  default-language: Haskell2010
+  ghc-options: -Wall -threaded
+
+test-suite rest-tests
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test
+  main-is: Spec.hs
+  build-depends: base, aeson, bytestring, filepath, hspec, http-types,
+                 spock-rest-example, temporary, text, wai, wai-extra
+  default-language: Haskell2010
+  ghc-options: -Wall -threaded
