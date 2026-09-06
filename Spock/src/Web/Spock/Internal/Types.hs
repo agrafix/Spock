@@ -65,6 +65,9 @@ data SpockCfg conn sess st = SpockCfg
     spc_logError :: T.Text -> IO (),
     -- | Optional request IDs and structured handler/access/error logging.
     spc_logging :: Maybe LoggingConfig,
+    -- | Slash matching and optional 308 canonical redirects. Defaults to
+    -- 'IgnoreSlashes'; set 'StrictSlashes' to distinguish @/foo@ and @/foo/@.
+    spc_slashPolicy :: SlashPolicy,
     -- | When set to true, all non GET request will require
     -- either an HTTP-Header 'spc_csrfHeaderName' or a
     -- POST-Parameter 'spc_csrfPostName' to be set to the value aquired by 'getCsrfToken'

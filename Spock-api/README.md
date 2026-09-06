@@ -71,3 +71,7 @@ security descriptions for them. See the
 The historical GHCJS client remains on `Spock-api < 0.15`; its dependency bound
 prevents accepting constructors it does not implement. Porting that client to
 modern JavaScript GHC remains separate work.
+
+`openApiDocumentWith` and `renderRouteWith` accept the server's `SlashPolicy`
+when using strict or canonical trailing-slash routing. Existing entry points
+retain `IgnoreSlashes`. See the [routing guide](https://www.spock.li/tutorials/routing).

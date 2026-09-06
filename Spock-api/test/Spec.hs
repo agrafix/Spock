@@ -16,6 +16,18 @@ import Web.Spock.Api.Document
 
 main :: IO ()
 main = hspec $ describe "OpenAPI generation" $ do
+  it "renders distinct slash forms only with a strict policy" $ do
+    let item = getItem { de_endpoint = MethodGet $ trailingSlash $ "items" <//> var }
+    legacy <- requireDocument [SomeEndpoint item]
+    at ["paths", "/items/{id}", "get", "operationId"] legacy `shouldBe` String "getItem"
+    strict <- either (fail . show) pure $ openApiDocumentWith StrictSlashes "API" "1" [SomeEndpoint item]
+    at ["paths", "/items/{id}/", "get", "operationId"] strict `shouldBe` String "getItem"
+    let other = item { de_operation = operationInfo "withSlash" }
+    both <- either (fail . show) pure $ openApiDocumentWith RedirectTrailingSlashes "API" "1" [SomeEndpoint getItem, SomeEndpoint other]
+    at ["paths", "/items/{id}", "get", "operationId"] both `shouldBe` String "getItem"
+    at ["paths", "/items/{id}/", "get", "operationId"] both `shouldBe` String "withSlash"
+    openApiDocument "API" "1" [SomeEndpoint getItem, SomeEndpoint other] `shouldSatisfy` isLeft
+
   it "merges methods on the same path and emits body and response schemas" $ do
     doc <- requireDocument [SomeEndpoint getItem, SomeEndpoint patchItem, SomeEndpoint deleteItem]
     at ["openapi"] doc `shouldBe` String "3.1.1"

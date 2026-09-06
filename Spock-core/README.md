@@ -63,3 +63,9 @@ default) without changing the response. Asynchronous cancellation propagates.
 Keep sinks and failure callbacks quick; queue events in your logger if needed.
 Code constructing `SpockConfig` or `SpockCfg` directly must add the new logging
 field; using the default configuration helpers avoids this migration.
+
+## Slash policies
+
+The default ignores empty path segments for compatibility. Opt into strict
+matching or method-preserving canonical redirects; see the
+[slash routing guide](https://www.spock.li/tutorials/routing).

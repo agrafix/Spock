@@ -1,0 +1,840 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE CPP #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE ConstraintKinds #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE GADTs #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE KindSignatures #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE Rank2Types #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-7"></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Data.PolyMap.html"><span class="hs-identifier">Data.PolyMap</span></a></span><span>
+</span><span id="line-9"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier">PolyMap</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-10"></span><span>    </span><span class="annot"><a href="Data.PolyMap.html#empty"><span class="hs-identifier">empty</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-11"></span><span>    </span><span class="annot"><a href="Data.PolyMap.html#rnfHelper"><span class="hs-identifier">rnfHelper</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-12"></span><span>    </span><span class="annot"><a href="Data.PolyMap.html#lookup"><span class="hs-identifier">lookup</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-13"></span><span>    </span><span class="annot"><a href="Data.PolyMap.html#lookupApply"><span class="hs-identifier">lookupApply</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-14"></span><span>    </span><span class="annot"><a href="Data.PolyMap.html#lookupApplyAll"><span class="hs-identifier">lookupApplyAll</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-15"></span><span>    </span><span class="annot"><a href="Data.PolyMap.html#lookupConcat"><span class="hs-identifier">lookupConcat</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-16"></span><span>    </span><span class="annot"><a href="Data.PolyMap.html#alter"><span class="hs-identifier">alter</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-17"></span><span>    </span><span class="annot"><a href="Data.PolyMap.html#updateAll"><span class="hs-identifier">updateAll</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-18"></span><span>    </span><span class="annot"><a href="Data.PolyMap.html#insertWith"><span class="hs-identifier">insertWith</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-19"></span><span>    </span><span class="annot"><a href="Data.PolyMap.html#unionWith"><span class="hs-identifier">unionWith</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-20"></span><span>    </span><span class="annot"><a href="Data.PolyMap.html#union"><span class="hs-identifier">union</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-21"></span><span>    </span><span class="annot"><a href="Data.PolyMap.html#zipWith%27"><span class="hs-identifier">zipWith'</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-22"></span><span>    </span><span class="annot"><a href="Data.PolyMap.html#zipWith"><span class="hs-identifier">zipWith</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-23"></span><span>    </span><span class="annot"><a href="Data.PolyMap.html#zip"><span class="hs-identifier">zip</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-24"></span><span>    </span><span class="annot"><a href="Data.PolyMap.html#ap"><span class="hs-identifier">ap</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-25"></span><span>  </span><span class="hs-special">)</span><span>
+</span><span id="line-26"></span><span class="hs-keyword">where</span><span>
+</span><span id="line-27"></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Typeable</span></span><span class="hs-cpp">
+#if MIN_VERSION_base(4,11,0)
+</span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Alternative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-operator">(&lt;|&gt;)</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">liftA2</span></span><span class="hs-special">)</span><span class="hs-cpp">
+#elif MIN_VERSION_base(4,9,0)
+</span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Control.Applicative</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">Alternative</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-operator">&lt;|&gt;</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-identifier">liftA2</span><span class="hs-special">)</span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Data.Semigroup</span><span class="hs-cpp">
+#elif MIN_VERSION_base(4,8,0)
+</span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Control.Applicative</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">Alternative</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-operator">&lt;|&gt;</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-identifier">liftA2</span><span class="hs-special">)</span><span class="hs-cpp">
+#else
+</span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Control.Applicative</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">Applicative</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-identifier">Alternative</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-operator">&lt;|&gt;</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-identifier">liftA2</span><span class="hs-special">)</span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Data.Monoid</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">Monoid</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-cpp">
+#endif
+</span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Exts</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Constraint</span></span><span class="hs-special">)</span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">lookup</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">zip</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">zipWith</span></span><span class="hs-special">)</span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span class="hs-keyword">data</span><span> </span><span id="PolyMap"><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-var">PolyMap</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679079684"><span class="annot"><a href="#local-6989586621679079684"><span class="hs-identifier hs-type">c</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-operator">*</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Constraint</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679079685"><span class="annot"><a href="#local-6989586621679079685"><span class="hs-identifier hs-type">f</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-operator">*</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-operator">*</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679079686"><span class="annot"><a href="#local-6989586621679079686"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-operator">*</span></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-44"></span><span>  </span><span id="local-6989586621679079459"><span id="local-6989586621679079460"><span id="local-6989586621679079461"><span id="PMNil"><span class="annot"><a href="Data.PolyMap.html#PMNil"><span class="hs-identifier hs-var">PMNil</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079459"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079460"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079461"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-45"></span><span>  </span><span id="local-6989586621679079464"><span id="local-6989586621679079465"><span id="local-6989586621679079466"><span id="local-6989586621679079688"><span id="PMCons"><span class="annot"><a href="Data.PolyMap.html#PMCons"><span class="hs-identifier hs-var">PMCons</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Typeable</span></span><span> </span><span class="annot"><a href="#local-6989586621679079688"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679079464"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079688"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079465"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079688"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079466"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079464"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079465"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079466"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079464"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079465"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079466"><span class="hs-identifier hs-type">a</span></a></span></span></span></span></span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679079455"><span id="local-6989586621679079456"><span id="local-6989586621679079693"><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="annot"><a href="#local-6989586621679079455"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079456"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079455"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-48"></span><span>  </span><span id="local-6989586621679079698"><span class="annot"><span class="annottext">fmap :: forall a b. (a -&gt; b) -&gt; PolyMap c f a -&gt; PolyMap c f b
+</span><span class="hs-identifier hs-var hs-var hs-var">fmap</span></span></span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="Data.PolyMap.html#PMNil"><span class="hs-identifier hs-var">PMNil</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PolyMap c f b
+forall (c :: * -&gt; Constraint) (f :: * -&gt; *) a. PolyMap c f a
+</span><a href="Data.PolyMap.html#PMNil"><span class="hs-identifier hs-var">PMNil</span></a></span><span>
+</span><span id="line-49"></span><span>  </span><span class="annot"><span class="hs-identifier hs-var">fmap</span></span><span> </span><span id="local-6989586621679079699"><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679079699"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.PolyMap.html#PMCons"><span class="hs-identifier hs-type">PMCons</span></a></span><span> </span><span id="local-6989586621679079707"><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079707"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span id="local-6989586621679079708"><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079708"><span class="hs-identifier hs-var">pm</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">f (p -&gt; b) -&gt; PolyMap c f b -&gt; PolyMap c f b
+forall p (c :: * -&gt; Constraint) (f :: * -&gt; *) a.
+(Typeable p, c p) =&gt;
+f (p -&gt; a) -&gt; PolyMap c f a -&gt; PolyMap c f a
+</span><a href="Data.PolyMap.html#PMCons"><span class="hs-identifier hs-var">PMCons</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((p -&gt; a) -&gt; p -&gt; b) -&gt; f (p -&gt; a) -&gt; f (p -&gt; b)
+forall a b. (a -&gt; b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; (p -&gt; a) -&gt; p -&gt; b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">(.)</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679079699"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079707"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; PolyMap c f a -&gt; PolyMap c f b
+forall a b. (a -&gt; b) -&gt; PolyMap c f a -&gt; PolyMap c f b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679079699"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079708"><span class="hs-identifier hs-var">pm</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679079477"><span id="local-6989586621679079478"><span id="local-6989586621679079479"><span id="local-6989586621679079713"><span id="local-6989586621679079718"><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="annot"><a href="#local-6989586621679079477"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Semigroup</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079478"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079477"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079479"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-52"></span><span>  </span><span id="local-6989586621679079725"><span class="annot"><span class="annottext">&lt;&gt; :: PolyMap c f a -&gt; PolyMap c f a -&gt; PolyMap c f a
+</span><span class="hs-operator hs-var hs-var hs-var">(&lt;&gt;)</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PolyMap c f a -&gt; PolyMap c f a -&gt; PolyMap c f a
+forall (f :: * -&gt; *) (c :: * -&gt; Constraint) a.
+Alternative f =&gt;
+PolyMap c f a -&gt; PolyMap c f a -&gt; PolyMap c f a
+</span><a href="Data.PolyMap.html#union"><span class="hs-identifier hs-var">union</span></a></span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679079484"><span id="local-6989586621679079485"><span id="local-6989586621679079486"><span id="local-6989586621679079733"><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="annot"><a href="#local-6989586621679079484"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monoid</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079485"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079484"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079486"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-55"></span><span>  </span><span id="local-6989586621679079738"><span class="annot"><span class="annottext">mempty :: PolyMap c f a
+</span><span class="hs-identifier hs-var hs-var hs-var">mempty</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+forall (c :: * -&gt; Constraint) (f :: * -&gt; *) a. PolyMap c f a
+</span><a href="Data.PolyMap.html#empty"><span class="hs-identifier hs-var">empty</span></a></span><span>
+</span><span id="line-56"></span><span>  </span><span id="local-6989586621679079741"><span class="annot"><span class="annottext">mappend :: PolyMap c f a -&gt; PolyMap c f a -&gt; PolyMap c f a
+</span><span class="hs-identifier hs-var hs-var hs-var">mappend</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PolyMap c f a -&gt; PolyMap c f a -&gt; PolyMap c f a
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">(&lt;&gt;)</span></span><span>
+</span><span id="line-57"></span><span>
+</span><span id="line-58"></span><span id="local-6989586621679079742"><span id="local-6989586621679079743"><span id="local-6989586621679079744"><span class="annot"><a href="Data.PolyMap.html#empty"><span class="hs-identifier hs-type">empty</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079742"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079743"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079744"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-59"></span><span id="empty"><span class="annot"><span class="annottext">empty :: forall (c :: * -&gt; Constraint) (f :: * -&gt; *) a. PolyMap c f a
+</span><a href="Data.PolyMap.html#empty"><span class="hs-identifier hs-var hs-var">empty</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+forall (c :: * -&gt; Constraint) (f :: * -&gt; *) a. PolyMap c f a
+</span><a href="Data.PolyMap.html#PMNil"><span class="hs-identifier hs-var">PMNil</span></a></span><span>
+</span><span id="line-60"></span><span>
+</span><span id="line-61"></span><span id="local-6989586621679079490"><span id="local-6989586621679079492"><span id="local-6989586621679079493"><span class="annot"><a href="Data.PolyMap.html#rnfHelper"><span class="hs-identifier hs-type">rnfHelper</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679079491"><span class="annot"><a href="#local-6989586621679079491"><span class="hs-identifier hs-type">p</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="#local-6989586621679079490"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079491"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079492"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079491"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079493"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079490"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079492"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079493"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-62"></span><span id="rnfHelper"><span class="annot"><span class="annottext">rnfHelper :: forall (c :: * -&gt; Constraint) (f :: * -&gt; *) a.
+(forall p. c p =&gt; f (p -&gt; a) -&gt; ()) -&gt; PolyMap c f a -&gt; ()
+</span><a href="Data.PolyMap.html#rnfHelper"><span class="hs-identifier hs-var hs-var">rnfHelper</span></a></span></span><span> </span><span class="annot"><span class="annottext">forall p. c p =&gt; f (p -&gt; a) -&gt; ()
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="Data.PolyMap.html#PMNil"><span class="hs-identifier hs-var">PMNil</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-63"></span><span class="annot"><a href="Data.PolyMap.html#rnfHelper"><span class="hs-identifier hs-var">rnfHelper</span></a></span><span> </span><span id="local-6989586621679079745"><span class="annot"><span class="annottext">forall p. c p =&gt; f (p -&gt; a) -&gt; ()
+</span><a href="#local-6989586621679079745"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.PolyMap.html#PMCons"><span class="hs-identifier hs-type">PMCons</span></a></span><span> </span><span id="local-6989586621679079749"><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079749"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span id="local-6989586621679079750"><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079750"><span class="hs-identifier hs-var">pm</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a) -&gt; ()
+forall p. c p =&gt; f (p -&gt; a) -&gt; ()
+</span><a href="#local-6989586621679079745"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079749"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">() -&gt; () -&gt; ()
+forall a b. a -&gt; b -&gt; b
+</span><span class="hs-operator hs-var">`seq`</span></span><span> </span><span class="annot"><span class="annottext">(forall p. c p =&gt; f (p -&gt; a) -&gt; ()) -&gt; PolyMap c f a -&gt; ()
+forall (c :: * -&gt; Constraint) (f :: * -&gt; *) a.
+(forall p. c p =&gt; f (p -&gt; a) -&gt; ()) -&gt; PolyMap c f a -&gt; ()
+</span><a href="Data.PolyMap.html#rnfHelper"><span class="hs-identifier hs-var">rnfHelper</span></a></span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a) -&gt; ()
+forall p. c p =&gt; f (p -&gt; a) -&gt; ()
+</span><a href="#local-6989586621679079745"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079750"><span class="hs-identifier hs-var">pm</span></a></span><span>
+</span><span id="line-64"></span><span>
+</span><span id="line-65"></span><span id="local-6989586621679079502"><span id="local-6989586621679079503"><span id="local-6989586621679079504"><span id="local-6989586621679079505"><span class="annot"><a href="Data.PolyMap.html#lookup"><span class="hs-identifier hs-type">lookup</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-66"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Typeable</span></span><span> </span><span class="annot"><a href="#local-6989586621679079502"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-67"></span><span>  </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079503"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079504"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079505"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-68"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079504"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079502"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079505"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span></span></span></span></span><span>
+</span><span id="line-69"></span><span id="lookup"><span class="annot"><span class="annottext">lookup :: forall p (c :: * -&gt; Constraint) (f :: * -&gt; *) a.
+Typeable p =&gt;
+PolyMap c f a -&gt; Maybe (f (p -&gt; a))
+</span><a href="Data.PolyMap.html#lookup"><span class="hs-identifier hs-var hs-var">lookup</span></a></span></span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="Data.PolyMap.html#PMNil"><span class="hs-identifier hs-var">PMNil</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe (f (p -&gt; a))
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-70"></span><span class="annot"><a href="Data.PolyMap.html#lookup"><span class="hs-identifier hs-var">lookup</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.PolyMap.html#PMCons"><span class="hs-identifier hs-type">PMCons</span></a></span><span> </span><span id="local-6989586621679079767"><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079767"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span id="local-6989586621679079768"><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079768"><span class="hs-identifier hs-var">polyMap'</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-71"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a) -&gt; Maybe (f (p -&gt; a))
+forall {k1} {k2} (c :: k1 -&gt; *) (t :: k2 -&gt; k1) (t' :: k2 -&gt; k1)
+       (a :: k2).
+(Typeable t, Typeable t') =&gt;
+c (t a) -&gt; Maybe (c (t' a))
+</span><span class="hs-identifier hs-var">gcast1</span></span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079767"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-72"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679079770"><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079770"><span class="hs-identifier hs-var">w'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a) -&gt; Maybe (f (p -&gt; a))
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079770"><span class="hs-identifier hs-var">w'</span></a></span><span>
+</span><span id="line-73"></span><span>    </span><span class="annot"><span class="annottext">Maybe (f (p -&gt; a))
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PolyMap c f a -&gt; Maybe (f (p -&gt; a))
+forall p (c :: * -&gt; Constraint) (f :: * -&gt; *) a.
+Typeable p =&gt;
+PolyMap c f a -&gt; Maybe (f (p -&gt; a))
+</span><a href="Data.PolyMap.html#lookup"><span class="hs-identifier hs-var">lookup</span></a></span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079768"><span class="hs-identifier hs-var">polyMap'</span></a></span><span>
+</span><span id="line-74"></span><span>
+</span><span id="line-75"></span><span id="local-6989586621679079517"><span id="local-6989586621679079518"><span id="local-6989586621679079519"><span id="local-6989586621679079520"><span class="annot"><a href="Data.PolyMap.html#lookupApply"><span class="hs-identifier hs-type">lookupApply</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-76"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Typeable</span></span><span> </span><span class="annot"><a href="#local-6989586621679079517"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="annot"><a href="#local-6989586621679079518"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-77"></span><span>  </span><span class="annot"><a href="#local-6989586621679079517"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-78"></span><span>  </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079519"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079518"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079520"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-79"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079518"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079520"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span></span><span>
+</span><span id="line-80"></span><span id="lookupApply"><span class="annot"><span class="annottext">lookupApply :: forall p (f :: * -&gt; *) (c :: * -&gt; Constraint) a.
+(Typeable p, Functor f) =&gt;
+p -&gt; PolyMap c f a -&gt; Maybe (f a)
+</span><a href="Data.PolyMap.html#lookupApply"><span class="hs-identifier hs-var hs-var">lookupApply</span></a></span></span><span> </span><span class="annot"><span class="annottext">p
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="Data.PolyMap.html#PMNil"><span class="hs-identifier hs-var">PMNil</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe (f a)
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-81"></span><span class="annot"><a href="Data.PolyMap.html#lookupApply"><span class="hs-identifier hs-var">lookupApply</span></a></span><span> </span><span id="local-6989586621679079773"><span class="annot"><span class="annottext">p
+</span><a href="#local-6989586621679079773"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.PolyMap.html#PMCons"><span class="hs-identifier hs-type">PMCons</span></a></span><span> </span><span id="local-6989586621679079789"><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079789"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span id="local-6989586621679079790"><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079790"><span class="hs-identifier hs-var">polyMap'</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-82"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a) -&gt; Maybe (f (p -&gt; a))
+forall {k1} {k2} (c :: k1 -&gt; *) (t :: k2 -&gt; k1) (t' :: k2 -&gt; k1)
+       (a :: k2).
+(Typeable t, Typeable t') =&gt;
+c (t a) -&gt; Maybe (c (t' a))
+</span><span class="hs-identifier hs-var">gcast1</span></span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079789"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-83"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679079791"><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079791"><span class="hs-identifier hs-var">w'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">f a -&gt; Maybe (f a)
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((p -&gt; a) -&gt; a) -&gt; f (p -&gt; a) -&gt; f a
+forall a b. (a -&gt; b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(p -&gt; a) -&gt; p -&gt; a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">p
+</span><a href="#local-6989586621679079773"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079791"><span class="hs-identifier hs-var">w'</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-84"></span><span>    </span><span class="annot"><span class="annottext">Maybe (f (p -&gt; a))
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">p -&gt; PolyMap c f a -&gt; Maybe (f a)
+forall p (f :: * -&gt; *) (c :: * -&gt; Constraint) a.
+(Typeable p, Functor f) =&gt;
+p -&gt; PolyMap c f a -&gt; Maybe (f a)
+</span><a href="Data.PolyMap.html#lookupApply"><span class="hs-identifier hs-var">lookupApply</span></a></span><span> </span><span class="annot"><span class="annottext">p
+</span><a href="#local-6989586621679079773"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079790"><span class="hs-identifier hs-var">polyMap'</span></a></span><span>
+</span><span id="line-85"></span><span>
+</span><span id="line-86"></span><span id="local-6989586621679079530"><span id="local-6989586621679079531"><span id="local-6989586621679079533"><span class="annot"><a href="Data.PolyMap.html#lookupApplyAll"><span class="hs-identifier hs-type">lookupApplyAll</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-87"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="annot"><a href="#local-6989586621679079530"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-88"></span><span>  </span><span class="hs-special">(</span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679079532"><span class="annot"><a href="#local-6989586621679079532"><span class="hs-identifier hs-type">p</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="#local-6989586621679079531"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079532"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621679079532"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-89"></span><span>  </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079531"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079530"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079533"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-90"></span><span>  </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679079530"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079533"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span></span></span></span><span>
+</span><span id="line-91"></span><span id="lookupApplyAll"><span class="annot"><span class="annottext">lookupApplyAll :: forall (f :: * -&gt; *) (c :: * -&gt; Constraint) a.
+Functor f =&gt;
+(forall p. c p =&gt; Maybe p) -&gt; PolyMap c f a -&gt; [f a]
+</span><a href="Data.PolyMap.html#lookupApplyAll"><span class="hs-identifier hs-var hs-var">lookupApplyAll</span></a></span></span><span> </span><span id="local-6989586621679079793"><span class="annot"><span class="annottext">forall p. c p =&gt; Maybe p
+</span><a href="#local-6989586621679079793"><span class="hs-identifier hs-var">maybeGet</span></a></span></span><span> </span><span id="local-6989586621679079794"><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079794"><span class="hs-identifier hs-var">polyMap</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-92"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079794"><span class="hs-identifier hs-var">polyMap</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-93"></span><span>    </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="Data.PolyMap.html#PMNil"><span class="hs-identifier hs-var">PMNil</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-94"></span><span>    </span><span class="annot"><a href="Data.PolyMap.html#PMCons"><span class="hs-identifier hs-type">PMCons</span></a></span><span> </span><span id="local-6989586621679079800"><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079800"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span id="local-6989586621679079801"><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079801"><span class="hs-identifier hs-var">polyMap'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-95"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679079802"><span class="annot"><span class="annottext">rest :: [f a]
+</span><a href="#local-6989586621679079802"><span class="hs-identifier hs-var hs-var">rest</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall p. c p =&gt; Maybe p) -&gt; PolyMap c f a -&gt; [f a]
+forall (f :: * -&gt; *) (c :: * -&gt; Constraint) a.
+Functor f =&gt;
+(forall p. c p =&gt; Maybe p) -&gt; PolyMap c f a -&gt; [f a]
+</span><a href="Data.PolyMap.html#lookupApplyAll"><span class="hs-identifier hs-var">lookupApplyAll</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe p
+forall p. c p =&gt; Maybe p
+</span><a href="#local-6989586621679079793"><span class="hs-identifier hs-var">maybeGet</span></a></span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079801"><span class="hs-identifier hs-var">polyMap'</span></a></span><span>
+</span><span id="line-96"></span><span>       </span><span class="hs-keyword">in</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Maybe p
+forall p. c p =&gt; Maybe p
+</span><a href="#local-6989586621679079793"><span class="hs-identifier hs-var">maybeGet</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-97"></span><span>            </span><span class="annot"><span class="annottext">Maybe p
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">[f a]
+</span><a href="#local-6989586621679079802"><span class="hs-identifier hs-var">rest</span></a></span><span>
+</span><span id="line-98"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679079805"><span class="annot"><span class="annottext">p
+</span><a href="#local-6989586621679079805"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((p -&gt; a) -&gt; a) -&gt; f (p -&gt; a) -&gt; f a
+forall a b. (a -&gt; b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(p -&gt; a) -&gt; p -&gt; a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">p
+</span><a href="#local-6989586621679079805"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079800"><span class="hs-identifier hs-var">w</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">f a -&gt; [f a] -&gt; [f a]
+forall a. a -&gt; [a] -&gt; [a]
+</span><span class="hs-glyph hs-var">:</span></span><span> </span><span class="annot"><span class="annottext">[f a]
+</span><a href="#local-6989586621679079802"><span class="hs-identifier hs-var">rest</span></a></span><span>
+</span><span id="line-99"></span><span>
+</span><span id="line-100"></span><span id="local-6989586621679079539"><span id="local-6989586621679079540"><span id="local-6989586621679079541"><span id="local-6989586621679079544"><span class="annot"><a href="Data.PolyMap.html#lookupConcat"><span class="hs-identifier hs-type">lookupConcat</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-101"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Monoid</span></span><span> </span><span class="annot"><a href="#local-6989586621679079539"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="annot"><a href="#local-6989586621679079540"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-102"></span><span>  </span><span class="hs-special">(</span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679079542"><span class="annot"><a href="#local-6989586621679079542"><span class="hs-identifier hs-type">p</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="#local-6989586621679079541"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079542"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621679079542"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-103"></span><span>  </span><span class="hs-special">(</span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679079543"><span class="annot"><a href="#local-6989586621679079543"><span class="hs-identifier hs-type">p</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="#local-6989586621679079541"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079543"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079543"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079540"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079543"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079544"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079539"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-104"></span><span>  </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079541"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079540"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079544"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-105"></span><span>  </span><span class="annot"><a href="#local-6989586621679079539"><span class="hs-identifier hs-type">m</span></a></span></span></span></span></span><span>
+</span><span id="line-106"></span><span id="lookupConcat"><span class="annot"><span class="annottext">lookupConcat :: forall m (f :: * -&gt; *) (c :: * -&gt; Constraint) a.
+(Monoid m, Functor f) =&gt;
+(forall p. c p =&gt; Maybe p)
+-&gt; (forall p. c p =&gt; p -&gt; f (p -&gt; a) -&gt; m) -&gt; PolyMap c f a -&gt; m
+</span><a href="Data.PolyMap.html#lookupConcat"><span class="hs-identifier hs-var hs-var">lookupConcat</span></a></span></span><span> </span><span id="local-6989586621679079809"><span class="annot"><span class="annottext">forall p. c p =&gt; Maybe p
+</span><a href="#local-6989586621679079809"><span class="hs-identifier hs-var">maybeGet</span></a></span></span><span> </span><span id="local-6989586621679079810"><span class="annot"><span class="annottext">forall p. c p =&gt; p -&gt; f (p -&gt; a) -&gt; m
+</span><a href="#local-6989586621679079810"><span class="hs-identifier hs-var">comp</span></a></span></span><span> </span><span id="local-6989586621679079811"><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079811"><span class="hs-identifier hs-var">polyMap</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-107"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079811"><span class="hs-identifier hs-var">polyMap</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-108"></span><span>    </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="Data.PolyMap.html#PMNil"><span class="hs-identifier hs-var">PMNil</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">m
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span>
+</span><span id="line-109"></span><span>    </span><span class="annot"><a href="Data.PolyMap.html#PMCons"><span class="hs-identifier hs-type">PMCons</span></a></span><span> </span><span id="local-6989586621679079819"><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079819"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span id="local-6989586621679079820"><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079820"><span class="hs-identifier hs-var">polyMap'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-110"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679079821"><span class="annot"><span class="annottext">rest :: m
+</span><a href="#local-6989586621679079821"><span class="hs-identifier hs-var hs-var">rest</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall p. c p =&gt; Maybe p)
+-&gt; (forall p. c p =&gt; p -&gt; f (p -&gt; a) -&gt; m) -&gt; PolyMap c f a -&gt; m
+forall m (f :: * -&gt; *) (c :: * -&gt; Constraint) a.
+(Monoid m, Functor f) =&gt;
+(forall p. c p =&gt; Maybe p)
+-&gt; (forall p. c p =&gt; p -&gt; f (p -&gt; a) -&gt; m) -&gt; PolyMap c f a -&gt; m
+</span><a href="Data.PolyMap.html#lookupConcat"><span class="hs-identifier hs-var">lookupConcat</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe p
+forall p. c p =&gt; Maybe p
+</span><a href="#local-6989586621679079809"><span class="hs-identifier hs-var">maybeGet</span></a></span><span> </span><span class="annot"><span class="annottext">p -&gt; f (p -&gt; a) -&gt; m
+forall p. c p =&gt; p -&gt; f (p -&gt; a) -&gt; m
+</span><a href="#local-6989586621679079810"><span class="hs-identifier hs-var">comp</span></a></span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079820"><span class="hs-identifier hs-var">polyMap'</span></a></span><span>
+</span><span id="line-111"></span><span>       </span><span class="hs-keyword">in</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Maybe p
+forall p. c p =&gt; Maybe p
+</span><a href="#local-6989586621679079809"><span class="hs-identifier hs-var">maybeGet</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-112"></span><span>            </span><span class="annot"><span class="annottext">Maybe p
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">m
+</span><a href="#local-6989586621679079821"><span class="hs-identifier hs-var">rest</span></a></span><span>
+</span><span id="line-113"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679079826"><span class="annot"><span class="annottext">p
+</span><a href="#local-6989586621679079826"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">p -&gt; f (p -&gt; a) -&gt; m
+forall p. c p =&gt; p -&gt; f (p -&gt; a) -&gt; m
+</span><a href="#local-6989586621679079810"><span class="hs-identifier hs-var">comp</span></a></span><span> </span><span class="annot"><span class="annottext">p
+</span><a href="#local-6989586621679079826"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079819"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="annot"><span class="annottext">m -&gt; m -&gt; m
+forall a. Monoid a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">`mappend`</span></span><span> </span><span class="annot"><span class="annottext">m
+</span><a href="#local-6989586621679079821"><span class="hs-identifier hs-var">rest</span></a></span><span>
+</span><span id="line-114"></span><span>
+</span><span id="line-115"></span><span id="local-6989586621679079552"><span id="local-6989586621679079553"><span id="local-6989586621679079554"><span id="local-6989586621679079555"><span class="annot"><a href="Data.PolyMap.html#maybeInsertHere"><span class="hs-identifier hs-type">maybeInsertHere</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-116"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079552"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079553"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Typeable</span></span><span> </span><span class="annot"><a href="#local-6989586621679079553"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-117"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079554"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079553"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079555"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-118"></span><span>  </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079552"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079554"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079555"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-119"></span><span>  </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079552"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079554"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079555"><span class="hs-identifier hs-type">a</span></a></span></span></span></span></span><span>
+</span><span id="line-120"></span><span id="maybeInsertHere"><span class="annot"><span class="annottext">maybeInsertHere :: forall (c :: * -&gt; Constraint) p (f :: * -&gt; *) a.
+(c p, Typeable p) =&gt;
+Maybe (f (p -&gt; a)) -&gt; PolyMap c f a -&gt; PolyMap c f a
+</span><a href="Data.PolyMap.html#maybeInsertHere"><span class="hs-identifier hs-var hs-var">maybeInsertHere</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(PolyMap c f a -&gt; PolyMap c f a)
+-&gt; (f (p -&gt; a) -&gt; PolyMap c f a -&gt; PolyMap c f a)
+-&gt; Maybe (f (p -&gt; a))
+-&gt; PolyMap c f a
+-&gt; PolyMap c f a
+forall b a. b -&gt; (a -&gt; b) -&gt; Maybe a -&gt; b
+</span><span class="hs-identifier hs-var">maybe</span></span><span> </span><span class="annot"><span class="annottext">PolyMap c f a -&gt; PolyMap c f a
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a) -&gt; PolyMap c f a -&gt; PolyMap c f a
+forall p (c :: * -&gt; Constraint) (f :: * -&gt; *) a.
+(Typeable p, c p) =&gt;
+f (p -&gt; a) -&gt; PolyMap c f a -&gt; PolyMap c f a
+</span><a href="Data.PolyMap.html#PMCons"><span class="hs-identifier hs-var">PMCons</span></a></span><span>
+</span><span id="line-121"></span><span>
+</span><span id="line-122"></span><span id="local-6989586621679079563"><span id="local-6989586621679079564"><span id="local-6989586621679079565"><span id="local-6989586621679079566"><span class="annot"><a href="Data.PolyMap.html#alter"><span class="hs-identifier hs-type">alter</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-123"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Typeable</span></span><span> </span><span class="annot"><a href="#local-6989586621679079563"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679079564"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079563"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-124"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079565"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079563"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079566"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079565"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079563"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079566"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-125"></span><span>  </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079564"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079565"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079566"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-126"></span><span>  </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079564"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079565"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079566"><span class="hs-identifier hs-type">a</span></a></span></span></span></span></span><span>
+</span><span id="line-127"></span><span id="alter"><span class="annot"><span class="annottext">alter :: forall p (c :: * -&gt; Constraint) (f :: * -&gt; *) a.
+(Typeable p, c p) =&gt;
+(Maybe (f (p -&gt; a)) -&gt; Maybe (f (p -&gt; a)))
+-&gt; PolyMap c f a -&gt; PolyMap c f a
+</span><a href="Data.PolyMap.html#alter"><span class="hs-identifier hs-var hs-var">alter</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679079838"><span id="local-6989586621679079839"><span id="local-6989586621679079840"><span id="local-6989586621679079841"><span class="annot"><span class="annottext">Maybe (f (p -&gt; a)) -&gt; Maybe (f (p -&gt; a))
+</span><a href="#local-6989586621679079841"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079838"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079839"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079840"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079838"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079839"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079840"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span></span></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679079842"><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079842"><span class="hs-identifier hs-var">polyMap</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-128"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079842"><span class="hs-identifier hs-var">polyMap</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-129"></span><span>    </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="Data.PolyMap.html#PMNil"><span class="hs-identifier hs-var">PMNil</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PolyMap c f a -&gt; PolyMap c f a
+</span><a href="#local-6989586621679079843"><span class="hs-identifier hs-var">insertHere</span></a></span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+forall (c :: * -&gt; Constraint) (f :: * -&gt; *) a. PolyMap c f a
+</span><a href="Data.PolyMap.html#PMNil"><span class="hs-identifier hs-var">PMNil</span></a></span><span>
+</span><span id="line-130"></span><span>    </span><span class="annot"><a href="Data.PolyMap.html#PMCons"><span class="hs-identifier hs-type">PMCons</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679079871"><span id="local-6989586621679079872"><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079872"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679079838"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079871"><span class="hs-identifier hs-type">q</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079840"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679079873"><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079873"><span class="hs-identifier hs-var">polyMap'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-131"></span><span>      </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a) -&gt; Maybe (f (p -&gt; a))
+forall {k1} {k2} (c :: k1 -&gt; *) (t :: k2 -&gt; k1) (t' :: k2 -&gt; k1)
+       (a :: k2).
+(Typeable t, Typeable t') =&gt;
+c (t a) -&gt; Maybe (c (t' a))
+</span><span class="hs-identifier hs-var">gcast1</span></span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079872"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-132"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679079874"><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079874"><span class="hs-identifier hs-var">w'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-133"></span><span>          </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Maybe (f (p -&gt; a)) -&gt; Maybe (f (p -&gt; a))
+</span><a href="#local-6989586621679079841"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f (p -&gt; a) -&gt; Maybe (f (p -&gt; a))
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079874"><span class="hs-identifier hs-var">w'</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-134"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679079875"><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079875"><span class="hs-identifier hs-var">w''</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a) -&gt; PolyMap c f a -&gt; PolyMap c f a
+forall p (c :: * -&gt; Constraint) (f :: * -&gt; *) a.
+(Typeable p, c p) =&gt;
+f (p -&gt; a) -&gt; PolyMap c f a -&gt; PolyMap c f a
+</span><a href="Data.PolyMap.html#PMCons"><span class="hs-identifier hs-var">PMCons</span></a></span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079875"><span class="hs-identifier hs-var">w''</span></a></span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079873"><span class="hs-identifier hs-var">polyMap'</span></a></span><span>
+</span><span id="line-135"></span><span>            </span><span class="annot"><span class="annottext">Maybe (f (p -&gt; a))
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079873"><span class="hs-identifier hs-var">polyMap'</span></a></span><span>
+</span><span id="line-136"></span><span>        </span><span class="annot"><span class="annottext">Maybe (f (p -&gt; a))
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-137"></span><span>          </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">p -&gt; SomeTypeRep
+forall a. Typeable a =&gt; a -&gt; SomeTypeRep
+</span><span class="hs-identifier hs-var">typeOf</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">p
+forall a. HasCallStack =&gt; a
+</span><span class="hs-identifier hs-var">undefined</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679079839"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">SomeTypeRep -&gt; SomeTypeRep -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;</span></span><span> </span><span class="annot"><span class="annottext">p -&gt; SomeTypeRep
+forall a. Typeable a =&gt; a -&gt; SomeTypeRep
+</span><span class="hs-identifier hs-var">typeOf</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">p
+forall a. HasCallStack =&gt; a
+</span><span class="hs-identifier hs-var">undefined</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679079871"><span class="hs-identifier hs-type">q</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-138"></span><span>            </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">PolyMap c f a -&gt; PolyMap c f a
+</span><a href="#local-6989586621679079843"><span class="hs-identifier hs-var">insertHere</span></a></span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079842"><span class="hs-identifier hs-var">polyMap</span></a></span><span>
+</span><span id="line-139"></span><span>            </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a) -&gt; PolyMap c f a -&gt; PolyMap c f a
+forall p (c :: * -&gt; Constraint) (f :: * -&gt; *) a.
+(Typeable p, c p) =&gt;
+f (p -&gt; a) -&gt; PolyMap c f a -&gt; PolyMap c f a
+</span><a href="Data.PolyMap.html#PMCons"><span class="hs-identifier hs-var">PMCons</span></a></span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079872"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Maybe (f (p -&gt; a)) -&gt; Maybe (f (p -&gt; a)))
+-&gt; PolyMap c f a -&gt; PolyMap c f a
+forall p (c :: * -&gt; Constraint) (f :: * -&gt; *) a.
+(Typeable p, c p) =&gt;
+(Maybe (f (p -&gt; a)) -&gt; Maybe (f (p -&gt; a)))
+-&gt; PolyMap c f a -&gt; PolyMap c f a
+</span><a href="Data.PolyMap.html#alter"><span class="hs-identifier hs-var">alter</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (f (p -&gt; a)) -&gt; Maybe (f (p -&gt; a))
+</span><a href="#local-6989586621679079841"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079873"><span class="hs-identifier hs-var">polyMap'</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-140"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-141"></span><span>    </span><span id="local-6989586621679079843"><span class="annot"><span class="annottext">insertHere :: PolyMap c f a -&gt; PolyMap c f a
+</span><a href="#local-6989586621679079843"><span class="hs-identifier hs-var hs-var">insertHere</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(PolyMap c f a -&gt; PolyMap c f a)
+-&gt; (f (p -&gt; a) -&gt; PolyMap c f a -&gt; PolyMap c f a)
+-&gt; Maybe (f (p -&gt; a))
+-&gt; PolyMap c f a
+-&gt; PolyMap c f a
+forall b a. b -&gt; (a -&gt; b) -&gt; Maybe a -&gt; b
+</span><span class="hs-identifier hs-var">maybe</span></span><span> </span><span class="annot"><span class="annottext">PolyMap c f a -&gt; PolyMap c f a
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a) -&gt; PolyMap c f a -&gt; PolyMap c f a
+forall p (c :: * -&gt; Constraint) (f :: * -&gt; *) a.
+(Typeable p, c p) =&gt;
+f (p -&gt; a) -&gt; PolyMap c f a -&gt; PolyMap c f a
+</span><a href="Data.PolyMap.html#PMCons"><span class="hs-identifier hs-var">PMCons</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe (f (p -&gt; a)) -&gt; Maybe (f (p -&gt; a))
+</span><a href="#local-6989586621679079841"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (f (p -&gt; a))
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">)</span><span>
+</span><span id="line-142"></span><span>
+</span><span id="line-143"></span><span id="local-6989586621679079579"><span id="local-6989586621679079581"><span id="local-6989586621679079582"><span id="local-6989586621679079583"><span id="local-6989586621679079584"><span class="annot"><a href="Data.PolyMap.html#updateAll"><span class="hs-identifier hs-type">updateAll</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-144"></span><span>  </span><span class="hs-special">(</span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679079580"><span class="annot"><a href="#local-6989586621679079580"><span class="hs-identifier hs-type">p</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="#local-6989586621679079579"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079580"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079581"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079580"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079582"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079583"><span class="hs-identifier hs-type">g</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079580"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079584"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-145"></span><span>  </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079579"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079581"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079582"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-146"></span><span>  </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079579"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079583"><span class="hs-identifier hs-type">g</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079584"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span></span><span>
+</span><span id="line-147"></span><span id="updateAll"><span class="annot"><span class="annottext">updateAll :: forall (c :: * -&gt; Constraint) (f :: * -&gt; *) a (g :: * -&gt; *) b.
+(forall p. c p =&gt; f (p -&gt; a) -&gt; g (p -&gt; b))
+-&gt; PolyMap c f a -&gt; PolyMap c g b
+</span><a href="Data.PolyMap.html#updateAll"><span class="hs-identifier hs-var hs-var">updateAll</span></a></span></span><span> </span><span class="annot"><span class="annottext">forall p. c p =&gt; f (p -&gt; a) -&gt; g (p -&gt; b)
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="Data.PolyMap.html#PMNil"><span class="hs-identifier hs-var">PMNil</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PolyMap c g b
+forall (c :: * -&gt; Constraint) (f :: * -&gt; *) a. PolyMap c f a
+</span><a href="Data.PolyMap.html#PMNil"><span class="hs-identifier hs-var">PMNil</span></a></span><span>
+</span><span id="line-148"></span><span class="annot"><a href="Data.PolyMap.html#updateAll"><span class="hs-identifier hs-var">updateAll</span></a></span><span> </span><span id="local-6989586621679079879"><span class="annot"><span class="annottext">forall p. c p =&gt; f (p -&gt; a) -&gt; g (p -&gt; b)
+</span><a href="#local-6989586621679079879"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.PolyMap.html#PMCons"><span class="hs-identifier hs-type">PMCons</span></a></span><span> </span><span id="local-6989586621679079885"><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079885"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span id="local-6989586621679079886"><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079886"><span class="hs-identifier hs-var">pm</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">g (p -&gt; b) -&gt; PolyMap c g b -&gt; PolyMap c g b
+forall p (c :: * -&gt; Constraint) (f :: * -&gt; *) a.
+(Typeable p, c p) =&gt;
+f (p -&gt; a) -&gt; PolyMap c f a -&gt; PolyMap c f a
+</span><a href="Data.PolyMap.html#PMCons"><span class="hs-identifier hs-var">PMCons</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f (p -&gt; a) -&gt; g (p -&gt; b)
+forall p. c p =&gt; f (p -&gt; a) -&gt; g (p -&gt; b)
+</span><a href="#local-6989586621679079879"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079885"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(forall p. c p =&gt; f (p -&gt; a) -&gt; g (p -&gt; b))
+-&gt; PolyMap c f a -&gt; PolyMap c g b
+forall (c :: * -&gt; Constraint) (f :: * -&gt; *) a (g :: * -&gt; *) b.
+(forall p. c p =&gt; f (p -&gt; a) -&gt; g (p -&gt; b))
+-&gt; PolyMap c f a -&gt; PolyMap c g b
+</span><a href="Data.PolyMap.html#updateAll"><span class="hs-identifier hs-var">updateAll</span></a></span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a) -&gt; g (p -&gt; b)
+forall p. c p =&gt; f (p -&gt; a) -&gt; g (p -&gt; b)
+</span><a href="#local-6989586621679079879"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079886"><span class="hs-identifier hs-var">pm</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-149"></span><span>
+</span><span id="line-150"></span><span id="local-6989586621679079592"><span id="local-6989586621679079593"><span id="local-6989586621679079594"><span id="local-6989586621679079595"><span class="annot"><a href="Data.PolyMap.html#insertWith"><span class="hs-identifier hs-type">insertWith</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-151"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Typeable</span></span><span> </span><span class="annot"><a href="#local-6989586621679079592"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679079593"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079592"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-152"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079594"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079592"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079595"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079594"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079592"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079595"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079594"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079592"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079595"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-153"></span><span>  </span><span class="annot"><a href="#local-6989586621679079594"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079592"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079595"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-154"></span><span>  </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079593"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079594"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079595"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-155"></span><span>  </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079593"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079594"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079595"><span class="hs-identifier hs-type">a</span></a></span></span></span></span></span><span>
+</span><span id="line-156"></span><span id="insertWith"><span class="annot"><span class="annottext">insertWith :: forall p (c :: * -&gt; Constraint) (f :: * -&gt; *) a.
+(Typeable p, c p) =&gt;
+(f (p -&gt; a) -&gt; f (p -&gt; a) -&gt; f (p -&gt; a))
+-&gt; f (p -&gt; a) -&gt; PolyMap c f a -&gt; PolyMap c f a
+</span><a href="Data.PolyMap.html#insertWith"><span class="hs-identifier hs-var hs-var">insertWith</span></a></span></span><span> </span><span id="local-6989586621679079893"><span class="annot"><span class="annottext">f (p -&gt; a) -&gt; f (p -&gt; a) -&gt; f (p -&gt; a)
+</span><a href="#local-6989586621679079893"><span class="hs-identifier hs-var">combine</span></a></span></span><span> </span><span id="local-6989586621679079894"><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079894"><span class="hs-identifier hs-var">val</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Maybe (f (p -&gt; a)) -&gt; Maybe (f (p -&gt; a)))
+-&gt; PolyMap c f a -&gt; PolyMap c f a
+forall p (c :: * -&gt; Constraint) (f :: * -&gt; *) a.
+(Typeable p, c p) =&gt;
+(Maybe (f (p -&gt; a)) -&gt; Maybe (f (p -&gt; a)))
+-&gt; PolyMap c f a -&gt; PolyMap c f a
+</span><a href="Data.PolyMap.html#alter"><span class="hs-identifier hs-var">alter</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f (p -&gt; a) -&gt; Maybe (f (p -&gt; a))
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">(f (p -&gt; a) -&gt; Maybe (f (p -&gt; a)))
+-&gt; (Maybe (f (p -&gt; a)) -&gt; f (p -&gt; a))
+-&gt; Maybe (f (p -&gt; a))
+-&gt; Maybe (f (p -&gt; a))
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a)
+-&gt; (f (p -&gt; a) -&gt; f (p -&gt; a)) -&gt; Maybe (f (p -&gt; a)) -&gt; f (p -&gt; a)
+forall b a. b -&gt; (a -&gt; b) -&gt; Maybe a -&gt; b
+</span><span class="hs-identifier hs-var">maybe</span></span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079894"><span class="hs-identifier hs-var">val</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f (p -&gt; a) -&gt; f (p -&gt; a) -&gt; f (p -&gt; a)
+</span><a href="#local-6989586621679079893"><span class="hs-identifier hs-var">combine</span></a></span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079894"><span class="hs-identifier hs-var">val</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-157"></span><span>
+</span><span id="line-158"></span><span id="local-6989586621679079600"><span id="local-6989586621679079602"><span id="local-6989586621679079603"><span class="annot"><a href="Data.PolyMap.html#unionWith"><span class="hs-identifier hs-type">unionWith</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-159"></span><span>  </span><span class="hs-special">(</span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679079601"><span class="annot"><a href="#local-6989586621679079601"><span class="hs-identifier hs-type">p</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="#local-6989586621679079600"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079601"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079602"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079601"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079603"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079602"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079601"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079603"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079602"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079601"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079603"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-160"></span><span>  </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079600"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079602"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079603"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-161"></span><span>  </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079600"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079602"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079603"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-162"></span><span>  </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079600"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079602"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079603"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-163"></span><span id="unionWith"><span class="annot"><span class="annottext">unionWith :: forall (c :: * -&gt; Constraint) (f :: * -&gt; *) a.
+(forall p. c p =&gt; f (p -&gt; a) -&gt; f (p -&gt; a) -&gt; f (p -&gt; a))
+-&gt; PolyMap c f a -&gt; PolyMap c f a -&gt; PolyMap c f a
+</span><a href="Data.PolyMap.html#unionWith"><span class="hs-identifier hs-var hs-var">unionWith</span></a></span></span><span> </span><span class="annot"><span class="annottext">forall p. c p =&gt; f (p -&gt; a) -&gt; f (p -&gt; a) -&gt; f (p -&gt; a)
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="Data.PolyMap.html#PMNil"><span class="hs-identifier hs-var">PMNil</span></a></span><span> </span><span id="local-6989586621679079895"><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079895"><span class="hs-identifier hs-var">pm2</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079895"><span class="hs-identifier hs-var">pm2</span></a></span><span>
+</span><span id="line-164"></span><span class="annot"><a href="Data.PolyMap.html#unionWith"><span class="hs-identifier hs-var">unionWith</span></a></span><span> </span><span class="annot"><span class="annottext">forall p. c p =&gt; f (p -&gt; a) -&gt; f (p -&gt; a) -&gt; f (p -&gt; a)
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679079896"><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079896"><span class="hs-identifier hs-var">pm1</span></a></span></span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="Data.PolyMap.html#PMNil"><span class="hs-identifier hs-var">PMNil</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079896"><span class="hs-identifier hs-var">pm1</span></a></span><span>
+</span><span id="line-165"></span><span class="annot"><a href="Data.PolyMap.html#unionWith"><span class="hs-identifier hs-var">unionWith</span></a></span><span>
+</span><span id="line-166"></span><span>  </span><span id="local-6989586621679079897"><span class="annot"><span class="annottext">forall p. c p =&gt; f (p -&gt; a) -&gt; f (p -&gt; a) -&gt; f (p -&gt; a)
+</span><a href="#local-6989586621679079897"><span class="hs-identifier hs-var">combine</span></a></span></span><span>
+</span><span id="line-167"></span><span>  </span><span id="local-6989586621679079898"><span class="annot"><span class="annottext">pm1 :: PolyMap c f a
+</span><a href="#local-6989586621679079898"><span class="hs-identifier hs-var">pm1</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Data.PolyMap.html#PMCons"><span class="hs-identifier hs-type">PMCons</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679079901"><span id="local-6989586621679079902"><span id="local-6989586621679079903"><span id="local-6989586621679079904"><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079904"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679079901"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079902"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079903"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679079905"><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079905"><span class="hs-identifier hs-var">pm1'</span></a></span></span><span class="hs-special">)</span><span>
+</span><span id="line-168"></span><span>  </span><span id="local-6989586621679079906"><span class="annot"><span class="annottext">pm2 :: PolyMap c f a
+</span><a href="#local-6989586621679079906"><span class="hs-identifier hs-var">pm2</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Data.PolyMap.html#PMCons"><span class="hs-identifier hs-type">PMCons</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679079933"><span id="local-6989586621679079934"><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079934"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679079901"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079933"><span class="hs-identifier hs-type">q</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079903"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679079935"><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079935"><span class="hs-identifier hs-var">pm2'</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-169"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a) -&gt; Maybe (f (p -&gt; a))
+forall {k1} {k2} (c :: k1 -&gt; *) (t :: k2 -&gt; k1) (t' :: k2 -&gt; k1)
+       (a :: k2).
+(Typeable t, Typeable t') =&gt;
+c (t a) -&gt; Maybe (c (t' a))
+</span><span class="hs-identifier hs-var">gcast1</span></span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079904"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-170"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679079936"><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079936"><span class="hs-identifier hs-var">v'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a) -&gt; PolyMap c f a -&gt; PolyMap c f a
+forall p (c :: * -&gt; Constraint) (f :: * -&gt; *) a.
+(Typeable p, c p) =&gt;
+f (p -&gt; a) -&gt; PolyMap c f a -&gt; PolyMap c f a
+</span><a href="Data.PolyMap.html#PMCons"><span class="hs-identifier hs-var">PMCons</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f (p -&gt; a) -&gt; f (p -&gt; a) -&gt; f (p -&gt; a)
+forall p. c p =&gt; f (p -&gt; a) -&gt; f (p -&gt; a) -&gt; f (p -&gt; a)
+</span><a href="#local-6989586621679079897"><span class="hs-identifier hs-var">combine</span></a></span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079936"><span class="hs-identifier hs-var">v'</span></a></span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079934"><span class="hs-identifier hs-var">w</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(forall p. c p =&gt; f (p -&gt; a) -&gt; f (p -&gt; a) -&gt; f (p -&gt; a))
+-&gt; PolyMap c f a -&gt; PolyMap c f a -&gt; PolyMap c f a
+forall (c :: * -&gt; Constraint) (f :: * -&gt; *) a.
+(forall p. c p =&gt; f (p -&gt; a) -&gt; f (p -&gt; a) -&gt; f (p -&gt; a))
+-&gt; PolyMap c f a -&gt; PolyMap c f a -&gt; PolyMap c f a
+</span><a href="Data.PolyMap.html#unionWith"><span class="hs-identifier hs-var">unionWith</span></a></span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a) -&gt; f (p -&gt; a) -&gt; f (p -&gt; a)
+forall p. c p =&gt; f (p -&gt; a) -&gt; f (p -&gt; a) -&gt; f (p -&gt; a)
+</span><a href="#local-6989586621679079897"><span class="hs-identifier hs-var">combine</span></a></span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079905"><span class="hs-identifier hs-var">pm1'</span></a></span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079935"><span class="hs-identifier hs-var">pm2'</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-171"></span><span>      </span><span class="annot"><span class="annottext">Maybe (f (p -&gt; a))
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-172"></span><span>        </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">p -&gt; SomeTypeRep
+forall a. Typeable a =&gt; a -&gt; SomeTypeRep
+</span><span class="hs-identifier hs-var">typeOf</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">p
+forall a. HasCallStack =&gt; a
+</span><span class="hs-identifier hs-var">undefined</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679079902"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">SomeTypeRep -&gt; SomeTypeRep -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;</span></span><span> </span><span class="annot"><span class="annottext">p -&gt; SomeTypeRep
+forall a. Typeable a =&gt; a -&gt; SomeTypeRep
+</span><span class="hs-identifier hs-var">typeOf</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">p
+forall a. HasCallStack =&gt; a
+</span><span class="hs-identifier hs-var">undefined</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679079933"><span class="hs-identifier hs-type">q</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-173"></span><span>          </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a) -&gt; PolyMap c f a -&gt; PolyMap c f a
+forall p (c :: * -&gt; Constraint) (f :: * -&gt; *) a.
+(Typeable p, c p) =&gt;
+f (p -&gt; a) -&gt; PolyMap c f a -&gt; PolyMap c f a
+</span><a href="Data.PolyMap.html#PMCons"><span class="hs-identifier hs-var">PMCons</span></a></span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079904"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(forall p. c p =&gt; f (p -&gt; a) -&gt; f (p -&gt; a) -&gt; f (p -&gt; a))
+-&gt; PolyMap c f a -&gt; PolyMap c f a -&gt; PolyMap c f a
+forall (c :: * -&gt; Constraint) (f :: * -&gt; *) a.
+(forall p. c p =&gt; f (p -&gt; a) -&gt; f (p -&gt; a) -&gt; f (p -&gt; a))
+-&gt; PolyMap c f a -&gt; PolyMap c f a -&gt; PolyMap c f a
+</span><a href="Data.PolyMap.html#unionWith"><span class="hs-identifier hs-var">unionWith</span></a></span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a) -&gt; f (p -&gt; a) -&gt; f (p -&gt; a)
+forall p. c p =&gt; f (p -&gt; a) -&gt; f (p -&gt; a) -&gt; f (p -&gt; a)
+</span><a href="#local-6989586621679079897"><span class="hs-identifier hs-var">combine</span></a></span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079905"><span class="hs-identifier hs-var">pm1'</span></a></span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079906"><span class="hs-identifier hs-var">pm2</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-174"></span><span>          </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a) -&gt; PolyMap c f a -&gt; PolyMap c f a
+forall p (c :: * -&gt; Constraint) (f :: * -&gt; *) a.
+(Typeable p, c p) =&gt;
+f (p -&gt; a) -&gt; PolyMap c f a -&gt; PolyMap c f a
+</span><a href="Data.PolyMap.html#PMCons"><span class="hs-identifier hs-var">PMCons</span></a></span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079934"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(forall p. c p =&gt; f (p -&gt; a) -&gt; f (p -&gt; a) -&gt; f (p -&gt; a))
+-&gt; PolyMap c f a -&gt; PolyMap c f a -&gt; PolyMap c f a
+forall (c :: * -&gt; Constraint) (f :: * -&gt; *) a.
+(forall p. c p =&gt; f (p -&gt; a) -&gt; f (p -&gt; a) -&gt; f (p -&gt; a))
+-&gt; PolyMap c f a -&gt; PolyMap c f a -&gt; PolyMap c f a
+</span><a href="Data.PolyMap.html#unionWith"><span class="hs-identifier hs-var">unionWith</span></a></span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a) -&gt; f (p -&gt; a) -&gt; f (p -&gt; a)
+forall p. c p =&gt; f (p -&gt; a) -&gt; f (p -&gt; a) -&gt; f (p -&gt; a)
+</span><a href="#local-6989586621679079897"><span class="hs-identifier hs-var">combine</span></a></span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079898"><span class="hs-identifier hs-var">pm1</span></a></span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079935"><span class="hs-identifier hs-var">pm2'</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-175"></span><span>
+</span><span id="line-176"></span><span id="local-6989586621679079943"><span id="local-6989586621679079944"><span id="local-6989586621679079945"><span class="annot"><a href="Data.PolyMap.html#union"><span class="hs-identifier hs-type">union</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-177"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Alternative</span></span><span> </span><span class="annot"><a href="#local-6989586621679079943"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-178"></span><span>  </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079944"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079943"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079945"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-179"></span><span>  </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079944"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079943"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079945"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-180"></span><span>  </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079944"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079943"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079945"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-181"></span><span id="union"><span class="annot"><span class="annottext">union :: forall (f :: * -&gt; *) (c :: * -&gt; Constraint) a.
+Alternative f =&gt;
+PolyMap c f a -&gt; PolyMap c f a -&gt; PolyMap c f a
+</span><a href="Data.PolyMap.html#union"><span class="hs-identifier hs-var hs-var">union</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall p. c p =&gt; f (p -&gt; a) -&gt; f (p -&gt; a) -&gt; f (p -&gt; a))
+-&gt; PolyMap c f a -&gt; PolyMap c f a -&gt; PolyMap c f a
+forall (c :: * -&gt; Constraint) (f :: * -&gt; *) a.
+(forall p. c p =&gt; f (p -&gt; a) -&gt; f (p -&gt; a) -&gt; f (p -&gt; a))
+-&gt; PolyMap c f a -&gt; PolyMap c f a -&gt; PolyMap c f a
+</span><a href="Data.PolyMap.html#unionWith"><span class="hs-identifier hs-var">unionWith</span></a></span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a) -&gt; f (p -&gt; a) -&gt; f (p -&gt; a)
+forall a. f a -&gt; f a -&gt; f a
+forall p. c p =&gt; f (p -&gt; a) -&gt; f (p -&gt; a) -&gt; f (p -&gt; a)
+forall (f :: * -&gt; *) a. Alternative f =&gt; f a -&gt; f a -&gt; f a
+</span><span class="hs-operator hs-var">(&lt;|&gt;)</span></span><span>
+</span><span id="line-182"></span><span>
+</span><span id="line-183"></span><span id="local-6989586621679079618"><span id="local-6989586621679079620"><span id="local-6989586621679079621"><span id="local-6989586621679079622"><span id="local-6989586621679079623"><span class="annot"><a href="Data.PolyMap.html#zipWith%27"><span class="hs-identifier hs-type">zipWith'</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-184"></span><span>  </span><span class="hs-special">(</span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679079619"><span class="annot"><a href="#local-6989586621679079619"><span class="hs-identifier hs-type">p</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="#local-6989586621679079618"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079619"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079620"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079619"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079621"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079620"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079619"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079622"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079620"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079619"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079623"><span class="hs-identifier hs-type">d</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-185"></span><span>  </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079618"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079620"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079621"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-186"></span><span>  </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079618"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079620"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079622"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-187"></span><span>  </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079618"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079620"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079623"><span class="hs-identifier hs-type">d</span></a></span></span></span></span></span></span><span>
+</span><span id="line-188"></span><span id="zipWith&#x27;"><span class="annot"><span class="annottext">zipWith' :: forall (c :: * -&gt; Constraint) (f :: * -&gt; *) a b d.
+(forall p.
+ c p =&gt;
+ Maybe (f (p -&gt; a)) -&gt; Maybe (f (p -&gt; b)) -&gt; Maybe (f (p -&gt; d)))
+-&gt; PolyMap c f a -&gt; PolyMap c f b -&gt; PolyMap c f d
+</span><a href="Data.PolyMap.html#zipWith%27"><span class="hs-identifier hs-var hs-var">zipWith'</span></a></span></span><span> </span><span id="local-6989586621679079949"><span class="annot"><span class="annottext">forall p.
+c p =&gt;
+Maybe (f (p -&gt; a)) -&gt; Maybe (f (p -&gt; b)) -&gt; Maybe (f (p -&gt; d))
+</span><a href="#local-6989586621679079949"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PolyMap c f a -&gt; PolyMap c f b -&gt; PolyMap c f d
+</span><a href="#local-6989586621679079950"><span class="hs-identifier hs-var">go</span></a></span><span>
+</span><span id="line-189"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-190"></span><span>    </span><span id="local-6989586621679079950"><span class="annot"><span class="annottext">go :: PolyMap c f a -&gt; PolyMap c f b -&gt; PolyMap c f d
+</span><a href="#local-6989586621679079950"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="Data.PolyMap.html#PMNil"><span class="hs-identifier hs-var">PMNil</span></a></span><span> </span><span class="annot"><span class="annottext">PolyMap c f b
+</span><a href="Data.PolyMap.html#PMNil"><span class="hs-identifier hs-var">PMNil</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PolyMap c f d
+forall (c :: * -&gt; Constraint) (f :: * -&gt; *) a. PolyMap c f a
+</span><a href="Data.PolyMap.html#PMNil"><span class="hs-identifier hs-var">PMNil</span></a></span><span>
+</span><span id="line-191"></span><span>    </span><span class="annot"><a href="#local-6989586621679079950"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="Data.PolyMap.html#PMNil"><span class="hs-identifier hs-var">PMNil</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.PolyMap.html#PMCons"><span class="hs-identifier hs-type">PMCons</span></a></span><span> </span><span id="local-6989586621679079956"><span class="annot"><span class="annottext">f (p -&gt; b)
+</span><a href="#local-6989586621679079956"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span id="local-6989586621679079957"><span class="annot"><span class="annottext">PolyMap c f b
+</span><a href="#local-6989586621679079957"><span class="hs-identifier hs-var">pm2'</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe (f (p -&gt; d)) -&gt; PolyMap c f d -&gt; PolyMap c f d
+forall (c :: * -&gt; Constraint) p (f :: * -&gt; *) a.
+(c p, Typeable p) =&gt;
+Maybe (f (p -&gt; a)) -&gt; PolyMap c f a -&gt; PolyMap c f a
+</span><a href="Data.PolyMap.html#maybeInsertHere"><span class="hs-identifier hs-var">maybeInsertHere</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe (f (p -&gt; a)) -&gt; Maybe (f (p -&gt; b)) -&gt; Maybe (f (p -&gt; d))
+forall p.
+c p =&gt;
+Maybe (f (p -&gt; a)) -&gt; Maybe (f (p -&gt; b)) -&gt; Maybe (f (p -&gt; d))
+</span><a href="#local-6989586621679079949"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (f (p -&gt; a))
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f (p -&gt; b) -&gt; Maybe (f (p -&gt; b))
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">f (p -&gt; b)
+</span><a href="#local-6989586621679079956"><span class="hs-identifier hs-var">w</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PolyMap c f a -&gt; PolyMap c f b -&gt; PolyMap c f d
+</span><a href="#local-6989586621679079950"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+forall (c :: * -&gt; Constraint) (f :: * -&gt; *) a. PolyMap c f a
+</span><a href="Data.PolyMap.html#PMNil"><span class="hs-identifier hs-var">PMNil</span></a></span><span> </span><span class="annot"><span class="annottext">PolyMap c f b
+</span><a href="#local-6989586621679079957"><span class="hs-identifier hs-var">pm2'</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-192"></span><span>    </span><span class="annot"><a href="#local-6989586621679079950"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.PolyMap.html#PMCons"><span class="hs-identifier hs-type">PMCons</span></a></span><span> </span><span id="local-6989586621679079963"><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079963"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span id="local-6989586621679079964"><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079964"><span class="hs-identifier hs-var">pm1'</span></a></span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">PolyMap c f b
+</span><a href="Data.PolyMap.html#PMNil"><span class="hs-identifier hs-var">PMNil</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe (f (p -&gt; d)) -&gt; PolyMap c f d -&gt; PolyMap c f d
+forall (c :: * -&gt; Constraint) p (f :: * -&gt; *) a.
+(c p, Typeable p) =&gt;
+Maybe (f (p -&gt; a)) -&gt; PolyMap c f a -&gt; PolyMap c f a
+</span><a href="Data.PolyMap.html#maybeInsertHere"><span class="hs-identifier hs-var">maybeInsertHere</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe (f (p -&gt; a)) -&gt; Maybe (f (p -&gt; b)) -&gt; Maybe (f (p -&gt; d))
+forall p.
+c p =&gt;
+Maybe (f (p -&gt; a)) -&gt; Maybe (f (p -&gt; b)) -&gt; Maybe (f (p -&gt; d))
+</span><a href="#local-6989586621679079949"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f (p -&gt; a) -&gt; Maybe (f (p -&gt; a))
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079963"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe (f (p -&gt; b))
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PolyMap c f a -&gt; PolyMap c f b -&gt; PolyMap c f d
+</span><a href="#local-6989586621679079950"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079964"><span class="hs-identifier hs-var">pm1'</span></a></span><span> </span><span class="annot"><span class="annottext">PolyMap c f b
+forall (c :: * -&gt; Constraint) (f :: * -&gt; *) a. PolyMap c f a
+</span><a href="Data.PolyMap.html#PMNil"><span class="hs-identifier hs-var">PMNil</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-193"></span><span>    </span><span class="annot"><a href="#local-6989586621679079950"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span id="local-6989586621679079965"><span class="annot"><span class="annottext">pm1 :: PolyMap c f a
+</span><a href="#local-6989586621679079965"><span class="hs-identifier hs-var">pm1</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Data.PolyMap.html#PMCons"><span class="hs-identifier hs-type">PMCons</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679079968"><span id="local-6989586621679079969"><span id="local-6989586621679079970"><span id="local-6989586621679079971"><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079971"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679079968"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079969"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079970"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679079972"><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079972"><span class="hs-identifier hs-var">pm1'</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679079973"><span class="annot"><span class="annottext">pm2 :: PolyMap c f b
+</span><a href="#local-6989586621679079973"><span class="hs-identifier hs-var">pm2</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Data.PolyMap.html#PMCons"><span class="hs-identifier hs-type">PMCons</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679080002"><span id="local-6989586621679080003"><span id="local-6989586621679080004"><span class="annot"><span class="annottext">f (p -&gt; b)
+</span><a href="#local-6989586621679080004"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679079968"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679080002"><span class="hs-identifier hs-type">q</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679080003"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679080005"><span class="annot"><span class="annottext">PolyMap c f b
+</span><a href="#local-6989586621679080005"><span class="hs-identifier hs-var">pm2'</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-194"></span><span>      </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a) -&gt; Maybe (f (p -&gt; a))
+forall {k1} {k2} (c :: k1 -&gt; *) (t :: k2 -&gt; k1) (t' :: k2 -&gt; k1)
+       (a :: k2).
+(Typeable t, Typeable t') =&gt;
+c (t a) -&gt; Maybe (c (t' a))
+</span><span class="hs-identifier hs-var">gcast1</span></span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079971"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-195"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679080006"><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679080006"><span class="hs-identifier hs-var">v'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe (f (p -&gt; d)) -&gt; PolyMap c f d -&gt; PolyMap c f d
+forall (c :: * -&gt; Constraint) p (f :: * -&gt; *) a.
+(c p, Typeable p) =&gt;
+Maybe (f (p -&gt; a)) -&gt; PolyMap c f a -&gt; PolyMap c f a
+</span><a href="Data.PolyMap.html#maybeInsertHere"><span class="hs-identifier hs-var">maybeInsertHere</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe (f (p -&gt; a)) -&gt; Maybe (f (p -&gt; b)) -&gt; Maybe (f (p -&gt; d))
+forall p.
+c p =&gt;
+Maybe (f (p -&gt; a)) -&gt; Maybe (f (p -&gt; b)) -&gt; Maybe (f (p -&gt; d))
+</span><a href="#local-6989586621679079949"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f (p -&gt; a) -&gt; Maybe (f (p -&gt; a))
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679080006"><span class="hs-identifier hs-var">v'</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f (p -&gt; b) -&gt; Maybe (f (p -&gt; b))
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">f (p -&gt; b)
+</span><a href="#local-6989586621679080004"><span class="hs-identifier hs-var">w</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PolyMap c f a -&gt; PolyMap c f b -&gt; PolyMap c f d
+</span><a href="#local-6989586621679079950"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079972"><span class="hs-identifier hs-var">pm1'</span></a></span><span> </span><span class="annot"><span class="annottext">PolyMap c f b
+</span><a href="#local-6989586621679080005"><span class="hs-identifier hs-var">pm2'</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-196"></span><span>        </span><span class="annot"><span class="annottext">Maybe (f (p -&gt; a))
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-197"></span><span>          </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">p -&gt; SomeTypeRep
+forall a. Typeable a =&gt; a -&gt; SomeTypeRep
+</span><span class="hs-identifier hs-var">typeOf</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">p
+forall a. HasCallStack =&gt; a
+</span><span class="hs-identifier hs-var">undefined</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679079969"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">SomeTypeRep -&gt; SomeTypeRep -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;</span></span><span> </span><span class="annot"><span class="annottext">p -&gt; SomeTypeRep
+forall a. Typeable a =&gt; a -&gt; SomeTypeRep
+</span><span class="hs-identifier hs-var">typeOf</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">p
+forall a. HasCallStack =&gt; a
+</span><span class="hs-identifier hs-var">undefined</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679080002"><span class="hs-identifier hs-type">q</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-198"></span><span>            </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">Maybe (f (p -&gt; d)) -&gt; PolyMap c f d -&gt; PolyMap c f d
+forall (c :: * -&gt; Constraint) p (f :: * -&gt; *) a.
+(c p, Typeable p) =&gt;
+Maybe (f (p -&gt; a)) -&gt; PolyMap c f a -&gt; PolyMap c f a
+</span><a href="Data.PolyMap.html#maybeInsertHere"><span class="hs-identifier hs-var">maybeInsertHere</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe (f (p -&gt; a)) -&gt; Maybe (f (p -&gt; b)) -&gt; Maybe (f (p -&gt; d))
+forall p.
+c p =&gt;
+Maybe (f (p -&gt; a)) -&gt; Maybe (f (p -&gt; b)) -&gt; Maybe (f (p -&gt; d))
+</span><a href="#local-6989586621679079949"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f (p -&gt; a) -&gt; Maybe (f (p -&gt; a))
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">f (p -&gt; a)
+</span><a href="#local-6989586621679079971"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe (f (p -&gt; b))
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PolyMap c f a -&gt; PolyMap c f b -&gt; PolyMap c f d
+</span><a href="#local-6989586621679079950"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079972"><span class="hs-identifier hs-var">pm1'</span></a></span><span> </span><span class="annot"><span class="annottext">PolyMap c f b
+</span><a href="#local-6989586621679079973"><span class="hs-identifier hs-var">pm2</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-199"></span><span>            </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">Maybe (f (p -&gt; d)) -&gt; PolyMap c f d -&gt; PolyMap c f d
+forall (c :: * -&gt; Constraint) p (f :: * -&gt; *) a.
+(c p, Typeable p) =&gt;
+Maybe (f (p -&gt; a)) -&gt; PolyMap c f a -&gt; PolyMap c f a
+</span><a href="Data.PolyMap.html#maybeInsertHere"><span class="hs-identifier hs-var">maybeInsertHere</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe (f (p -&gt; a)) -&gt; Maybe (f (p -&gt; b)) -&gt; Maybe (f (p -&gt; d))
+forall p.
+c p =&gt;
+Maybe (f (p -&gt; a)) -&gt; Maybe (f (p -&gt; b)) -&gt; Maybe (f (p -&gt; d))
+</span><a href="#local-6989586621679079949"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (f (p -&gt; a))
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f (p -&gt; b) -&gt; Maybe (f (p -&gt; b))
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">f (p -&gt; b)
+</span><a href="#local-6989586621679080004"><span class="hs-identifier hs-var">w</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PolyMap c f a -&gt; PolyMap c f b -&gt; PolyMap c f d
+</span><a href="#local-6989586621679079950"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">PolyMap c f a
+</span><a href="#local-6989586621679079965"><span class="hs-identifier hs-var">pm1</span></a></span><span> </span><span class="annot"><span class="annottext">PolyMap c f b
+</span><a href="#local-6989586621679080005"><span class="hs-identifier hs-var">pm2'</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-200"></span><span>
+</span><span id="line-201"></span><span id="local-6989586621679079633"><span id="local-6989586621679079634"><span id="local-6989586621679079635"><span id="local-6989586621679079636"><span id="local-6989586621679079637"><span class="annot"><a href="Data.PolyMap.html#zipWith"><span class="hs-identifier hs-type">zipWith</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-202"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="annot"><a href="#local-6989586621679079633"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-203"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079634"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079635"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079636"><span class="hs-identifier hs-type">d</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-204"></span><span>  </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079637"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079633"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079634"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-205"></span><span>  </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079637"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079633"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079635"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-206"></span><span>  </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079637"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079633"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079636"><span class="hs-identifier hs-type">d</span></a></span></span></span></span></span></span><span>
+</span><span id="line-207"></span><span id="zipWith"><span class="annot"><span class="annottext">zipWith :: forall (f :: * -&gt; *) a b d (c :: * -&gt; Constraint).
+Applicative f =&gt;
+(a -&gt; b -&gt; d) -&gt; PolyMap c f a -&gt; PolyMap c f b -&gt; PolyMap c f d
+</span><a href="Data.PolyMap.html#zipWith"><span class="hs-identifier hs-var hs-var">zipWith</span></a></span></span><span> </span><span id="local-6989586621679080008"><span class="annot"><span class="annottext">a -&gt; b -&gt; d
+</span><a href="#local-6989586621679080008"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall p.
+ c p =&gt;
+ Maybe (f (p -&gt; a)) -&gt; Maybe (f (p -&gt; b)) -&gt; Maybe (f (p -&gt; d)))
+-&gt; PolyMap c f a -&gt; PolyMap c f b -&gt; PolyMap c f d
+forall (c :: * -&gt; Constraint) (f :: * -&gt; *) a b d.
+(forall p.
+ c p =&gt;
+ Maybe (f (p -&gt; a)) -&gt; Maybe (f (p -&gt; b)) -&gt; Maybe (f (p -&gt; d)))
+-&gt; PolyMap c f a -&gt; PolyMap c f b -&gt; PolyMap c f d
+</span><a href="Data.PolyMap.html#zipWith%27"><span class="hs-identifier hs-var">zipWith'</span></a></span><span> </span><span class="annot"><span class="annottext">((forall p.
+  c p =&gt;
+  Maybe (f (p -&gt; a)) -&gt; Maybe (f (p -&gt; b)) -&gt; Maybe (f (p -&gt; d)))
+ -&gt; PolyMap c f a -&gt; PolyMap c f b -&gt; PolyMap c f d)
+-&gt; (forall p.
+    c p =&gt;
+    Maybe (f (p -&gt; a)) -&gt; Maybe (f (p -&gt; b)) -&gt; Maybe (f (p -&gt; d)))
+-&gt; PolyMap c f a
+-&gt; PolyMap c f b
+-&gt; PolyMap c f d
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(f (p -&gt; a) -&gt; f (p -&gt; b) -&gt; f (p -&gt; d))
+-&gt; Maybe (f (p -&gt; a)) -&gt; Maybe (f (p -&gt; b)) -&gt; Maybe (f (p -&gt; d))
+forall a b c. (a -&gt; b -&gt; c) -&gt; Maybe a -&gt; Maybe b -&gt; Maybe c
+forall (f :: * -&gt; *) a b c.
+Applicative f =&gt;
+(a -&gt; b -&gt; c) -&gt; f a -&gt; f b -&gt; f c
+</span><span class="hs-identifier hs-var">liftA2</span></span><span> </span><span class="annot"><span class="annottext">((f (p -&gt; a) -&gt; f (p -&gt; b) -&gt; f (p -&gt; d))
+ -&gt; Maybe (f (p -&gt; a)) -&gt; Maybe (f (p -&gt; b)) -&gt; Maybe (f (p -&gt; d)))
+-&gt; (f (p -&gt; a) -&gt; f (p -&gt; b) -&gt; f (p -&gt; d))
+-&gt; Maybe (f (p -&gt; a))
+-&gt; Maybe (f (p -&gt; b))
+-&gt; Maybe (f (p -&gt; d))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">((p -&gt; a) -&gt; (p -&gt; b) -&gt; p -&gt; d)
+-&gt; f (p -&gt; a) -&gt; f (p -&gt; b) -&gt; f (p -&gt; d)
+forall a b c. (a -&gt; b -&gt; c) -&gt; f a -&gt; f b -&gt; f c
+forall (f :: * -&gt; *) a b c.
+Applicative f =&gt;
+(a -&gt; b -&gt; c) -&gt; f a -&gt; f b -&gt; f c
+</span><span class="hs-identifier hs-var">liftA2</span></span><span> </span><span class="annot"><span class="annottext">(((p -&gt; a) -&gt; (p -&gt; b) -&gt; p -&gt; d)
+ -&gt; f (p -&gt; a) -&gt; f (p -&gt; b) -&gt; f (p -&gt; d))
+-&gt; ((p -&gt; a) -&gt; (p -&gt; b) -&gt; p -&gt; d)
+-&gt; f (p -&gt; a)
+-&gt; f (p -&gt; b)
+-&gt; f (p -&gt; d)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679080015"><span class="annot"><span class="annottext">p -&gt; a
+</span><a href="#local-6989586621679080015"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621679080016"><span class="annot"><span class="annottext">p -&gt; b
+</span><a href="#local-6989586621679080016"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span id="local-6989586621679080017"><span class="annot"><span class="annottext">p
+</span><a href="#local-6989586621679080017"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; b -&gt; d
+</span><a href="#local-6989586621679080008"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">p -&gt; a
+</span><a href="#local-6989586621679080015"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">p
+</span><a href="#local-6989586621679080017"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">p -&gt; b
+</span><a href="#local-6989586621679080016"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="annot"><span class="annottext">p
+</span><a href="#local-6989586621679080017"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-208"></span><span>
+</span><span id="line-209"></span><span id="local-6989586621679079649"><span id="local-6989586621679079650"><span id="local-6989586621679079651"><span id="local-6989586621679079652"><span class="annot"><a href="Data.PolyMap.html#zip"><span class="hs-identifier hs-type">zip</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-210"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="annot"><a href="#local-6989586621679079649"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-211"></span><span>  </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079650"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079649"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079651"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-212"></span><span>  </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079650"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079649"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079652"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-213"></span><span>  </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079650"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079649"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079651"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679079652"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span></span><span>
+</span><span id="line-214"></span><span id="zip"><span class="annot"><span class="annottext">zip :: forall (f :: * -&gt; *) (c :: * -&gt; Constraint) a b.
+Applicative f =&gt;
+PolyMap c f a -&gt; PolyMap c f b -&gt; PolyMap c f (a, b)
+</span><a href="Data.PolyMap.html#zip"><span class="hs-identifier hs-var hs-var">zip</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; b -&gt; (a, b))
+-&gt; PolyMap c f a -&gt; PolyMap c f b -&gt; PolyMap c f (a, b)
+forall (f :: * -&gt; *) a b d (c :: * -&gt; Constraint).
+Applicative f =&gt;
+(a -&gt; b -&gt; d) -&gt; PolyMap c f a -&gt; PolyMap c f b -&gt; PolyMap c f d
+</span><a href="Data.PolyMap.html#zipWith"><span class="hs-identifier hs-var">zipWith</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">,</span><span class="hs-special">)</span><span>
+</span><span id="line-215"></span><span>
+</span><span id="line-216"></span><span id="local-6989586621679079657"><span id="local-6989586621679079658"><span id="local-6989586621679079659"><span id="local-6989586621679079660"><span class="annot"><a href="Data.PolyMap.html#ap"><span class="hs-identifier hs-type">ap</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-217"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="annot"><a href="#local-6989586621679079657"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-218"></span><span>  </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079658"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079657"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079659"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079660"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-219"></span><span>  </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079658"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079657"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079659"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-220"></span><span>  </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PolyMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079658"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079657"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079660"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span><span>
+</span><span id="line-221"></span><span id="ap"><span class="annot"><span class="annottext">ap :: forall (f :: * -&gt; *) (c :: * -&gt; Constraint) a b.
+Applicative f =&gt;
+PolyMap c f (a -&gt; b) -&gt; PolyMap c f a -&gt; PolyMap c f b
+</span><a href="Data.PolyMap.html#ap"><span class="hs-identifier hs-var hs-var">ap</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">((a -&gt; b) -&gt; a -&gt; b)
+-&gt; PolyMap c f (a -&gt; b) -&gt; PolyMap c f a -&gt; PolyMap c f b
+forall (f :: * -&gt; *) a b d (c :: * -&gt; Constraint).
+Applicative f =&gt;
+(a -&gt; b -&gt; d) -&gt; PolyMap c f a -&gt; PolyMap c f b -&gt; PolyMap c f d
+</span><a href="Data.PolyMap.html#zipWith"><span class="hs-identifier hs-var">zipWith</span></a></span><span> </span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; a -&gt; b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">($)</span></span><span>
+</span><span id="line-222"></span></pre></body></html>

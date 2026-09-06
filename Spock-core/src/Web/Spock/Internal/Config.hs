@@ -9,6 +9,7 @@ import Network.HTTP.Types.Status
 import System.IO
 import Web.Spock.Internal.CoreAction
 import Web.Spock.Logging
+import Web.Routing.SafeRouting (SlashPolicy (..))
 import qualified Web.Spock.Internal.Wire as W
 
 data SpockConfig = SpockConfig
@@ -23,13 +24,18 @@ data SpockConfig = SpockConfig
     -- | Function that should be called to log errors.
     sc_logError :: T.Text -> IO (),
     -- | Optional request IDs and structured handler/access/error events.
-    sc_logging :: Maybe LoggingConfig
+    sc_logging :: Maybe LoggingConfig,
+    -- | Empty-segment matching. 'IgnoreSlashes' retains historical behavior.
+    -- 'StrictSlashes' distinguishes @/foo@ and @/foo/@. 'RedirectTrailingSlashes'
+    -- uses strict matching, then sends 308 if changing only the final slash
+    -- finds a route for the same method. A matching wildcard or fallback wins.
+    sc_slashPolicy :: SlashPolicy
   }
 
 -- | Default Spock configuration. No restriction on maximum request size; error
 -- handler simply prints status message as plain text and all errors are logged
 -- to stderr.
 defaultSpockConfig :: SpockConfig
-defaultSpockConfig = SpockConfig Nothing defaultHandler (T.hPutStrLn stderr) Nothing
+defaultSpockConfig = SpockConfig Nothing defaultHandler (T.hPutStrLn stderr) Nothing IgnoreSlashes
   where
     defaultHandler = bytes . statusMessage

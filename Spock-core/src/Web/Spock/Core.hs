@@ -26,11 +26,13 @@ module Web.Spock.Core
     AltVar (..),
     var,
     static,
+    trailingSlash,
     (<//>),
     wildcard,
 
     -- * Rendering routes
     renderRoute,
+    renderRouteWith,
 
     -- * Hooking routes
     prehook,
@@ -57,6 +59,7 @@ module Web.Spock.Core
 
     -- * Config
     SpockConfig (..),
+    SlashPolicy (..),
     defaultSpockConfig,
 
     -- * Internals
@@ -78,7 +81,7 @@ import qualified Network.Wai as Wai
 import qualified Network.Wai.Handler.Warp as Warp
 import System.IO
 import Web.HttpApiData
-import Web.Routing.Combinators hiding (renderRoute)
+import Web.Routing.Combinators hiding (renderRoute, renderRouteWith)
 import qualified Web.Routing.Combinators as COMB
 import Web.Routing.Router (swapMonad)
 import qualified Web.Routing.Router as AR
@@ -203,7 +206,7 @@ spockConfigT ::
   IO Wai.Middleware
 spockConfigT cfg liftFun app = do
   logger <- traverse newRequestLogger (sc_logging cfg)
-  let internalConfig = W.SpockConfigInternal (sc_maxRequestSize cfg) (errorHandler logger) (sc_logError cfg) logger
+  let internalConfig = W.SpockConfigInternal (sc_maxRequestSize cfg) (errorHandler logger) (sc_logError cfg) logger (sc_slashPolicy cfg)
   W.buildMiddleware internalConfig liftFun (baseAppHook app)
   where
     errorHandler logger status = spockAsApp $ W.buildMiddleware
@@ -296,4 +299,9 @@ middleware = addMiddleware
 
 -- | Render a route applying path pieces
 renderRoute :: AllHave ToHttpApiData as => Path as 'Open -> HVectElim as T.Text
-renderRoute route = curryExpl (pathToRep route) (T.cons '/' . COMB.renderRoute route)
+renderRoute = renderRouteWith IgnoreSlashes
+
+-- | Render with the application's slash policy. Use 'StrictSlashes' or
+-- 'RedirectTrailingSlashes' to preserve trailing and repeated literal slashes.
+renderRouteWith :: AllHave ToHttpApiData as => SlashPolicy -> Path as 'Open -> HVectElim as T.Text
+renderRouteWith policy route = curryExpl (pathToRep route) (T.cons '/' . COMB.renderRouteWith policy route)

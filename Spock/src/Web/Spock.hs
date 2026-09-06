@@ -43,11 +43,13 @@ module Web.Spock
     AltVar (..),
     var,
     static,
+    trailingSlash,
     (<//>),
     wildcard,
 
     -- * Rendering routes
     renderRoute,
+    renderRouteWith,
 
     -- * Hooking routes
     prehook,
@@ -188,7 +190,8 @@ spock spockCfg spockAppl =
             { sc_maxRequestSize = spc_maxRequestSize spockCfg,
               sc_errorHandler = spc_errorHandler spockCfg,
               sc_logError = spc_logError spockCfg,
-              sc_logging = spc_logging spockCfg
+              sc_logging = spc_logging spockCfg,
+              sc_slashPolicy = spc_slashPolicy spockCfg
             }
     spockConfigT coreConfig (\m -> runResourceT $ runReaderT (runWebStateT m) internalState) $
       do

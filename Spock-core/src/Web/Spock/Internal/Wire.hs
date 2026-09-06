@@ -24,7 +24,7 @@ import Control.Concurrent.MVar
 import Control.Concurrent.STM
 import Control.Exception
 import Control.Monad.Base
-import Control.Monad (forM_)
+import Control.Monad (forM_, guard)
 #if MIN_VERSION_mtl(2,2,0)
 import Control.Monad.Except
 #else
@@ -65,6 +65,7 @@ import qualified Network.Wai as Wai
 import qualified Network.Wai.Parse as P
 import System.IO
 import Web.Routing.Router
+import Web.Routing.SafeRouting (SlashPolicy (..))
 import Web.Spock.Logging
 
 newtype HttpMethod = HttpMethod {unHttpMethod :: StdMethod}
@@ -318,12 +319,13 @@ data SpockConfigInternal = SpockConfigInternal
   { sci_maxRequestSize :: Maybe Word64,
     sci_errorHandler :: Status -> IO Wai.Application,
     sci_logError :: T.Text -> IO (),
-    sci_requestLogger :: Maybe RequestLogger
+    sci_requestLogger :: Maybe RequestLogger,
+    sci_slashPolicy :: SlashPolicy
   }
 
 defaultSpockConfigInternal :: SpockConfigInternal
 defaultSpockConfigInternal =
-  SpockConfigInternal Nothing defaultErrorHandler (T.hPutStrLn stderr) Nothing
+  SpockConfigInternal Nothing defaultErrorHandler (T.hPutStrLn stderr) Nothing IgnoreSlashes
   where
     defaultErrorHandler status = return $ \_ respond ->
       do
@@ -601,7 +603,7 @@ buildMiddleware ::
 buildMiddleware config registryLift spockActions =
   do
     (_, getMatchingRoutes, middlewares) <-
-      registryLift $ runRegistry spockActions
+      registryLift $ runRegistryWith (sci_slashPolicy config) spockActions
     let spockMiddleware = foldl (.) id middlewares
         app :: Wai.Application -> Wai.Application
         app coreApp req respond =
@@ -609,11 +611,30 @@ buildMiddleware config registryLift spockActions =
             \method ->
               do
                 let allActions = getMatchingRoutes method (Wai.pathInfo req)
-                runResourceT $
-                  withInternalState $ \st ->
-                    handleRequest config method registryLift allActions st coreApp req respond
+                    redirectTarget = do
+                      guard (sci_slashPolicy config == RedirectTrailingSlashes && null allActions)
+                      target <- alternateSlashPath (Wai.rawPathInfo req)
+                      let pieces = Wai.pathInfo req
+                          alternate = if BS.last (Wai.rawPathInfo req) == 47
+                            then take (length pieces - 1) pieces else pieces ++ [""]
+                      guard (not $ null $ getMatchingRoutes method alternate)
+                      pure (target <> Wai.rawQueryString req)
+                case redirectTarget of
+                  Just target -> respond $ Wai.responseLBS status308 [("Location", target)] ""
+                  Nothing -> runResourceT $
+                    withInternalState $ \st ->
+                      handleRequest config method registryLift allActions st coreApp req respond
     let logging = maybe id requestLoggingMiddleware (sci_requestLogger config)
     return $ logging . spockMiddleware . app
+
+-- Keep the request's encoding verbatim and avoid network-path references or
+-- browser backslash normalization. Root is never redirected to an empty URL.
+alternateSlashPath :: BS.ByteString -> Maybe BS.ByteString
+alternateSlashPath path
+  | BS.null path || path == "/" || not ("/" `BS.isPrefixOf` path) = Nothing
+  | "//" `BS.isPrefixOf` path || BS.elem 92 path = Nothing
+  | BS.last path == 47 = Just (BS.init path)
+  | otherwise = Just (path <> "/")
 
 withSpockMethod :: forall t. Method -> (SpockMethod -> t) -> t
 withSpockMethod method cnt =

@@ -153,6 +153,18 @@ spec =
     do
       sessionSpec
       poolSpec
+      describe "Full Spock slash policy" $
+        Test.with (do
+          cfg <- defaultSpockCfg () PCNoDatabase ()
+          spockAsApp $ spock (cfg { spc_slashPolicy = RedirectTrailingSlashes }) $ do
+            get "directory/" $ text "directory"
+            get "file" $ text "file"
+            get "file/" $ text "other") $
+          it "forwards strict matching and canonical redirects to the core" $ do
+            Test.get "/directory" `Test.shouldRespondWith` 308 { Test.matchHeaders = ["Location" Test.<:> "/directory/"] }
+            Test.get "/directory/" `Test.shouldRespondWith` "directory"
+            Test.get "/file" `Test.shouldRespondWith` "file"
+            Test.get "/file/" `Test.shouldRespondWith` "other"
       describe "Full Spock logging" $
         it "passes the logging configuration to handlers and access logs" $ do
           events <- newIORef []

@@ -1,0 +1,523 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE CPP #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DataKinds #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE GADTs #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE KindSignatures #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE TypeFamilies #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE TypeOperators #-}</span><span>
+</span><span id="line-8"></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Web.Routing.Combinators.html"><span class="hs-identifier">Web.Routing.Combinators</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-10"></span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.HVect</span></span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">fromMaybe</span></span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.String</span></span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Typeable</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Typeable</span></span><span class="hs-special">)</span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Web.HttpApiData</span></span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html"><span class="hs-identifier">Web.Routing.SafeRouting</span></a></span><span>
+</span><span id="line-18"></span><span>
+</span><span id="line-19"></span><span class="hs-keyword">data</span><span> </span><span id="PathState"><span class="annot"><a href="Web.Routing.Combinators.html#PathState"><span class="hs-identifier hs-var">PathState</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Open"><span class="annot"><a href="Web.Routing.Combinators.html#Open"><span class="hs-identifier hs-var">Open</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="Closed"><span class="annot"><a href="Web.Routing.Combinators.html#Closed"><span class="hs-identifier hs-var">Closed</span></a></span></span><span>
+</span><span id="line-20"></span><span>
+</span><span id="line-21"></span><span class="hs-keyword">data</span><span> </span><span id="Path"><span class="annot"><a href="Web.Routing.Combinators.html#Path"><span class="hs-identifier hs-var">Path</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679081554"><span class="annot"><a href="#local-6989586621679081554"><span class="hs-keyword hs-type">as</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-operator">*</span></span><span class="hs-special">]</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679081555"><span class="annot"><a href="#local-6989586621679081555"><span class="hs-identifier hs-type">pathState</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Routing.Combinators.html#PathState"><span class="hs-identifier hs-type">PathState</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-22"></span><span>  </span><span id="Empty"><span class="annot"><a href="Web.Routing.Combinators.html#Empty"><span class="hs-identifier hs-var">Empty</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Routing.Combinators.html#Path"><span class="hs-identifier hs-type">Path</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Web.Routing.Combinators.html#Open"><span class="hs-identifier hs-type">Open</span></a></span><span>
+</span><span id="line-23"></span><span>  </span><span id="local-6989586621679081488"><span id="local-6989586621679081489"><span id="StaticCons"><span class="annot"><a href="Web.Routing.Combinators.html#StaticCons"><span class="hs-identifier hs-var">StaticCons</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.Combinators.html#Path"><span class="hs-identifier hs-type">Path</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081488"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081489"><span class="hs-identifier hs-type">ps</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.Combinators.html#Path"><span class="hs-identifier hs-type">Path</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081488"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081489"><span class="hs-identifier hs-type">ps</span></a></span></span></span><span>
+</span><span id="line-24"></span><span>  </span><span id="local-6989586621679081478"><span id="local-6989586621679081558"><span id="local-6989586621679081559"><span id="VarCons"><span class="annot"><a href="Web.Routing.Combinators.html#VarCons"><span class="hs-identifier hs-var">VarCons</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">FromHttpApiData</span></span><span> </span><span class="annot"><a href="#local-6989586621679081558"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Typeable</span></span><span> </span><span class="annot"><a href="#local-6989586621679081558"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Web.Routing.Combinators.html#Path"><span class="hs-identifier hs-type">Path</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081559"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081478"><span class="hs-identifier hs-type">ps</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.Combinators.html#Path"><span class="hs-identifier hs-type">Path</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679081558"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-glyph">:</span><span> </span><span class="annot"><a href="#local-6989586621679081559"><span class="hs-keyword hs-type">as</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679081478"><span class="hs-identifier hs-type">ps</span></a></span></span></span></span><span>
+</span><span id="line-25"></span><span>  </span><span id="local-6989586621679081561"><span id="Wildcard"><span class="annot"><a href="Web.Routing.Combinators.html#Wildcard"><span class="hs-identifier hs-var">Wildcard</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Routing.Combinators.html#Path"><span class="hs-identifier hs-type">Path</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081561"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Web.Routing.Combinators.html#Open"><span class="hs-identifier hs-type">Open</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.Combinators.html#Path"><span class="hs-identifier hs-type">Path</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="hs-special">'</span><span class="hs-glyph">:</span><span> </span><span class="annot"><a href="#local-6989586621679081561"><span class="hs-keyword hs-type">as</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Web.Routing.Combinators.html#Closed"><span class="hs-identifier hs-type">Closed</span></a></span></span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span id="local-6989586621679081420"><span id="local-6989586621679081421"><span class="annot"><a href="Web.Routing.Combinators.html#toInternalPath"><span class="hs-identifier hs-type">toInternalPath</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Routing.Combinators.html#Path"><span class="hs-identifier hs-type">Path</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081420"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081421"><span class="hs-identifier hs-type">pathState</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathInternal"><span class="hs-identifier hs-type">PathInternal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081420"><span class="hs-keyword hs-type">as</span></a></span></span></span><span>
+</span><span id="line-28"></span><span id="toInternalPath"><span class="annot"><span class="annottext">toInternalPath :: forall (as :: [*]) (pathState :: PathState).
+Path as pathState -&gt; PathInternal as
+</span><a href="Web.Routing.Combinators.html#toInternalPath"><span class="hs-identifier hs-var hs-var">toInternalPath</span></a></span></span><span> </span><span class="annot"><span class="annottext">Path as pathState
+</span><a href="Web.Routing.Combinators.html#Empty"><span class="hs-identifier hs-var">Empty</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PathInternal as
+PathInternal '[]
+</span><a href="Web.Routing.SafeRouting.html#PI_Empty"><span class="hs-identifier hs-var">PI_Empty</span></a></span><span>
+</span><span id="line-29"></span><span class="annot"><a href="Web.Routing.Combinators.html#toInternalPath"><span class="hs-identifier hs-var">toInternalPath</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.Combinators.html#StaticCons"><span class="hs-identifier hs-type">StaticCons</span></a></span><span> </span><span id="local-6989586621679081567"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679081567"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span id="local-6989586621679081568"><span class="annot"><span class="annottext">Path as pathState
+</span><a href="#local-6989586621679081568"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; PathInternal as -&gt; PathInternal as
+forall (as :: [*]). Text -&gt; PathInternal as -&gt; PathInternal as
+</span><a href="Web.Routing.SafeRouting.html#PI_StaticCons"><span class="hs-identifier hs-var">PI_StaticCons</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679081567"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Path as pathState -&gt; PathInternal as
+forall (as :: [*]) (pathState :: PathState).
+Path as pathState -&gt; PathInternal as
+</span><a href="Web.Routing.Combinators.html#toInternalPath"><span class="hs-identifier hs-var">toInternalPath</span></a></span><span> </span><span class="annot"><span class="annottext">Path as pathState
+</span><a href="#local-6989586621679081568"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-30"></span><span class="annot"><a href="Web.Routing.Combinators.html#toInternalPath"><span class="hs-identifier hs-var">toInternalPath</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.Combinators.html#VarCons"><span class="hs-identifier hs-type">VarCons</span></a></span><span> </span><span id="local-6989586621679081575"><span class="annot"><span class="annottext">Path as pathState
+</span><a href="#local-6989586621679081575"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PathInternal as -&gt; PathInternal (a : as)
+forall a (as1 :: [*]).
+(FromHttpApiData a, Typeable a) =&gt;
+PathInternal as1 -&gt; PathInternal (a : as1)
+</span><a href="Web.Routing.SafeRouting.html#PI_VarCons"><span class="hs-identifier hs-var">PI_VarCons</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Path as pathState -&gt; PathInternal as
+forall (as :: [*]) (pathState :: PathState).
+Path as pathState -&gt; PathInternal as
+</span><a href="Web.Routing.Combinators.html#toInternalPath"><span class="hs-identifier hs-var">toInternalPath</span></a></span><span> </span><span class="annot"><span class="annottext">Path as pathState
+</span><a href="#local-6989586621679081575"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-31"></span><span class="annot"><a href="Web.Routing.Combinators.html#toInternalPath"><span class="hs-identifier hs-var">toInternalPath</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.Combinators.html#Wildcard"><span class="hs-identifier hs-type">Wildcard</span></a></span><span> </span><span id="local-6989586621679081579"><span class="annot"><span class="annottext">Path as 'Open
+</span><a href="#local-6989586621679081579"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PathInternal as -&gt; PathInternal (Text : as)
+forall (as1 :: [*]). PathInternal as1 -&gt; PathInternal (Text : as1)
+</span><a href="Web.Routing.SafeRouting.html#PI_Wildcard"><span class="hs-identifier hs-var">PI_Wildcard</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Path as 'Open -&gt; PathInternal as
+forall (as :: [*]) (pathState :: PathState).
+Path as pathState -&gt; PathInternal as
+</span><a href="Web.Routing.Combinators.html#toInternalPath"><span class="hs-identifier hs-var">toInternalPath</span></a></span><span> </span><span class="annot"><span class="annottext">Path as 'Open
+</span><a href="#local-6989586621679081579"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span class="hs-keyword">type</span><span> </span><span id="Var"><span class="annot"><a href="Web.Routing.Combinators.html#Var"><span class="hs-identifier hs-var">Var</span></a></span></span><span> </span><span id="local-6989586621679081582"><span class="annot"><a href="#local-6989586621679081582"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Web.Routing.Combinators.html#Path"><span class="hs-identifier hs-type">Path</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679081582"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-glyph">:</span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="hs-special">]</span><span class="hs-special">)</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Web.Routing.Combinators.html#Open"><span class="hs-identifier hs-type">Open</span></a></span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span class="hs-comment">-- | A variant of 'Either' with a 'FromHttpApiData' definition that tries both branches without a prefix.</span><span>
+</span><span id="line-36"></span><span class="hs-comment">-- Useful to define routes with 'var's that should work with different types.</span><span>
+</span><span id="line-37"></span><span class="hs-keyword">data</span><span> </span><span id="AltVar"><span class="annot"><a href="Web.Routing.Combinators.html#AltVar"><span class="hs-identifier hs-var">AltVar</span></a></span></span><span> </span><span id="local-6989586621679081473"><span class="annot"><a href="#local-6989586621679081473"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679081472"><span class="annot"><a href="#local-6989586621679081472"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="AvLeft"><span class="annot"><a href="Web.Routing.Combinators.html#AvLeft"><span class="hs-identifier hs-var">AvLeft</span></a></span></span><span> </span><span class="annot"><a href="#local-6989586621679081473"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="AvRight"><span class="annot"><a href="Web.Routing.Combinators.html#AvRight"><span class="hs-identifier hs-var">AvRight</span></a></span></span><span> </span><span class="annot"><a href="#local-6989586621679081472"><span class="hs-identifier hs-type">b</span></a></span><span>
+</span><span id="line-38"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679081589"><span id="local-6989586621679081596"><span id="local-6989586621679081602"><span class="annot"><span class="annottext">Int -&gt; AltVar a b -&gt; ShowS
+[AltVar a b] -&gt; ShowS
+AltVar a b -&gt; String
+(Int -&gt; AltVar a b -&gt; ShowS)
+-&gt; (AltVar a b -&gt; String)
+-&gt; ([AltVar a b] -&gt; ShowS)
+-&gt; Show (AltVar a b)
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+forall a b. (Show a, Show b) =&gt; Int -&gt; AltVar a b -&gt; ShowS
+forall a b. (Show a, Show b) =&gt; [AltVar a b] -&gt; ShowS
+forall a b. (Show a, Show b) =&gt; AltVar a b -&gt; String
+$cshowsPrec :: forall a b. (Show a, Show b) =&gt; Int -&gt; AltVar a b -&gt; ShowS
+showsPrec :: Int -&gt; AltVar a b -&gt; ShowS
+$cshow :: forall a b. (Show a, Show b) =&gt; AltVar a b -&gt; String
+show :: AltVar a b -&gt; String
+$cshowList :: forall a b. (Show a, Show b) =&gt; [AltVar a b] -&gt; ShowS
+showList :: [AltVar a b] -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679081611"><span id="local-6989586621679081618"><span class="annot"><span class="annottext">AltVar a b -&gt; AltVar a b -&gt; Bool
+(AltVar a b -&gt; AltVar a b -&gt; Bool)
+-&gt; (AltVar a b -&gt; AltVar a b -&gt; Bool) -&gt; Eq (AltVar a b)
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+forall a b. (Eq a, Eq b) =&gt; AltVar a b -&gt; AltVar a b -&gt; Bool
+$c== :: forall a b. (Eq a, Eq b) =&gt; AltVar a b -&gt; AltVar a b -&gt; Bool
+== :: AltVar a b -&gt; AltVar a b -&gt; Bool
+$c/= :: forall a b. (Eq a, Eq b) =&gt; AltVar a b -&gt; AltVar a b -&gt; Bool
+/= :: AltVar a b -&gt; AltVar a b -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679081627"><span id="local-6989586621679081633"><span id="local-6989586621679081638"><span id="local-6989586621679081649"><span class="annot"><span class="annottext">ReadPrec [AltVar a b]
+ReadPrec (AltVar a b)
+Int -&gt; ReadS (AltVar a b)
+ReadS [AltVar a b]
+(Int -&gt; ReadS (AltVar a b))
+-&gt; ReadS [AltVar a b]
+-&gt; ReadPrec (AltVar a b)
+-&gt; ReadPrec [AltVar a b]
+-&gt; Read (AltVar a b)
+forall a.
+(Int -&gt; ReadS a)
+-&gt; ReadS [a] -&gt; ReadPrec a -&gt; ReadPrec [a] -&gt; Read a
+forall a b. (Read a, Read b) =&gt; ReadPrec [AltVar a b]
+forall a b. (Read a, Read b) =&gt; ReadPrec (AltVar a b)
+forall a b. (Read a, Read b) =&gt; Int -&gt; ReadS (AltVar a b)
+forall a b. (Read a, Read b) =&gt; ReadS [AltVar a b]
+$creadsPrec :: forall a b. (Read a, Read b) =&gt; Int -&gt; ReadS (AltVar a b)
+readsPrec :: Int -&gt; ReadS (AltVar a b)
+$creadList :: forall a b. (Read a, Read b) =&gt; ReadS [AltVar a b]
+readList :: ReadS [AltVar a b]
+$creadPrec :: forall a b. (Read a, Read b) =&gt; ReadPrec (AltVar a b)
+readPrec :: ReadPrec (AltVar a b)
+$creadListPrec :: forall a b. (Read a, Read b) =&gt; ReadPrec [AltVar a b]
+readListPrec :: ReadPrec [AltVar a b]
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Read</span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679081664"><span id="local-6989586621679081668"><span id="local-6989586621679081672"><span id="local-6989586621679081678"><span id="local-6989586621679081683"><span id="local-6989586621679081688"><span id="local-6989586621679081693"><span class="annot"><span class="annottext">Eq (AltVar a b)
+Eq (AltVar a b) =&gt;
+(AltVar a b -&gt; AltVar a b -&gt; Ordering)
+-&gt; (AltVar a b -&gt; AltVar a b -&gt; Bool)
+-&gt; (AltVar a b -&gt; AltVar a b -&gt; Bool)
+-&gt; (AltVar a b -&gt; AltVar a b -&gt; Bool)
+-&gt; (AltVar a b -&gt; AltVar a b -&gt; Bool)
+-&gt; (AltVar a b -&gt; AltVar a b -&gt; AltVar a b)
+-&gt; (AltVar a b -&gt; AltVar a b -&gt; AltVar a b)
+-&gt; Ord (AltVar a b)
+AltVar a b -&gt; AltVar a b -&gt; Bool
+AltVar a b -&gt; AltVar a b -&gt; Ordering
+AltVar a b -&gt; AltVar a b -&gt; AltVar a b
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+forall a b. (Ord a, Ord b) =&gt; Eq (AltVar a b)
+forall a b. (Ord a, Ord b) =&gt; AltVar a b -&gt; AltVar a b -&gt; Bool
+forall a b. (Ord a, Ord b) =&gt; AltVar a b -&gt; AltVar a b -&gt; Ordering
+forall a b.
+(Ord a, Ord b) =&gt;
+AltVar a b -&gt; AltVar a b -&gt; AltVar a b
+$ccompare :: forall a b. (Ord a, Ord b) =&gt; AltVar a b -&gt; AltVar a b -&gt; Ordering
+compare :: AltVar a b -&gt; AltVar a b -&gt; Ordering
+$c&lt; :: forall a b. (Ord a, Ord b) =&gt; AltVar a b -&gt; AltVar a b -&gt; Bool
+&lt; :: AltVar a b -&gt; AltVar a b -&gt; Bool
+$c&lt;= :: forall a b. (Ord a, Ord b) =&gt; AltVar a b -&gt; AltVar a b -&gt; Bool
+&lt;= :: AltVar a b -&gt; AltVar a b -&gt; Bool
+$c&gt; :: forall a b. (Ord a, Ord b) =&gt; AltVar a b -&gt; AltVar a b -&gt; Bool
+&gt; :: AltVar a b -&gt; AltVar a b -&gt; Bool
+$c&gt;= :: forall a b. (Ord a, Ord b) =&gt; AltVar a b -&gt; AltVar a b -&gt; Bool
+&gt;= :: AltVar a b -&gt; AltVar a b -&gt; Bool
+$cmax :: forall a b.
+(Ord a, Ord b) =&gt;
+AltVar a b -&gt; AltVar a b -&gt; AltVar a b
+max :: AltVar a b -&gt; AltVar a b -&gt; AltVar a b
+$cmin :: forall a b.
+(Ord a, Ord b) =&gt;
+AltVar a b -&gt; AltVar a b -&gt; AltVar a b
+min :: AltVar a b -&gt; AltVar a b -&gt; AltVar a b
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679081466"><span id="local-6989586621679081467"><span id="local-6989586621679081709"><span id="local-6989586621679081715"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">FromHttpApiData</span></span><span> </span><span class="annot"><a href="#local-6989586621679081466"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FromHttpApiData</span></span><span> </span><span class="annot"><a href="#local-6989586621679081467"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FromHttpApiData</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.Combinators.html#AltVar"><span class="hs-identifier hs-type">AltVar</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081466"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081467"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-41"></span><span>  </span><span id="local-6989586621679081726"><span class="annot"><span class="annottext">parseUrlPiece :: Text -&gt; Either Text (AltVar a b)
+</span><a href="#local-6989586621679081726"><span class="hs-identifier hs-var hs-var hs-var">parseUrlPiece</span></a></span></span><span> </span><span id="local-6989586621679081728"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679081728"><span class="hs-identifier hs-var">val</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-42"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Either Text a
+forall a. FromHttpApiData a =&gt; Text -&gt; Either Text a
+</span><span class="hs-identifier hs-var">parseUrlPiece</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679081728"><span class="hs-identifier hs-var">val</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-43"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">Left</span></span><span> </span><span id="local-6989586621679081729"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679081729"><span class="hs-identifier hs-var">err</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-44"></span><span>        </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Either Text b
+forall a. FromHttpApiData a =&gt; Text -&gt; Either Text a
+</span><span class="hs-identifier hs-var">parseUrlPiece</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679081728"><span class="hs-identifier hs-var">val</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-45"></span><span>          </span><span class="annot"><span class="hs-identifier hs-type">Left</span></span><span> </span><span id="local-6989586621679081730"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679081730"><span class="hs-identifier hs-var">err2</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Either Text (AltVar a b)
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679081729"><span class="hs-identifier hs-var">err</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot; &quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679081730"><span class="hs-identifier hs-var">err2</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-46"></span><span>          </span><span class="annot"><span class="hs-identifier hs-type">Right</span></span><span> </span><span id="local-6989586621679081731"><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621679081731"><span class="hs-identifier hs-var">ok</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">AltVar a b -&gt; Either Text (AltVar a b)
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">b -&gt; AltVar a b
+forall a b. b -&gt; AltVar a b
+</span><a href="Web.Routing.Combinators.html#AvRight"><span class="hs-identifier hs-var">AvRight</span></a></span><span> </span><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621679081731"><span class="hs-identifier hs-var">ok</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-47"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">Right</span></span><span> </span><span id="local-6989586621679081732"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679081732"><span class="hs-identifier hs-var">ok</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">AltVar a b -&gt; Either Text (AltVar a b)
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; AltVar a b
+forall a b. a -&gt; AltVar a b
+</span><a href="Web.Routing.Combinators.html#AvLeft"><span class="hs-identifier hs-var">AvLeft</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679081732"><span class="hs-identifier hs-var">ok</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-48"></span><span>
+</span><span id="line-49"></span><span class="annot"><span class="hs-comment">-- | A route parameter</span></span><span>
+</span><span id="line-50"></span><span id="local-6989586621679081474"><span class="annot"><a href="Web.Routing.Combinators.html#var"><span class="hs-identifier hs-type">var</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Typeable</span></span><span> </span><span class="annot"><a href="#local-6989586621679081474"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FromHttpApiData</span></span><span> </span><span class="annot"><a href="#local-6989586621679081474"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Web.Routing.Combinators.html#Path"><span class="hs-identifier hs-type">Path</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679081474"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-glyph">:</span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="hs-special">]</span><span class="hs-special">)</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Web.Routing.Combinators.html#Open"><span class="hs-identifier hs-type">Open</span></a></span></span><span>
+</span><span id="line-51"></span><span id="var"><span class="annot"><span class="annottext">var :: forall a. (Typeable a, FromHttpApiData a) =&gt; Path '[a] 'Open
+</span><a href="Web.Routing.Combinators.html#var"><span class="hs-identifier hs-var hs-var">var</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Path '[] 'Open -&gt; Path '[a] 'Open
+forall as (as :: [*]) (ps :: PathState).
+(FromHttpApiData as, Typeable as) =&gt;
+Path as ps -&gt; Path (as : as) ps
+</span><a href="Web.Routing.Combinators.html#VarCons"><span class="hs-identifier hs-var">VarCons</span></a></span><span> </span><span class="annot"><span class="annottext">Path '[] 'Open
+</span><a href="Web.Routing.Combinators.html#Empty"><span class="hs-identifier hs-var">Empty</span></a></span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span class="hs-comment">-- | A static route piece. One leading slash is optional. Empty internal and</span><span>
+</span><span id="line-54"></span><span class="hs-comment">-- trailing pieces are retained for strict routing; compatibility routing and</span><span>
+</span><span id="line-55"></span><span class="hs-comment">-- 'renderRoute' ignore them. Use 'renderRouteWith' with the application's policy.</span><span>
+</span><span id="line-56"></span><span class="annot"><a href="Web.Routing.Combinators.html#static"><span class="hs-identifier hs-type">static</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.Combinators.html#Path"><span class="hs-identifier hs-type">Path</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Web.Routing.Combinators.html#Open"><span class="hs-identifier hs-type">Open</span></a></span><span>
+</span><span id="line-57"></span><span id="static"><span class="annot"><span class="annottext">static :: String -&gt; Path '[] 'Open
+</span><a href="Web.Routing.Combinators.html#static"><span class="hs-identifier hs-var hs-var">static</span></a></span></span><span> </span><span id="local-6989586621679081740"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679081740"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-58"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679081741"><span class="annot"><span class="annottext">relative :: Text
+</span><a href="#local-6989586621679081741"><span class="hs-identifier hs-var hs-var">relative</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Maybe Text -&gt; Text
+forall a. a -&gt; Maybe a -&gt; a
+</span><span class="hs-identifier hs-var">fromMaybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; Text
+</span><span class="hs-identifier hs-var">T.pack</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679081740"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Maybe Text -&gt; Text) -&gt; Maybe Text -&gt; Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Maybe Text
+</span><span class="hs-identifier hs-var">T.stripPrefix</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;/&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Maybe Text) -&gt; Text -&gt; Maybe Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Text
+</span><span class="hs-identifier hs-var">T.pack</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679081740"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-59"></span><span>      </span><span id="local-6989586621679081744"><span class="annot"><span class="annottext">pieces :: [Text]
+</span><a href="#local-6989586621679081744"><span class="hs-identifier hs-var hs-var">pieces</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Bool
+</span><span class="hs-identifier hs-var">T.null</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679081741"><span class="hs-identifier hs-var">relative</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; Text -&gt; Text -&gt; [Text]
+Text -&gt; Text -&gt; [Text]
+</span><span class="hs-identifier hs-var">T.splitOn</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;/&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679081741"><span class="hs-identifier hs-var">relative</span></a></span><span>
+</span><span id="line-60"></span><span>   </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Path '[] 'Open -&gt; Path '[] 'Open)
+-&gt; Path '[] 'Open -&gt; [Text] -&gt; Path '[] 'Open
+forall a b. (a -&gt; b -&gt; b) -&gt; b -&gt; [a] -&gt; b
+forall (t :: * -&gt; *) a b.
+Foldable t =&gt;
+(a -&gt; b -&gt; b) -&gt; b -&gt; t a -&gt; b
+</span><span class="hs-identifier hs-var">foldr</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Path '[] 'Open -&gt; Path '[] 'Open
+forall (as :: [*]) (ps :: PathState).
+Text -&gt; Path as ps -&gt; Path as ps
+</span><a href="Web.Routing.Combinators.html#StaticCons"><span class="hs-identifier hs-var">StaticCons</span></a></span><span> </span><span class="annot"><span class="annottext">Path '[] 'Open
+</span><a href="Web.Routing.Combinators.html#Empty"><span class="hs-identifier hs-var">Empty</span></a></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679081744"><span class="hs-identifier hs-var">pieces</span></a></span><span>
+</span><span id="line-61"></span><span>
+</span><span id="line-62"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679081492"><span id="local-6989586621679081493"><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679081492"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">~</span></span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="hs-special">]</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679081493"><span class="hs-identifier hs-type">pathState</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">~</span></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Web.Routing.Combinators.html#Open"><span class="hs-identifier hs-type">Open</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsString</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.Combinators.html#Path"><span class="hs-identifier hs-type">Path</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081492"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081493"><span class="hs-identifier hs-type">pathState</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-63"></span><span>  </span><span id="local-6989586621679081755"><span class="annot"><span class="annottext">fromString :: String -&gt; Path a pathState
+</span><span class="hs-identifier hs-var hs-var hs-var">fromString</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Path a pathState
+String -&gt; Path '[] 'Open
+</span><a href="Web.Routing.Combinators.html#static"><span class="hs-identifier hs-var">static</span></a></span><span>
+</span><span id="line-64"></span><span>
+</span><span id="line-65"></span><span class="annot"><span class="hs-comment">-- | The root of a path piece. Use to define a handler for &quot;/&quot;</span></span><span>
+</span><span id="line-66"></span><span class="annot"><a href="Web.Routing.Combinators.html#root"><span class="hs-identifier hs-type">root</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Routing.Combinators.html#Path"><span class="hs-identifier hs-type">Path</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Web.Routing.Combinators.html#Open"><span class="hs-identifier hs-type">Open</span></a></span><span>
+</span><span id="line-67"></span><span id="root"><span class="annot"><span class="annottext">root :: Path '[] 'Open
+</span><a href="Web.Routing.Combinators.html#root"><span class="hs-identifier hs-var hs-var">root</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Path '[] 'Open
+</span><a href="Web.Routing.Combinators.html#Empty"><span class="hs-identifier hs-var">Empty</span></a></span><span>
+</span><span id="line-68"></span><span>
+</span><span id="line-69"></span><span class="hs-comment">-- | Require a trailing slash in strict routing, including after a capture.</span><span>
+</span><span id="line-70"></span><span class="hs-comment">-- Root remains root, and a path already ending in a slash is unchanged.</span><span>
+</span><span id="line-71"></span><span id="local-6989586621679081496"><span class="annot"><a href="Web.Routing.Combinators.html#trailingSlash"><span class="hs-identifier hs-type">trailingSlash</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Routing.Combinators.html#Path"><span class="hs-identifier hs-type">Path</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081496"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Web.Routing.Combinators.html#Open"><span class="hs-identifier hs-type">Open</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.Combinators.html#Path"><span class="hs-identifier hs-type">Path</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081496"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Web.Routing.Combinators.html#Open"><span class="hs-identifier hs-type">Open</span></a></span></span><span>
+</span><span id="line-72"></span><span id="trailingSlash"><span class="annot"><span class="annottext">trailingSlash :: forall (as :: [*]). Path as 'Open -&gt; Path as 'Open
+</span><a href="Web.Routing.Combinators.html#trailingSlash"><span class="hs-identifier hs-var hs-var">trailingSlash</span></a></span></span><span> </span><span class="annot"><span class="annottext">Path as 'Open
+</span><a href="Web.Routing.Combinators.html#Empty"><span class="hs-identifier hs-var">Empty</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Path as 'Open
+Path '[] 'Open
+</span><a href="Web.Routing.Combinators.html#Empty"><span class="hs-identifier hs-var">Empty</span></a></span><span>
+</span><span id="line-73"></span><span class="annot"><a href="Web.Routing.Combinators.html#trailingSlash"><span class="hs-identifier hs-var">trailingSlash</span></a></span><span> </span><span id="local-6989586621679081760"><span class="annot"><span class="annottext">Path as 'Open
+</span><a href="#local-6989586621679081760"><span class="hs-identifier hs-var">path</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Path as 'Open -&gt; Path as 'Open
+forall (as :: [*]). Path as 'Open -&gt; Path as 'Open
+</span><a href="#local-6989586621679081761"><span class="hs-identifier hs-var">appendSlash</span></a></span><span> </span><span class="annot"><span class="annottext">Path as 'Open
+</span><a href="#local-6989586621679081760"><span class="hs-identifier hs-var">path</span></a></span><span>
+</span><span id="line-74"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-75"></span><span>    </span><span id="local-6989586621679081762"><span class="annot"><a href="#local-6989586621679081761"><span class="hs-identifier hs-type">appendSlash</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Routing.Combinators.html#Path"><span class="hs-identifier hs-type">Path</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081762"><span class="hs-identifier hs-type">xs</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Web.Routing.Combinators.html#Open"><span class="hs-identifier hs-type">Open</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.Combinators.html#Path"><span class="hs-identifier hs-type">Path</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081762"><span class="hs-identifier hs-type">xs</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Web.Routing.Combinators.html#Open"><span class="hs-identifier hs-type">Open</span></a></span></span><span>
+</span><span id="line-76"></span><span>    </span><span id="local-6989586621679081761"><span class="annot"><span class="annottext">appendSlash :: forall (as :: [*]). Path as 'Open -&gt; Path as 'Open
+</span><a href="#local-6989586621679081761"><span class="hs-identifier hs-var hs-var">appendSlash</span></a></span></span><span> </span><span class="annot"><span class="annottext">Path xs 'Open
+</span><a href="Web.Routing.Combinators.html#Empty"><span class="hs-identifier hs-var">Empty</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Path xs 'Open -&gt; Path xs 'Open
+forall (as :: [*]) (ps :: PathState).
+Text -&gt; Path as ps -&gt; Path as ps
+</span><a href="Web.Routing.Combinators.html#StaticCons"><span class="hs-identifier hs-var">StaticCons</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;&quot;</span></span><span> </span><span class="annot"><span class="annottext">Path xs 'Open
+Path '[] 'Open
+</span><a href="Web.Routing.Combinators.html#Empty"><span class="hs-identifier hs-var">Empty</span></a></span><span>
+</span><span id="line-77"></span><span>    </span><span class="annot"><a href="#local-6989586621679081761"><span class="hs-identifier hs-var">appendSlash</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.Combinators.html#StaticCons"><span class="hs-identifier hs-type">StaticCons</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;&quot;</span></span><span> </span><span class="annot"><span class="annottext">Path xs 'Open
+</span><a href="Web.Routing.Combinators.html#Empty"><span class="hs-identifier hs-var">Empty</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Path xs 'Open -&gt; Path xs 'Open
+forall (as :: [*]) (ps :: PathState).
+Text -&gt; Path as ps -&gt; Path as ps
+</span><a href="Web.Routing.Combinators.html#StaticCons"><span class="hs-identifier hs-var">StaticCons</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;&quot;</span></span><span> </span><span class="annot"><span class="annottext">Path xs 'Open
+Path '[] 'Open
+</span><a href="Web.Routing.Combinators.html#Empty"><span class="hs-identifier hs-var">Empty</span></a></span><span>
+</span><span id="line-78"></span><span>    </span><span class="annot"><a href="#local-6989586621679081761"><span class="hs-identifier hs-var">appendSlash</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.Combinators.html#StaticCons"><span class="hs-identifier hs-type">StaticCons</span></a></span><span> </span><span id="local-6989586621679081772"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679081772"><span class="hs-identifier hs-var">piece</span></a></span></span><span> </span><span id="local-6989586621679081773"><span class="annot"><span class="annottext">Path xs 'Open
+</span><a href="#local-6989586621679081773"><span class="hs-identifier hs-var">rest</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Path xs 'Open -&gt; Path xs 'Open
+forall (as :: [*]) (ps :: PathState).
+Text -&gt; Path as ps -&gt; Path as ps
+</span><a href="Web.Routing.Combinators.html#StaticCons"><span class="hs-identifier hs-var">StaticCons</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679081772"><span class="hs-identifier hs-var">piece</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Path xs 'Open -&gt; Path xs 'Open
+forall (as :: [*]). Path as 'Open -&gt; Path as 'Open
+</span><a href="#local-6989586621679081761"><span class="hs-identifier hs-var">appendSlash</span></a></span><span> </span><span class="annot"><span class="annottext">Path xs 'Open
+</span><a href="#local-6989586621679081773"><span class="hs-identifier hs-var">rest</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-79"></span><span>    </span><span class="annot"><a href="#local-6989586621679081761"><span class="hs-identifier hs-var">appendSlash</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.Combinators.html#VarCons"><span class="hs-identifier hs-type">VarCons</span></a></span><span> </span><span id="local-6989586621679081779"><span class="annot"><span class="annottext">Path as 'Open
+</span><a href="#local-6989586621679081779"><span class="hs-identifier hs-var">rest</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Path as 'Open -&gt; Path (a : as) 'Open
+forall as (as :: [*]) (ps :: PathState).
+(FromHttpApiData as, Typeable as) =&gt;
+Path as ps -&gt; Path (as : as) ps
+</span><a href="Web.Routing.Combinators.html#VarCons"><span class="hs-identifier hs-var">VarCons</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Path as 'Open -&gt; Path as 'Open
+forall (as :: [*]). Path as 'Open -&gt; Path as 'Open
+</span><a href="#local-6989586621679081761"><span class="hs-identifier hs-var">appendSlash</span></a></span><span> </span><span class="annot"><span class="annottext">Path as 'Open
+</span><a href="#local-6989586621679081779"><span class="hs-identifier hs-var">rest</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-80"></span><span>
+</span><span id="line-81"></span><span class="annot"><span class="hs-comment">-- | Matches the rest of the route. Should be the last part of the path.</span></span><span>
+</span><span id="line-82"></span><span class="annot"><a href="Web.Routing.Combinators.html#wildcard"><span class="hs-identifier hs-type">wildcard</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Routing.Combinators.html#Path"><span class="hs-identifier hs-type">Path</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">]</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Web.Routing.Combinators.html#Closed"><span class="hs-identifier hs-type">Closed</span></a></span><span>
+</span><span id="line-83"></span><span id="wildcard"><span class="annot"><span class="annottext">wildcard :: Path '[Text] 'Closed
+</span><a href="Web.Routing.Combinators.html#wildcard"><span class="hs-identifier hs-var hs-var">wildcard</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Path '[] 'Open -&gt; Path '[Text] 'Closed
+forall (as :: [*]). Path as 'Open -&gt; Path (Text : as) 'Closed
+</span><a href="Web.Routing.Combinators.html#Wildcard"><span class="hs-identifier hs-var">Wildcard</span></a></span><span> </span><span class="annot"><span class="annottext">Path '[] 'Open
+</span><a href="Web.Routing.Combinators.html#Empty"><span class="hs-identifier hs-var">Empty</span></a></span><span>
+</span><span id="line-84"></span><span>
+</span><span id="line-85"></span><span id="local-6989586621679081501"><span id="local-6989586621679081502"><span id="local-6989586621679081503"><span class="annot"><a href="Web.Routing.Combinators.html#%3C%2F%3E"><span class="hs-operator hs-type">(&lt;/&gt;)</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Routing.Combinators.html#Path"><span class="hs-identifier hs-type">Path</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081501"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Web.Routing.Combinators.html#Open"><span class="hs-identifier hs-type">Open</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.Combinators.html#Path"><span class="hs-identifier hs-type">Path</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081502"><span class="hs-identifier hs-type">bs</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081503"><span class="hs-identifier hs-type">ps2</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.Combinators.html#Path"><span class="hs-identifier hs-type">Path</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Append</span></span><span> </span><span class="annot"><a href="#local-6989586621679081501"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081502"><span class="hs-identifier hs-type">bs</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679081503"><span class="hs-identifier hs-type">ps2</span></a></span></span></span></span><span>
+</span><span id="line-86"></span><span id="&lt;/&gt;"><span class="annot"><span class="annottext">&lt;/&gt; :: forall (as :: [*]) (bs :: [*]) (ps2 :: PathState).
+Path as 'Open -&gt; Path bs ps2 -&gt; Path (Append as bs) ps2
+</span><a href="Web.Routing.Combinators.html#%3C%2F%3E"><span class="hs-operator hs-var hs-var">(&lt;/&gt;)</span></a></span></span><span> </span><span class="annot"><span class="annottext">Path as 'Open
+</span><a href="Web.Routing.Combinators.html#Empty"><span class="hs-identifier hs-var">Empty</span></a></span><span> </span><span id="local-6989586621679081784"><span class="annot"><span class="annottext">Path bs ps2
+</span><a href="#local-6989586621679081784"><span class="hs-identifier hs-var">xs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Path bs ps2
+Path (Append as bs) ps2
+</span><a href="#local-6989586621679081784"><span class="hs-identifier hs-var">xs</span></a></span><span>
+</span><span id="line-87"></span><span class="annot"><a href="Web.Routing.Combinators.html#%3C%2F%3E"><span class="hs-operator hs-var">(&lt;/&gt;)</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.Combinators.html#StaticCons"><span class="hs-identifier hs-type">StaticCons</span></a></span><span> </span><span id="local-6989586621679081785"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679081785"><span class="hs-identifier hs-var">pathPiece</span></a></span></span><span> </span><span id="local-6989586621679081786"><span class="annot"><span class="annottext">Path as 'Open
+</span><a href="#local-6989586621679081786"><span class="hs-identifier hs-var">xs</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679081787"><span class="annot"><span class="annottext">Path bs ps2
+</span><a href="#local-6989586621679081787"><span class="hs-identifier hs-var">ys</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Path (Append as bs) ps2 -&gt; Path (Append as bs) ps2
+forall (as :: [*]) (ps :: PathState).
+Text -&gt; Path as ps -&gt; Path as ps
+</span><a href="Web.Routing.Combinators.html#StaticCons"><span class="hs-identifier hs-var">StaticCons</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679081785"><span class="hs-identifier hs-var">pathPiece</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Path as 'Open
+</span><a href="#local-6989586621679081786"><span class="hs-identifier hs-var">xs</span></a></span><span> </span><span class="annot"><span class="annottext">Path as 'Open -&gt; Path bs ps2 -&gt; Path (Append as bs) ps2
+forall (as :: [*]) (bs :: [*]) (ps2 :: PathState).
+Path as 'Open -&gt; Path bs ps2 -&gt; Path (Append as bs) ps2
+</span><a href="Web.Routing.Combinators.html#%3C%2F%3E"><span class="hs-operator hs-var">&lt;/&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Path bs ps2
+</span><a href="#local-6989586621679081787"><span class="hs-identifier hs-var">ys</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-88"></span><span class="annot"><a href="Web.Routing.Combinators.html#%3C%2F%3E"><span class="hs-operator hs-var">(&lt;/&gt;)</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.Combinators.html#VarCons"><span class="hs-identifier hs-type">VarCons</span></a></span><span> </span><span id="local-6989586621679081793"><span class="annot"><span class="annottext">Path as 'Open
+</span><a href="#local-6989586621679081793"><span class="hs-identifier hs-var">xs</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679081794"><span class="annot"><span class="annottext">Path bs ps2
+</span><a href="#local-6989586621679081794"><span class="hs-identifier hs-var">ys</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Path (Append as bs) ps2 -&gt; Path (a : Append as bs) ps2
+forall as (as :: [*]) (ps :: PathState).
+(FromHttpApiData as, Typeable as) =&gt;
+Path as ps -&gt; Path (as : as) ps
+</span><a href="Web.Routing.Combinators.html#VarCons"><span class="hs-identifier hs-var">VarCons</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Path as 'Open
+</span><a href="#local-6989586621679081793"><span class="hs-identifier hs-var">xs</span></a></span><span> </span><span class="annot"><span class="annottext">Path as 'Open -&gt; Path bs ps2 -&gt; Path (Append as bs) ps2
+forall (as :: [*]) (bs :: [*]) (ps2 :: PathState).
+Path as 'Open -&gt; Path bs ps2 -&gt; Path (Append as bs) ps2
+</span><a href="Web.Routing.Combinators.html#%3C%2F%3E"><span class="hs-operator hs-var">&lt;/&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Path bs ps2
+</span><a href="#local-6989586621679081794"><span class="hs-identifier hs-var">ys</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-89"></span><span>
+</span><span id="line-90"></span><span id="local-6989586621679081510"><span id="local-6989586621679081511"><span class="annot"><a href="Web.Routing.Combinators.html#pathToRep"><span class="hs-identifier hs-type">pathToRep</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Routing.Combinators.html#Path"><span class="hs-identifier hs-type">Path</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081510"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081511"><span class="hs-identifier hs-type">ps</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Rep</span></span><span> </span><span class="annot"><a href="#local-6989586621679081510"><span class="hs-keyword hs-type">as</span></a></span></span></span><span>
+</span><span id="line-91"></span><span id="pathToRep"><span class="annot"><span class="annottext">pathToRep :: forall (as :: [*]) (ps :: PathState). Path as ps -&gt; Rep as
+</span><a href="Web.Routing.Combinators.html#pathToRep"><span class="hs-identifier hs-var hs-var">pathToRep</span></a></span></span><span> </span><span class="annot"><span class="annottext">Path as ps
+</span><a href="Web.Routing.Combinators.html#Empty"><span class="hs-identifier hs-var">Empty</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Rep as
+Rep '[]
+</span><span class="hs-identifier hs-var">RNil</span></span><span>
+</span><span id="line-92"></span><span class="annot"><a href="Web.Routing.Combinators.html#pathToRep"><span class="hs-identifier hs-var">pathToRep</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.Combinators.html#StaticCons"><span class="hs-identifier hs-type">StaticCons</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679081799"><span class="annot"><span class="annottext">Path as ps
+</span><a href="#local-6989586621679081799"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Path as ps -&gt; Rep as
+forall (as :: [*]) (ps :: PathState). Path as ps -&gt; Rep as
+</span><a href="Web.Routing.Combinators.html#pathToRep"><span class="hs-identifier hs-var">pathToRep</span></a></span><span> </span><span class="annot"><span class="annottext">Path as ps
+</span><a href="#local-6989586621679081799"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-93"></span><span class="annot"><a href="Web.Routing.Combinators.html#pathToRep"><span class="hs-identifier hs-var">pathToRep</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.Combinators.html#VarCons"><span class="hs-identifier hs-type">VarCons</span></a></span><span> </span><span id="local-6989586621679081803"><span class="annot"><span class="annottext">Path as ps
+</span><a href="#local-6989586621679081803"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Rep as -&gt; Rep (a : as)
+forall (ts1 :: [*]) t. Rep ts1 -&gt; Rep (t : ts1)
+</span><span class="hs-identifier hs-var">RCons</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Path as ps -&gt; Rep as
+forall (as :: [*]) (ps :: PathState). Path as ps -&gt; Rep as
+</span><a href="Web.Routing.Combinators.html#pathToRep"><span class="hs-identifier hs-var">pathToRep</span></a></span><span> </span><span class="annot"><span class="annottext">Path as ps
+</span><a href="#local-6989586621679081803"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-94"></span><span class="annot"><a href="Web.Routing.Combinators.html#pathToRep"><span class="hs-identifier hs-var">pathToRep</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.Combinators.html#Wildcard"><span class="hs-identifier hs-type">Wildcard</span></a></span><span> </span><span id="local-6989586621679081807"><span class="annot"><span class="annottext">Path as 'Open
+</span><a href="#local-6989586621679081807"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Rep as -&gt; Rep (Text : as)
+forall (ts1 :: [*]) t. Rep ts1 -&gt; Rep (t : ts1)
+</span><span class="hs-identifier hs-var">RCons</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Path as 'Open -&gt; Rep as
+forall (as :: [*]) (ps :: PathState). Path as ps -&gt; Rep as
+</span><a href="Web.Routing.Combinators.html#pathToRep"><span class="hs-identifier hs-var">pathToRep</span></a></span><span> </span><span class="annot"><span class="annottext">Path as 'Open
+</span><a href="#local-6989586621679081807"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-95"></span><span>
+</span><span id="line-96"></span><span id="local-6989586621679081521"><span class="annot"><a href="Web.Routing.Combinators.html#renderRoute"><span class="hs-identifier hs-type">renderRoute</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AllHave</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToHttpApiData</span></span><span> </span><span class="annot"><a href="#local-6989586621679081521"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Web.Routing.Combinators.html#Path"><span class="hs-identifier hs-type">Path</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081521"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Web.Routing.Combinators.html#Open"><span class="hs-identifier hs-type">Open</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HVect</span></span><span> </span><span class="annot"><a href="#local-6989586621679081521"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span></span><span>
+</span><span id="line-97"></span><span id="renderRoute"><span class="annot"><span class="annottext">renderRoute :: forall (as :: [*]).
+AllHave ToHttpApiData as =&gt;
+Path as 'Open -&gt; HVect as -&gt; Text
+</span><a href="Web.Routing.Combinators.html#renderRoute"><span class="hs-identifier hs-var hs-var">renderRoute</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SlashPolicy -&gt; Path as 'Open -&gt; HVect as -&gt; Text
+forall (as :: [*]).
+AllHave ToHttpApiData as =&gt;
+SlashPolicy -&gt; Path as 'Open -&gt; HVect as -&gt; Text
+</span><a href="Web.Routing.Combinators.html#renderRouteWith"><span class="hs-identifier hs-var">renderRouteWith</span></a></span><span> </span><span class="annot"><span class="annottext">SlashPolicy
+</span><a href="Web.Routing.SafeRouting.html#IgnoreSlashes"><span class="hs-identifier hs-var">IgnoreSlashes</span></a></span><span>
+</span><span id="line-98"></span><span>
+</span><span id="line-99"></span><span class="hs-comment">-- | Render with the same empty-segment policy used by the registry. Values are</span><span>
+</span><span id="line-100"></span><span class="hs-comment">-- URL pieces, as with 'renderRoute'; this function does not percent-encode them.</span><span>
+</span><span id="line-101"></span><span id="local-6989586621679081526"><span class="annot"><a href="Web.Routing.Combinators.html#renderRouteWith"><span class="hs-identifier hs-type">renderRouteWith</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AllHave</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToHttpApiData</span></span><span> </span><span class="annot"><a href="#local-6989586621679081526"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#SlashPolicy"><span class="hs-identifier hs-type">SlashPolicy</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.Combinators.html#Path"><span class="hs-identifier hs-type">Path</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081526"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Web.Routing.Combinators.html#Open"><span class="hs-identifier hs-type">Open</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HVect</span></span><span> </span><span class="annot"><a href="#local-6989586621679081526"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span></span><span>
+</span><span id="line-102"></span><span id="renderRouteWith"><span class="annot"><span class="annottext">renderRouteWith :: forall (as :: [*]).
+AllHave ToHttpApiData as =&gt;
+SlashPolicy -&gt; Path as 'Open -&gt; HVect as -&gt; Text
+</span><a href="Web.Routing.Combinators.html#renderRouteWith"><span class="hs-identifier hs-var hs-var">renderRouteWith</span></a></span></span><span> </span><span id="local-6989586621679081813"><span class="annot"><span class="annottext">SlashPolicy
+</span><a href="#local-6989586621679081813"><span class="hs-identifier hs-var">policy</span></a></span></span><span> </span><span id="local-6989586621679081814"><span class="annot"><span class="annottext">Path as 'Open
+</span><a href="#local-6989586621679081814"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; Text
+</span><a href="Web.Routing.SafeRouting.html#combineRoutePieces"><span class="hs-identifier hs-var">combineRoutePieces</span></a></span><span> </span><span class="annot"><span class="annottext">([Text] -&gt; Text) -&gt; (HVect as -&gt; [Text]) -&gt; HVect as -&gt; Text
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Path as 'Open -&gt; HVect as -&gt; [Text]
+forall (as :: [*]).
+AllHave ToHttpApiData as =&gt;
+Path as 'Open -&gt; HVect as -&gt; [Text]
+</span><a href="Web.Routing.Combinators.html#renderRoute%27"><span class="hs-identifier hs-var">renderRoute'</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SlashPolicy -&gt; Path as 'Open -&gt; Path as 'Open
+forall (as :: [*]) (ps :: PathState).
+SlashPolicy -&gt; Path as ps -&gt; Path as ps
+</span><a href="Web.Routing.Combinators.html#normalizePath"><span class="hs-identifier hs-var">normalizePath</span></a></span><span> </span><span class="annot"><span class="annottext">SlashPolicy
+</span><a href="#local-6989586621679081813"><span class="hs-identifier hs-var">policy</span></a></span><span> </span><span class="annot"><span class="annottext">Path as 'Open
+</span><a href="#local-6989586621679081814"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-103"></span><span>
+</span><span id="line-104"></span><span id="local-6989586621679081532"><span id="local-6989586621679081533"><span class="annot"><a href="Web.Routing.Combinators.html#normalizePath"><span class="hs-identifier hs-type">normalizePath</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#SlashPolicy"><span class="hs-identifier hs-type">SlashPolicy</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.Combinators.html#Path"><span class="hs-identifier hs-type">Path</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081532"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081533"><span class="hs-identifier hs-type">ps</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.Combinators.html#Path"><span class="hs-identifier hs-type">Path</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081532"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081533"><span class="hs-identifier hs-type">ps</span></a></span></span></span><span>
+</span><span id="line-105"></span><span id="normalizePath"><span class="annot"><span class="annottext">normalizePath :: forall (as :: [*]) (ps :: PathState).
+SlashPolicy -&gt; Path as ps -&gt; Path as ps
+</span><a href="Web.Routing.Combinators.html#normalizePath"><span class="hs-identifier hs-var hs-var">normalizePath</span></a></span></span><span> </span><span class="annot"><span class="annottext">SlashPolicy
+</span><a href="Web.Routing.SafeRouting.html#IgnoreSlashes"><span class="hs-identifier hs-var">IgnoreSlashes</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.Combinators.html#StaticCons"><span class="hs-identifier hs-type">StaticCons</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;&quot;</span></span><span> </span><span id="local-6989586621679081821"><span class="annot"><span class="annottext">Path as ps
+</span><a href="#local-6989586621679081821"><span class="hs-identifier hs-var">rest</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SlashPolicy -&gt; Path as ps -&gt; Path as ps
+forall (as :: [*]) (ps :: PathState).
+SlashPolicy -&gt; Path as ps -&gt; Path as ps
+</span><a href="Web.Routing.Combinators.html#normalizePath"><span class="hs-identifier hs-var">normalizePath</span></a></span><span> </span><span class="annot"><span class="annottext">SlashPolicy
+</span><a href="Web.Routing.SafeRouting.html#IgnoreSlashes"><span class="hs-identifier hs-var">IgnoreSlashes</span></a></span><span> </span><span class="annot"><span class="annottext">Path as ps
+</span><a href="#local-6989586621679081821"><span class="hs-identifier hs-var">rest</span></a></span><span>
+</span><span id="line-106"></span><span class="annot"><a href="Web.Routing.Combinators.html#normalizePath"><span class="hs-identifier hs-var">normalizePath</span></a></span><span> </span><span id="local-6989586621679081822"><span class="annot"><span class="annottext">SlashPolicy
+</span><a href="#local-6989586621679081822"><span class="hs-identifier hs-var">policy</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.Combinators.html#StaticCons"><span class="hs-identifier hs-type">StaticCons</span></a></span><span> </span><span id="local-6989586621679081823"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679081823"><span class="hs-identifier hs-var">piece</span></a></span></span><span> </span><span id="local-6989586621679081824"><span class="annot"><span class="annottext">Path as ps
+</span><a href="#local-6989586621679081824"><span class="hs-identifier hs-var">rest</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Path as ps -&gt; Path as ps
+forall (as :: [*]) (ps :: PathState).
+Text -&gt; Path as ps -&gt; Path as ps
+</span><a href="Web.Routing.Combinators.html#StaticCons"><span class="hs-identifier hs-var">StaticCons</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679081823"><span class="hs-identifier hs-var">piece</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SlashPolicy -&gt; Path as ps -&gt; Path as ps
+forall (as :: [*]) (ps :: PathState).
+SlashPolicy -&gt; Path as ps -&gt; Path as ps
+</span><a href="Web.Routing.Combinators.html#normalizePath"><span class="hs-identifier hs-var">normalizePath</span></a></span><span> </span><span class="annot"><span class="annottext">SlashPolicy
+</span><a href="#local-6989586621679081822"><span class="hs-identifier hs-var">policy</span></a></span><span> </span><span class="annot"><span class="annottext">Path as ps
+</span><a href="#local-6989586621679081824"><span class="hs-identifier hs-var">rest</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-107"></span><span class="annot"><a href="Web.Routing.Combinators.html#normalizePath"><span class="hs-identifier hs-var">normalizePath</span></a></span><span> </span><span id="local-6989586621679081825"><span class="annot"><span class="annottext">SlashPolicy
+</span><a href="#local-6989586621679081825"><span class="hs-identifier hs-var">policy</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.Combinators.html#VarCons"><span class="hs-identifier hs-type">VarCons</span></a></span><span> </span><span id="local-6989586621679081831"><span class="annot"><span class="annottext">Path as ps
+</span><a href="#local-6989586621679081831"><span class="hs-identifier hs-var">rest</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Path as ps -&gt; Path (a : as) ps
+forall as (as :: [*]) (ps :: PathState).
+(FromHttpApiData as, Typeable as) =&gt;
+Path as ps -&gt; Path (as : as) ps
+</span><a href="Web.Routing.Combinators.html#VarCons"><span class="hs-identifier hs-var">VarCons</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SlashPolicy -&gt; Path as ps -&gt; Path as ps
+forall (as :: [*]) (ps :: PathState).
+SlashPolicy -&gt; Path as ps -&gt; Path as ps
+</span><a href="Web.Routing.Combinators.html#normalizePath"><span class="hs-identifier hs-var">normalizePath</span></a></span><span> </span><span class="annot"><span class="annottext">SlashPolicy
+</span><a href="#local-6989586621679081825"><span class="hs-identifier hs-var">policy</span></a></span><span> </span><span class="annot"><span class="annottext">Path as ps
+</span><a href="#local-6989586621679081831"><span class="hs-identifier hs-var">rest</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-108"></span><span class="annot"><a href="Web.Routing.Combinators.html#normalizePath"><span class="hs-identifier hs-var">normalizePath</span></a></span><span> </span><span id="local-6989586621679081832"><span class="annot"><span class="annottext">SlashPolicy
+</span><a href="#local-6989586621679081832"><span class="hs-identifier hs-var">policy</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.Combinators.html#Wildcard"><span class="hs-identifier hs-type">Wildcard</span></a></span><span> </span><span id="local-6989586621679081835"><span class="annot"><span class="annottext">Path as 'Open
+</span><a href="#local-6989586621679081835"><span class="hs-identifier hs-var">rest</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Path as 'Open -&gt; Path (Text : as) 'Closed
+forall (as :: [*]). Path as 'Open -&gt; Path (Text : as) 'Closed
+</span><a href="Web.Routing.Combinators.html#Wildcard"><span class="hs-identifier hs-var">Wildcard</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SlashPolicy -&gt; Path as 'Open -&gt; Path as 'Open
+forall (as :: [*]) (ps :: PathState).
+SlashPolicy -&gt; Path as ps -&gt; Path as ps
+</span><a href="Web.Routing.Combinators.html#normalizePath"><span class="hs-identifier hs-var">normalizePath</span></a></span><span> </span><span class="annot"><span class="annottext">SlashPolicy
+</span><a href="#local-6989586621679081832"><span class="hs-identifier hs-var">policy</span></a></span><span> </span><span class="annot"><span class="annottext">Path as 'Open
+</span><a href="#local-6989586621679081835"><span class="hs-identifier hs-var">rest</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-109"></span><span class="annot"><a href="Web.Routing.Combinators.html#normalizePath"><span class="hs-identifier hs-var">normalizePath</span></a></span><span> </span><span class="annot"><span class="annottext">SlashPolicy
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Path as ps
+</span><a href="Web.Routing.Combinators.html#Empty"><span class="hs-identifier hs-var">Empty</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Path as ps
+Path '[] 'Open
+</span><a href="Web.Routing.Combinators.html#Empty"><span class="hs-identifier hs-var">Empty</span></a></span><span>
+</span><span id="line-110"></span><span>
+</span><span id="line-111"></span><span id="local-6989586621679081531"><span class="annot"><a href="Web.Routing.Combinators.html#renderRoute%27"><span class="hs-identifier hs-type">renderRoute'</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AllHave</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToHttpApiData</span></span><span> </span><span class="annot"><a href="#local-6989586621679081531"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Web.Routing.Combinators.html#Path"><span class="hs-identifier hs-type">Path</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081531"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Web.Routing.Combinators.html#Open"><span class="hs-identifier hs-type">Open</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HVect</span></span><span> </span><span class="annot"><a href="#local-6989586621679081531"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">]</span></span><span>
+</span><span id="line-112"></span><span id="renderRoute&#x27;"><span class="annot"><span class="annottext">renderRoute' :: forall (as :: [*]).
+AllHave ToHttpApiData as =&gt;
+Path as 'Open -&gt; HVect as -&gt; [Text]
+</span><a href="Web.Routing.Combinators.html#renderRoute%27"><span class="hs-identifier hs-var hs-var">renderRoute'</span></a></span></span><span> </span><span class="annot"><span class="annottext">Path as 'Open
+</span><a href="Web.Routing.Combinators.html#Empty"><span class="hs-identifier hs-var">Empty</span></a></span><span> </span><span class="annot"><span class="annottext">HVect as
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-113"></span><span class="annot"><a href="Web.Routing.Combinators.html#renderRoute%27"><span class="hs-identifier hs-var">renderRoute'</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.Combinators.html#StaticCons"><span class="hs-identifier hs-type">StaticCons</span></a></span><span> </span><span id="local-6989586621679081842"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679081842"><span class="hs-identifier hs-var">pathPiece</span></a></span></span><span> </span><span id="local-6989586621679081843"><span class="annot"><span class="annottext">Path as 'Open
+</span><a href="#local-6989586621679081843"><span class="hs-identifier hs-var">pathXs</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679081844"><span class="annot"><span class="annottext">HVect as
+</span><a href="#local-6989586621679081844"><span class="hs-identifier hs-var">paramXs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-114"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679081842"><span class="hs-identifier hs-var">pathPiece</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; [Text] -&gt; [Text]
+forall a. a -&gt; [a] -&gt; [a]
+</span><span class="hs-glyph hs-var">:</span></span><span> </span><span class="annot"><span class="annottext">Path as 'Open -&gt; HVect as -&gt; [Text]
+forall (as :: [*]).
+AllHave ToHttpApiData as =&gt;
+Path as 'Open -&gt; HVect as -&gt; [Text]
+</span><a href="Web.Routing.Combinators.html#renderRoute%27"><span class="hs-identifier hs-var">renderRoute'</span></a></span><span> </span><span class="annot"><span class="annottext">Path as 'Open
+</span><a href="#local-6989586621679081843"><span class="hs-identifier hs-var">pathXs</span></a></span><span> </span><span class="annot"><span class="annottext">HVect as
+</span><a href="#local-6989586621679081844"><span class="hs-identifier hs-var">paramXs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-115"></span><span class="annot"><a href="Web.Routing.Combinators.html#renderRoute%27"><span class="hs-identifier hs-var">renderRoute'</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.Combinators.html#VarCons"><span class="hs-identifier hs-type">VarCons</span></a></span><span> </span><span id="local-6989586621679081851"><span class="annot"><span class="annottext">Path as 'Open
+</span><a href="#local-6989586621679081851"><span class="hs-identifier hs-var">pathXs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679081861"><span class="annot"><span class="annottext">t
+</span><a href="#local-6989586621679081861"><span class="hs-identifier hs-var">val</span></a></span></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&amp;:</span></span><span> </span><span id="local-6989586621679081863"><span class="annot"><span class="annottext">HVect ts1
+</span><a href="#local-6989586621679081863"><span class="hs-identifier hs-var">paramXs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-116"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">t -&gt; Text
+forall a. ToHttpApiData a =&gt; a -&gt; Text
+</span><span class="hs-identifier hs-var">toUrlPiece</span></span><span> </span><span class="annot"><span class="annottext">t
+</span><a href="#local-6989586621679081861"><span class="hs-identifier hs-var">val</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; [Text] -&gt; [Text]
+forall a. a -&gt; [a] -&gt; [a]
+</span><span class="hs-glyph hs-var">:</span></span><span> </span><span class="annot"><span class="annottext">Path as 'Open -&gt; HVect as -&gt; [Text]
+forall (as :: [*]).
+AllHave ToHttpApiData as =&gt;
+Path as 'Open -&gt; HVect as -&gt; [Text]
+</span><a href="Web.Routing.Combinators.html#renderRoute%27"><span class="hs-identifier hs-var">renderRoute'</span></a></span><span> </span><span class="annot"><span class="annottext">Path as 'Open
+</span><a href="#local-6989586621679081851"><span class="hs-identifier hs-var">pathXs</span></a></span><span> </span><span class="annot"><span class="annottext">HVect as
+HVect ts1
+</span><a href="#local-6989586621679081863"><span class="hs-identifier hs-var">paramXs</span></a></span><span class="hs-special">)</span><span class="hs-cpp">
+
+#if __GLASGOW_HASKELL__ &lt; 800
+</span><span class="hs-identifier">renderRoute'</span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-120"></span><span>    </span><span class="hs-identifier">error</span><span> </span><span class="hs-string">&quot;This will never happen.&quot;</span><span class="hs-cpp">
+#endif
+</span></pre></body></html>

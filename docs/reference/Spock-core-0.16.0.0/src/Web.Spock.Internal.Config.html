@@ -1,0 +1,72 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE RankNTypes #-}</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Config.html"><span class="hs-identifier">Web.Spock.Internal.Config</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text.IO</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Word</span></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Network.HTTP.Types.Status</span></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.IO</span></span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Web.Spock.Internal.CoreAction.html"><span class="hs-identifier">Web.Spock.Internal.CoreAction</span></a></span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Web.Spock.Logging.html"><span class="hs-identifier">Web.Spock.Logging</span></a></span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Web.Routing.SafeRouting</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">SlashPolicy</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Wire.html"><span class="hs-identifier">Web.Spock.Internal.Wire</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">W</span></span><span>
+</span><span id="line-14"></span><span>
+</span><span id="line-15"></span><span class="hs-keyword">data</span><span> </span><span id="SpockConfig"><span class="annot"><a href="Web.Spock.Internal.Config.html#SpockConfig"><span class="hs-identifier hs-var">SpockConfig</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="SpockConfig"><span class="annot"><a href="Web.Spock.Internal.Config.html#SpockConfig"><span class="hs-identifier hs-var">SpockConfig</span></a></span></span><span>
+</span><span id="line-16"></span><span>  </span><span class="hs-special">{</span><span> </span><span class="hs-comment">-- | Maximum request body size in bytes, checked as an action reads the</span><span>
+</span><span id="line-17"></span><span>    </span><span class="hs-comment">-- body (including JSON, form parameters, and uploads). An unused body is</span><span>
+</span><span id="line-18"></span><span>    </span><span class="hs-comment">-- not read or rejected based on its declared length. Exceeding the limit</span><span>
+</span><span id="line-19"></span><span>    </span><span class="hs-comment">-- invokes 'sc_errorHandler' with status 413.</span><span>
+</span><span id="line-20"></span><span>    </span><span id="sc_maxRequestSize"><span class="annot"><span class="annottext">SpockConfig -&gt; Maybe Word64
+</span><a href="Web.Spock.Internal.Config.html#sc_maxRequestSize"><span class="hs-identifier hs-var hs-var">sc_maxRequestSize</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word64</span></span><span class="hs-special">,</span><span>
+</span><span id="line-21"></span><span>    </span><span class="hs-comment">-- | Error handler. Given status is set in response by default, but you</span><span>
+</span><span id="line-22"></span><span>    </span><span class="hs-comment">-- can always override it with `setStatus`</span><span>
+</span><span id="line-23"></span><span>    </span><span id="sc_errorHandler"><span class="annot"><span class="annottext">SpockConfig -&gt; Status -&gt; ActionCtxT () IO ()
+</span><a href="Web.Spock.Internal.Config.html#sc_errorHandler"><span class="hs-identifier hs-var hs-var">sc_errorHandler</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Status</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Wire.html#ActionCtxT"><span class="hs-identifier hs-type">W.ActionCtxT</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-24"></span><span>    </span><span class="annot"><span class="hs-comment">-- | Function that should be called to log errors.</span></span><span>
+</span><span id="line-25"></span><span>    </span><span id="sc_logError"><span class="annot"><span class="annottext">SpockConfig -&gt; Text -&gt; IO ()
+</span><a href="Web.Spock.Internal.Config.html#sc_logError"><span class="hs-identifier hs-var hs-var">sc_logError</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-26"></span><span>    </span><span class="annot"><span class="hs-comment">-- | Optional request IDs and structured handler/access/error events.</span></span><span>
+</span><span id="line-27"></span><span>    </span><span id="sc_logging"><span class="annot"><span class="annottext">SpockConfig -&gt; Maybe LoggingConfig
+</span><a href="Web.Spock.Internal.Config.html#sc_logging"><span class="hs-identifier hs-var hs-var">sc_logging</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="Web.Spock.Logging.html#LoggingConfig"><span class="hs-identifier hs-type">LoggingConfig</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-28"></span><span>    </span><span class="hs-comment">-- | Empty-segment matching. 'IgnoreSlashes' retains historical behavior.</span><span>
+</span><span id="line-29"></span><span>    </span><span class="hs-comment">-- 'StrictSlashes' distinguishes @/foo@ and @/foo/@. 'RedirectTrailingSlashes'</span><span>
+</span><span id="line-30"></span><span>    </span><span class="hs-comment">-- uses strict matching, then sends 308 if changing only the final slash</span><span>
+</span><span id="line-31"></span><span>    </span><span class="hs-comment">-- finds a route for the same method. A matching wildcard or fallback wins.</span><span>
+</span><span id="line-32"></span><span>    </span><span id="sc_slashPolicy"><span class="annot"><span class="annottext">SpockConfig -&gt; SlashPolicy
+</span><a href="Web.Spock.Internal.Config.html#sc_slashPolicy"><span class="hs-identifier hs-var hs-var">sc_slashPolicy</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SlashPolicy</span></span><span>
+</span><span id="line-33"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span class="hs-comment">-- | Default Spock configuration. No restriction on maximum request size; error</span><span>
+</span><span id="line-36"></span><span class="hs-comment">-- handler simply prints status message as plain text and all errors are logged</span><span>
+</span><span id="line-37"></span><span class="hs-comment">-- to stderr.</span><span>
+</span><span id="line-38"></span><span class="annot"><a href="Web.Spock.Internal.Config.html#defaultSpockConfig"><span class="hs-identifier hs-type">defaultSpockConfig</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Config.html#SpockConfig"><span class="hs-identifier hs-type">SpockConfig</span></a></span><span>
+</span><span id="line-39"></span><span id="defaultSpockConfig"><span class="annot"><span class="annottext">defaultSpockConfig :: SpockConfig
+</span><a href="Web.Spock.Internal.Config.html#defaultSpockConfig"><span class="hs-identifier hs-var hs-var">defaultSpockConfig</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe Word64
+-&gt; (Status -&gt; ActionCtxT () IO ())
+-&gt; (Text -&gt; IO ())
+-&gt; Maybe LoggingConfig
+-&gt; SlashPolicy
+-&gt; SpockConfig
+</span><a href="Web.Spock.Internal.Config.html#SpockConfig"><span class="hs-identifier hs-var">SpockConfig</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Word64
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="annot"><span class="annottext">Status -&gt; ActionCtxT () IO ()
+forall {ctx} {a}. Status -&gt; ActionCtxT ctx IO a
+</span><a href="#local-6989586621679146932"><span class="hs-identifier hs-var">defaultHandler</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Handle -&gt; Text -&gt; IO ()
+</span><span class="hs-identifier hs-var">T.hPutStrLn</span></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><span class="hs-identifier hs-var">stderr</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe LoggingConfig
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="annot"><span class="annottext">SlashPolicy
+</span><span class="hs-identifier hs-var">IgnoreSlashes</span></span><span>
+</span><span id="line-40"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-41"></span><span>    </span><span id="local-6989586621679146932"><span class="annot"><span class="annottext">defaultHandler :: Status -&gt; ActionCtxT ctx IO a
+</span><a href="#local-6989586621679146932"><span class="hs-identifier hs-var hs-var">defaultHandler</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ActionCtxT ctx IO a
+forall (m :: * -&gt; *) ctx a.
+MonadIO m =&gt;
+ByteString -&gt; ActionCtxT ctx m a
+</span><a href="Web.Spock.Internal.CoreAction.html#bytes"><span class="hs-identifier hs-var">bytes</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; ActionCtxT ctx IO a)
+-&gt; (Status -&gt; ByteString) -&gt; Status -&gt; ActionCtxT ctx IO a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Status -&gt; ByteString
+</span><span class="hs-identifier hs-var">statusMessage</span></span><span>
+</span><span id="line-42"></span></pre></body></html>

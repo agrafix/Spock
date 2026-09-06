@@ -19,3 +19,9 @@ provided path to a route and multiple actions.
 
 * Using cabal: `cabal install reroute`
 * From Source: `git clone https://github.com/agrafix/Spock.git && cd Spock/reroute && cabal install`
+
+## Slash policies
+
+The default ignores empty path segments for compatibility. Opt into strict
+matching or method-preserving canonical redirects; see the
+[slash routing guide](https://www.spock.li/tutorials/routing).

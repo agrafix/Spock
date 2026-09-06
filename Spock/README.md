@@ -82,3 +82,9 @@ logging a user in. Each response sends the final session cookie once.
 `SameSiteStrict`, and `SameSiteNone`. The ordinary default remains `Nothing`.
 Use `cs_secure = True` with `SameSiteNone`, as browsers require it. Code constructing
 `CookieSettings` or `SessionManager` directly must supply the new fields.
+
+## Slash policies
+
+The default ignores empty path segments for compatibility. Opt into strict
+matching or method-preserving canonical redirects; see the
+[slash routing guide](https://www.spock.li/tutorials/routing).

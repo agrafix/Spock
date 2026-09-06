@@ -1,0 +1,641 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE CPP #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DataKinds #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE GeneralizedNewtypeDeriving #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE KindSignatures #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE RankNTypes #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE TypeFamilies #-}</span><span>
+</span><span id="line-7"></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Web.Routing.Router.html"><span class="hs-identifier">Web.Routing.Router</span></a></span><span> </span><span class="hs-keyword">where</span><span class="hs-cpp">
+
+#if MIN_VERSION_base(4,8,0)
+</span><span class="hs-cpp">#else
+</span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Control.Applicative</span><span class="hs-cpp">
+#endif
+</span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.RWS.Strict</span></span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.HashMap.Strict</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">HM</span></span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Hashable</span></span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Maybe</span></span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html"><span class="hs-identifier">Web.Routing.SafeRouting</span></a></span><span>
+</span><span id="line-20"></span><span>
+</span><span id="line-21"></span><span class="hs-keyword">newtype</span><span> </span><span id="RegistryT"><span class="annot"><a href="Web.Routing.Router.html#RegistryT"><span class="hs-identifier hs-var">RegistryT</span></a></span></span><span> </span><span id="local-6989586621679080685"><span class="annot"><a href="#local-6989586621679080685"><span class="hs-identifier hs-type">n</span></a></span></span><span> </span><span id="local-6989586621679080686"><span class="annot"><a href="#local-6989586621679080686"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span id="local-6989586621679080687"><span class="annot"><a href="#local-6989586621679080687"><span class="hs-identifier hs-type">middleware</span></a></span></span><span> </span><span id="local-6989586621679080688"><span class="annot"><a href="#local-6989586621679080688"><span class="hs-identifier hs-type">reqTypes</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679080689"><span class="annot"><a href="#local-6989586621679080689"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-operator">*</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-operator">*</span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679080690"><span class="annot"><a href="#local-6989586621679080690"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="RegistryT"><span class="annot"><a href="Web.Routing.Router.html#RegistryT"><span class="hs-identifier hs-var">RegistryT</span></a></span></span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="runRegistryT"><span class="annot"><span class="annottext">forall (n :: * -&gt; *) b middleware reqTypes (m :: * -&gt; *) a.
+RegistryT n b middleware reqTypes m a
+-&gt; RWST
+     (PathInternal '[]) [middleware] (RegistryState n b reqTypes) m a
+</span><a href="Web.Routing.Router.html#runRegistryT"><span class="hs-identifier hs-var hs-var">runRegistryT</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">RWST</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathInternal"><span class="hs-identifier hs-type">PathInternal</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="hs-special">]</span><span class="hs-special">)</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679080687"><span class="hs-identifier hs-type">middleware</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.Router.html#RegistryState"><span class="hs-identifier hs-type">RegistryState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080685"><span class="hs-identifier hs-type">n</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080686"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080688"><span class="hs-identifier hs-type">reqTypes</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679080689"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080690"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-23"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-24"></span><span>  </span><span class="hs-keyword">deriving</span><span>
+</span><span id="line-25"></span><span>    </span><span class="hs-special">(</span><span> </span><span id="local-6989586621679081039"><span id="local-6989586621679081046"><span id="local-6989586621679081052"><span class="annot"><span class="annottext">Applicative (RegistryT n b middleware reqTypes m)
+Applicative (RegistryT n b middleware reqTypes m) =&gt;
+(forall a b.
+ RegistryT n b middleware reqTypes m a
+ -&gt; (a -&gt; RegistryT n b middleware reqTypes m b)
+ -&gt; RegistryT n b middleware reqTypes m b)
+-&gt; (forall a b.
+    RegistryT n b middleware reqTypes m a
+    -&gt; RegistryT n b middleware reqTypes m b
+    -&gt; RegistryT n b middleware reqTypes m b)
+-&gt; (forall a. a -&gt; RegistryT n b middleware reqTypes m a)
+-&gt; Monad (RegistryT n b middleware reqTypes m)
+forall a. a -&gt; RegistryT n b middleware reqTypes m a
+forall a b.
+RegistryT n b middleware reqTypes m a
+-&gt; RegistryT n b middleware reqTypes m b
+-&gt; RegistryT n b middleware reqTypes m b
+forall a b.
+RegistryT n b middleware reqTypes m a
+-&gt; (a -&gt; RegistryT n b middleware reqTypes m b)
+-&gt; RegistryT n b middleware reqTypes m b
+forall (m :: * -&gt; *).
+Applicative m =&gt;
+(forall a b. m a -&gt; (a -&gt; m b) -&gt; m b)
+-&gt; (forall a b. m a -&gt; m b -&gt; m b)
+-&gt; (forall a. a -&gt; m a)
+-&gt; Monad m
+forall (n :: * -&gt; *) b middleware reqTypes (m :: * -&gt; *).
+Monad m =&gt;
+Applicative (RegistryT n b middleware reqTypes m)
+forall (n :: * -&gt; *) b middleware reqTypes (m :: * -&gt; *) a.
+Monad m =&gt;
+a -&gt; RegistryT n b middleware reqTypes m a
+forall (n :: * -&gt; *) b middleware reqTypes (m :: * -&gt; *) a b.
+Monad m =&gt;
+RegistryT n b middleware reqTypes m a
+-&gt; RegistryT n b middleware reqTypes m b
+-&gt; RegistryT n b middleware reqTypes m b
+forall (n :: * -&gt; *) b middleware reqTypes (m :: * -&gt; *) a b.
+Monad m =&gt;
+RegistryT n b middleware reqTypes m a
+-&gt; (a -&gt; RegistryT n b middleware reqTypes m b)
+-&gt; RegistryT n b middleware reqTypes m b
+$c&gt;&gt;= :: forall (n :: * -&gt; *) b middleware reqTypes (m :: * -&gt; *) a b.
+Monad m =&gt;
+RegistryT n b middleware reqTypes m a
+-&gt; (a -&gt; RegistryT n b middleware reqTypes m b)
+-&gt; RegistryT n b middleware reqTypes m b
+&gt;&gt;= :: forall a b.
+RegistryT n b middleware reqTypes m a
+-&gt; (a -&gt; RegistryT n b middleware reqTypes m b)
+-&gt; RegistryT n b middleware reqTypes m b
+$c&gt;&gt; :: forall (n :: * -&gt; *) b middleware reqTypes (m :: * -&gt; *) a b.
+Monad m =&gt;
+RegistryT n b middleware reqTypes m a
+-&gt; RegistryT n b middleware reqTypes m b
+-&gt; RegistryT n b middleware reqTypes m b
+&gt;&gt; :: forall a b.
+RegistryT n b middleware reqTypes m a
+-&gt; RegistryT n b middleware reqTypes m b
+-&gt; RegistryT n b middleware reqTypes m b
+$creturn :: forall (n :: * -&gt; *) b middleware reqTypes (m :: * -&gt; *) a.
+Monad m =&gt;
+a -&gt; RegistryT n b middleware reqTypes m a
+return :: forall a. a -&gt; RegistryT n b middleware reqTypes m a
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Monad</span></span></span></span></span><span class="hs-special">,</span><span>
+</span><span id="line-26"></span><span>      </span><span id="local-6989586621679081062"><span id="local-6989586621679081068"><span class="annot"><span class="annottext">(forall a b.
+ (a -&gt; b)
+ -&gt; RegistryT n b middleware reqTypes m a
+ -&gt; RegistryT n b middleware reqTypes m b)
+-&gt; (forall a b.
+    a
+    -&gt; RegistryT n b middleware reqTypes m b
+    -&gt; RegistryT n b middleware reqTypes m a)
+-&gt; Functor (RegistryT n b middleware reqTypes m)
+forall a b.
+a
+-&gt; RegistryT n b middleware reqTypes m b
+-&gt; RegistryT n b middleware reqTypes m a
+forall a b.
+(a -&gt; b)
+-&gt; RegistryT n b middleware reqTypes m a
+-&gt; RegistryT n b middleware reqTypes m b
+forall (f :: * -&gt; *).
+(forall a b. (a -&gt; b) -&gt; f a -&gt; f b)
+-&gt; (forall a b. a -&gt; f b -&gt; f a) -&gt; Functor f
+forall (n :: * -&gt; *) b middleware reqTypes (m :: * -&gt; *) a b.
+Functor m =&gt;
+a
+-&gt; RegistryT n b middleware reqTypes m b
+-&gt; RegistryT n b middleware reqTypes m a
+forall (n :: * -&gt; *) b middleware reqTypes (m :: * -&gt; *) a b.
+Functor m =&gt;
+(a -&gt; b)
+-&gt; RegistryT n b middleware reqTypes m a
+-&gt; RegistryT n b middleware reqTypes m b
+$cfmap :: forall (n :: * -&gt; *) b middleware reqTypes (m :: * -&gt; *) a b.
+Functor m =&gt;
+(a -&gt; b)
+-&gt; RegistryT n b middleware reqTypes m a
+-&gt; RegistryT n b middleware reqTypes m b
+fmap :: forall a b.
+(a -&gt; b)
+-&gt; RegistryT n b middleware reqTypes m a
+-&gt; RegistryT n b middleware reqTypes m b
+$c&lt;$ :: forall (n :: * -&gt; *) b middleware reqTypes (m :: * -&gt; *) a b.
+Functor m =&gt;
+a
+-&gt; RegistryT n b middleware reqTypes m b
+-&gt; RegistryT n b middleware reqTypes m a
+&lt;$ :: forall a b.
+a
+-&gt; RegistryT n b middleware reqTypes m b
+-&gt; RegistryT n b middleware reqTypes m a
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Functor</span></span></span></span><span class="hs-special">,</span><span>
+</span><span id="line-27"></span><span>      </span><span id="local-6989586621679081080"><span id="local-6989586621679081088"><span id="local-6989586621679081095"><span id="local-6989586621679081102"><span id="local-6989586621679081109"><span class="annot"><span class="annottext">Functor (RegistryT n b middleware reqTypes m)
+Functor (RegistryT n b middleware reqTypes m) =&gt;
+(forall a. a -&gt; RegistryT n b middleware reqTypes m a)
+-&gt; (forall a b.
+    RegistryT n b middleware reqTypes m (a -&gt; b)
+    -&gt; RegistryT n b middleware reqTypes m a
+    -&gt; RegistryT n b middleware reqTypes m b)
+-&gt; (forall a b c.
+    (a -&gt; b -&gt; c)
+    -&gt; RegistryT n b middleware reqTypes m a
+    -&gt; RegistryT n b middleware reqTypes m b
+    -&gt; RegistryT n b middleware reqTypes m c)
+-&gt; (forall a b.
+    RegistryT n b middleware reqTypes m a
+    -&gt; RegistryT n b middleware reqTypes m b
+    -&gt; RegistryT n b middleware reqTypes m b)
+-&gt; (forall a b.
+    RegistryT n b middleware reqTypes m a
+    -&gt; RegistryT n b middleware reqTypes m b
+    -&gt; RegistryT n b middleware reqTypes m a)
+-&gt; Applicative (RegistryT n b middleware reqTypes m)
+forall a. a -&gt; RegistryT n b middleware reqTypes m a
+forall a b.
+RegistryT n b middleware reqTypes m a
+-&gt; RegistryT n b middleware reqTypes m b
+-&gt; RegistryT n b middleware reqTypes m a
+forall a b.
+RegistryT n b middleware reqTypes m a
+-&gt; RegistryT n b middleware reqTypes m b
+-&gt; RegistryT n b middleware reqTypes m b
+forall a b.
+RegistryT n b middleware reqTypes m (a -&gt; b)
+-&gt; RegistryT n b middleware reqTypes m a
+-&gt; RegistryT n b middleware reqTypes m b
+forall a b c.
+(a -&gt; b -&gt; c)
+-&gt; RegistryT n b middleware reqTypes m a
+-&gt; RegistryT n b middleware reqTypes m b
+-&gt; RegistryT n b middleware reqTypes m c
+forall (f :: * -&gt; *).
+Functor f =&gt;
+(forall a. a -&gt; f a)
+-&gt; (forall a b. f (a -&gt; b) -&gt; f a -&gt; f b)
+-&gt; (forall a b c. (a -&gt; b -&gt; c) -&gt; f a -&gt; f b -&gt; f c)
+-&gt; (forall a b. f a -&gt; f b -&gt; f b)
+-&gt; (forall a b. f a -&gt; f b -&gt; f a)
+-&gt; Applicative f
+forall (n :: * -&gt; *) b middleware reqTypes (m :: * -&gt; *).
+Monad m =&gt;
+Functor (RegistryT n b middleware reqTypes m)
+forall (n :: * -&gt; *) b middleware reqTypes (m :: * -&gt; *) a.
+Monad m =&gt;
+a -&gt; RegistryT n b middleware reqTypes m a
+forall (n :: * -&gt; *) b middleware reqTypes (m :: * -&gt; *) a b.
+Monad m =&gt;
+RegistryT n b middleware reqTypes m a
+-&gt; RegistryT n b middleware reqTypes m b
+-&gt; RegistryT n b middleware reqTypes m a
+forall (n :: * -&gt; *) b middleware reqTypes (m :: * -&gt; *) a b.
+Monad m =&gt;
+RegistryT n b middleware reqTypes m a
+-&gt; RegistryT n b middleware reqTypes m b
+-&gt; RegistryT n b middleware reqTypes m b
+forall (n :: * -&gt; *) b middleware reqTypes (m :: * -&gt; *) a b.
+Monad m =&gt;
+RegistryT n b middleware reqTypes m (a -&gt; b)
+-&gt; RegistryT n b middleware reqTypes m a
+-&gt; RegistryT n b middleware reqTypes m b
+forall (n :: * -&gt; *) b middleware reqTypes (m :: * -&gt; *) a b c.
+Monad m =&gt;
+(a -&gt; b -&gt; c)
+-&gt; RegistryT n b middleware reqTypes m a
+-&gt; RegistryT n b middleware reqTypes m b
+-&gt; RegistryT n b middleware reqTypes m c
+$cpure :: forall (n :: * -&gt; *) b middleware reqTypes (m :: * -&gt; *) a.
+Monad m =&gt;
+a -&gt; RegistryT n b middleware reqTypes m a
+pure :: forall a. a -&gt; RegistryT n b middleware reqTypes m a
+$c&lt;*&gt; :: forall (n :: * -&gt; *) b middleware reqTypes (m :: * -&gt; *) a b.
+Monad m =&gt;
+RegistryT n b middleware reqTypes m (a -&gt; b)
+-&gt; RegistryT n b middleware reqTypes m a
+-&gt; RegistryT n b middleware reqTypes m b
+&lt;*&gt; :: forall a b.
+RegistryT n b middleware reqTypes m (a -&gt; b)
+-&gt; RegistryT n b middleware reqTypes m a
+-&gt; RegistryT n b middleware reqTypes m b
+$cliftA2 :: forall (n :: * -&gt; *) b middleware reqTypes (m :: * -&gt; *) a b c.
+Monad m =&gt;
+(a -&gt; b -&gt; c)
+-&gt; RegistryT n b middleware reqTypes m a
+-&gt; RegistryT n b middleware reqTypes m b
+-&gt; RegistryT n b middleware reqTypes m c
+liftA2 :: forall a b c.
+(a -&gt; b -&gt; c)
+-&gt; RegistryT n b middleware reqTypes m a
+-&gt; RegistryT n b middleware reqTypes m b
+-&gt; RegistryT n b middleware reqTypes m c
+$c*&gt; :: forall (n :: * -&gt; *) b middleware reqTypes (m :: * -&gt; *) a b.
+Monad m =&gt;
+RegistryT n b middleware reqTypes m a
+-&gt; RegistryT n b middleware reqTypes m b
+-&gt; RegistryT n b middleware reqTypes m b
+*&gt; :: forall a b.
+RegistryT n b middleware reqTypes m a
+-&gt; RegistryT n b middleware reqTypes m b
+-&gt; RegistryT n b middleware reqTypes m b
+$c&lt;* :: forall (n :: * -&gt; *) b middleware reqTypes (m :: * -&gt; *) a b.
+Monad m =&gt;
+RegistryT n b middleware reqTypes m a
+-&gt; RegistryT n b middleware reqTypes m b
+-&gt; RegistryT n b middleware reqTypes m a
+&lt;* :: forall a b.
+RegistryT n b middleware reqTypes m a
+-&gt; RegistryT n b middleware reqTypes m b
+-&gt; RegistryT n b middleware reqTypes m a
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Applicative</span></span></span></span></span></span></span><span class="hs-special">,</span><span>
+</span><span id="line-28"></span><span>      </span><span id="local-6989586621679081127"><span class="annot"><span class="annottext">Monad (RegistryT n b middleware reqTypes m)
+Monad (RegistryT n b middleware reqTypes m) =&gt;
+(forall a. IO a -&gt; RegistryT n b middleware reqTypes m a)
+-&gt; MonadIO (RegistryT n b middleware reqTypes m)
+forall a. IO a -&gt; RegistryT n b middleware reqTypes m a
+forall (m :: * -&gt; *).
+Monad m =&gt;
+(forall a. IO a -&gt; m a) -&gt; MonadIO m
+forall (n :: * -&gt; *) b middleware reqTypes (m :: * -&gt; *).
+MonadIO m =&gt;
+Monad (RegistryT n b middleware reqTypes m)
+forall (n :: * -&gt; *) b middleware reqTypes (m :: * -&gt; *) a.
+MonadIO m =&gt;
+IO a -&gt; RegistryT n b middleware reqTypes m a
+$cliftIO :: forall (n :: * -&gt; *) b middleware reqTypes (m :: * -&gt; *) a.
+MonadIO m =&gt;
+IO a -&gt; RegistryT n b middleware reqTypes m a
+liftIO :: forall a. IO a -&gt; RegistryT n b middleware reqTypes m a
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var">MonadIO</span></span></span><span class="hs-special">,</span><span>
+</span><span id="line-29"></span><span>      </span><span id="local-6989586621679081143"><span id="local-6989586621679081150"><span id="local-6989586621679081156"><span class="annot"><span class="hs-identifier hs-type">MonadReader</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathInternal"><span class="hs-identifier hs-type">PathInternal</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="hs-special">]</span><span class="hs-special">)</span></span></span></span><span class="hs-special">,</span><span>
+</span><span id="line-30"></span><span>      </span><span id="local-6989586621679081173"><span id="local-6989586621679081180"><span id="local-6989586621679081186"><span id="local-6989586621679081192"><span class="annot"><span class="hs-identifier hs-type">MonadWriter</span></span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679080687"><span class="hs-identifier hs-type">middleware</span></a></span><span class="hs-special">]</span></span></span></span></span><span class="hs-special">,</span><span>
+</span><span id="line-31"></span><span>      </span><span id="local-6989586621679081208"><span id="local-6989586621679081215"><span id="local-6989586621679081221"><span class="annot"><span class="hs-identifier hs-type">MonadState</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.Router.html#RegistryState"><span class="hs-identifier hs-type">RegistryState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080685"><span class="hs-identifier hs-type">n</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080686"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080688"><span class="hs-identifier hs-type">reqTypes</span></a></span><span class="hs-special">)</span></span></span></span><span class="hs-special">,</span><span>
+</span><span id="line-32"></span><span>      </span><span id="local-6989586621679081234"><span class="annot"><span class="annottext">(forall (m :: * -&gt; *).
+ Monad m =&gt;
+ Monad (RegistryT n b middleware reqTypes m)) =&gt;
+(forall (m :: * -&gt; *) a.
+ Monad m =&gt;
+ m a -&gt; RegistryT n b middleware reqTypes m a)
+-&gt; MonadTrans (RegistryT n b middleware reqTypes)
+forall (m :: * -&gt; *).
+Monad m =&gt;
+Monad (RegistryT n b middleware reqTypes m)
+forall (m :: * -&gt; *) a.
+Monad m =&gt;
+m a -&gt; RegistryT n b middleware reqTypes m a
+forall (n :: * -&gt; *) b middleware reqTypes (m :: * -&gt; *).
+Monad m =&gt;
+Monad (RegistryT n b middleware reqTypes m)
+forall (n :: * -&gt; *) b middleware reqTypes (m :: * -&gt; *) a.
+Monad m =&gt;
+m a -&gt; RegistryT n b middleware reqTypes m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *).
+(forall (m :: * -&gt; *). Monad m =&gt; Monad (t m)) =&gt;
+(forall (m :: * -&gt; *) a. Monad m =&gt; m a -&gt; t m a) -&gt; MonadTrans t
+$clift :: forall (n :: * -&gt; *) b middleware reqTypes (m :: * -&gt; *) a.
+Monad m =&gt;
+m a -&gt; RegistryT n b middleware reqTypes m a
+lift :: forall (m :: * -&gt; *) a.
+Monad m =&gt;
+m a -&gt; RegistryT n b middleware reqTypes m a
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var">MonadTrans</span></span></span><span>
+</span><span id="line-33"></span><span>    </span><span class="hs-special">)</span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span class="hs-keyword">data</span><span> </span><span id="RegistryState"><span class="annot"><a href="Web.Routing.Router.html#RegistryState"><span class="hs-identifier hs-var">RegistryState</span></a></span></span><span> </span><span id="local-6989586621679080882"><span class="annot"><a href="#local-6989586621679080882"><span class="hs-identifier hs-type">n</span></a></span></span><span> </span><span id="local-6989586621679080883"><span class="annot"><a href="#local-6989586621679080883"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span id="local-6989586621679080884"><span class="annot"><a href="#local-6989586621679080884"><span class="hs-identifier hs-type">reqTypes</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="RegistryState"><span class="annot"><a href="Web.Routing.Router.html#RegistryState"><span class="hs-identifier hs-var">RegistryState</span></a></span></span><span>
+</span><span id="line-36"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="rs_registry"><span class="annot"><span class="annottext">forall (n :: * -&gt; *) b reqTypes.
+RegistryState n b reqTypes -&gt; HashMap reqTypes (Registry n b)
+</span><a href="Web.Routing.Router.html#rs_registry"><span class="hs-identifier hs-var hs-var">rs_registry</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HM.HashMap</span></span><span> </span><span class="annot"><a href="#local-6989586621679080884"><span class="hs-identifier hs-type">reqTypes</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.SafeRouting.html#Registry"><span class="hs-identifier hs-type">Registry</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080882"><span class="hs-identifier hs-type">n</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080883"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-37"></span><span>    </span><span id="rs_anyMethod"><span class="annot"><span class="annottext">forall (n :: * -&gt; *) b reqTypes.
+RegistryState n b reqTypes -&gt; Registry n b
+</span><a href="Web.Routing.Router.html#rs_anyMethod"><span class="hs-identifier hs-var hs-var">rs_anyMethod</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.SafeRouting.html#Registry"><span class="hs-identifier hs-type">Registry</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080882"><span class="hs-identifier hs-type">n</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080883"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-38"></span><span>    </span><span id="rs_slashPolicy"><span class="annot"><span class="annottext">forall (n :: * -&gt; *) b reqTypes.
+RegistryState n b reqTypes -&gt; SlashPolicy
+</span><a href="Web.Routing.Router.html#rs_slashPolicy"><span class="hs-identifier hs-var hs-var">rs_slashPolicy</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Web.Routing.SafeRouting.html#SlashPolicy"><span class="hs-identifier hs-type">SlashPolicy</span></a></span><span>
+</span><span id="line-39"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span id="local-6989586621679080897"><span id="local-6989586621679080898"><span id="local-6989586621679080901"><span id="local-6989586621679080902"><span id="local-6989586621679080903"><span class="annot"><a href="Web.Routing.Router.html#hookAny"><span class="hs-identifier hs-type">hookAny</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-42"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679080897"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Eq</span></span><span> </span><span class="annot"><a href="#local-6989586621679080898"><span class="hs-identifier hs-type">reqTypes</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Hashable</span></span><span> </span><span class="annot"><a href="#local-6989586621679080898"><span class="hs-identifier hs-type">reqTypes</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-43"></span><span>  </span><span class="annot"><a href="#local-6989586621679080898"><span class="hs-identifier hs-type">reqTypes</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-44"></span><span>  </span><span class="hs-special">(</span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679080901"><span class="hs-identifier hs-type">n</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080902"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-45"></span><span>  </span><span class="annot"><a href="Web.Routing.Router.html#RegistryT"><span class="hs-identifier hs-type">RegistryT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080901"><span class="hs-identifier hs-type">n</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080902"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080903"><span class="hs-identifier hs-type">middleware</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080898"><span class="hs-identifier hs-type">reqTypes</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080897"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span></span></span></span><span>
+</span><span id="line-46"></span><span id="hookAny"><span class="annot"><span class="annottext">hookAny :: forall (m :: * -&gt; *) reqTypes (n :: * -&gt; *) b middleware.
+(Monad m, Eq reqTypes, Hashable reqTypes) =&gt;
+reqTypes
+-&gt; ([Text] -&gt; n b) -&gt; RegistryT n b middleware reqTypes m ()
+</span><a href="Web.Routing.Router.html#hookAny"><span class="hs-identifier hs-var hs-var">hookAny</span></a></span></span><span> </span><span id="local-6989586621679081256"><span class="annot"><span class="annottext">reqTypes
+</span><a href="#local-6989586621679081256"><span class="hs-identifier hs-var">reqType</span></a></span></span><span> </span><span id="local-6989586621679081257"><span class="annot"><span class="annottext">[Text] -&gt; n b
+</span><a href="#local-6989586621679081257"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-47"></span><span>  </span><span class="annot"><span class="annottext">(RegistryState n b reqTypes -&gt; RegistryState n b reqTypes)
+-&gt; RegistryT n b middleware reqTypes m ()
+forall s (m :: * -&gt; *). MonadState s m =&gt; (s -&gt; s) -&gt; m ()
+</span><span class="hs-identifier hs-var">modify</span></span><span> </span><span class="annot"><span class="annottext">((RegistryState n b reqTypes -&gt; RegistryState n b reqTypes)
+ -&gt; RegistryT n b middleware reqTypes m ())
+-&gt; (RegistryState n b reqTypes -&gt; RegistryState n b reqTypes)
+-&gt; RegistryT n b middleware reqTypes m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679081259"><span class="annot"><span class="annottext">RegistryState n b reqTypes
+</span><a href="#local-6989586621679081259"><span class="hs-identifier hs-var">rs</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-48"></span><span>    </span><span class="annot"><span class="annottext">RegistryState n b reqTypes
+</span><a href="#local-6989586621679081259"><span class="hs-identifier hs-var">rs</span></a></span><span>
+</span><span id="line-49"></span><span>      </span><span class="hs-special">{</span><span> </span><span class="annot"><a href="Web.Routing.Router.html#rs_registry"><span class="hs-identifier hs-var">rs_registry</span></a></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-50"></span><span>          </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679081260"><span class="annot"><a href="#local-6989586621679081260"><span class="hs-identifier hs-var hs-var">reg</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(PathMap (n b), [[Text] -&gt; n b])
+-&gt; Maybe (PathMap (n b), [[Text] -&gt; n b])
+-&gt; (PathMap (n b), [[Text] -&gt; n b])
+forall a. a -&gt; Maybe a -&gt; a
+</span><span class="hs-identifier hs-var">fromMaybe</span></span><span> </span><span class="annot"><span class="annottext">(PathMap (n b), [[Text] -&gt; n b])
+forall (m :: * -&gt; *) a. Registry m a
+</span><a href="Web.Routing.SafeRouting.html#emptyRegistry"><span class="hs-identifier hs-var">emptyRegistry</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">reqTypes
+-&gt; HashMap reqTypes (PathMap (n b), [[Text] -&gt; n b])
+-&gt; Maybe (PathMap (n b), [[Text] -&gt; n b])
+forall k v. Hashable k =&gt; k -&gt; HashMap k v -&gt; Maybe v
+</span><span class="hs-identifier hs-var">HM.lookup</span></span><span> </span><span class="annot"><span class="annottext">reqTypes
+</span><a href="#local-6989586621679081256"><span class="hs-identifier hs-var">reqType</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">RegistryState n b reqTypes
+-&gt; HashMap reqTypes (PathMap (n b), [[Text] -&gt; n b])
+forall (n :: * -&gt; *) b reqTypes.
+RegistryState n b reqTypes -&gt; HashMap reqTypes (Registry n b)
+</span><a href="Web.Routing.Router.html#rs_registry"><span class="hs-identifier hs-var">rs_registry</span></a></span><span> </span><span class="annot"><span class="annottext">RegistryState n b reqTypes
+</span><a href="#local-6989586621679081259"><span class="hs-identifier hs-var">rs</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-51"></span><span>           </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HM.insert</span></span><span> </span><span class="annot"><a href="#local-6989586621679081256"><span class="hs-identifier hs-type">reqType</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.SafeRouting.html#fallbackRoute"><span class="hs-identifier hs-type">fallbackRoute</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081257"><span class="hs-identifier hs-type">action</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081260"><span class="hs-identifier hs-type">reg</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.Router.html#rs_registry"><span class="hs-identifier hs-var">rs_registry</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081259"><span class="hs-identifier hs-type">rs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-52"></span><span>      </span><span class="hs-special">}</span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span id="local-6989586621679080925"><span id="local-6989586621679080926"><span id="local-6989586621679080927"><span id="local-6989586621679080928"><span id="local-6989586621679080929"><span class="annot"><a href="Web.Routing.Router.html#hookAnyMethod"><span class="hs-identifier hs-type">hookAnyMethod</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-55"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679080925"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-56"></span><span>  </span><span class="hs-special">(</span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679080926"><span class="hs-identifier hs-type">n</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080927"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-57"></span><span>  </span><span class="annot"><a href="Web.Routing.Router.html#RegistryT"><span class="hs-identifier hs-type">RegistryT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080926"><span class="hs-identifier hs-type">n</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080927"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080928"><span class="hs-identifier hs-type">middleware</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080929"><span class="hs-identifier hs-type">reqTypes</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080925"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span></span></span></span><span>
+</span><span id="line-58"></span><span id="hookAnyMethod"><span class="annot"><span class="annottext">hookAnyMethod :: forall (m :: * -&gt; *) (n :: * -&gt; *) b middleware reqTypes.
+Monad m =&gt;
+([Text] -&gt; n b) -&gt; RegistryT n b middleware reqTypes m ()
+</span><a href="Web.Routing.Router.html#hookAnyMethod"><span class="hs-identifier hs-var hs-var">hookAnyMethod</span></a></span></span><span> </span><span id="local-6989586621679081270"><span class="annot"><span class="annottext">[Text] -&gt; n b
+</span><a href="#local-6989586621679081270"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-59"></span><span>  </span><span class="annot"><span class="annottext">(RegistryState n b reqTypes -&gt; RegistryState n b reqTypes)
+-&gt; RegistryT n b middleware reqTypes m ()
+forall s (m :: * -&gt; *). MonadState s m =&gt; (s -&gt; s) -&gt; m ()
+</span><span class="hs-identifier hs-var">modify</span></span><span> </span><span class="annot"><span class="annottext">((RegistryState n b reqTypes -&gt; RegistryState n b reqTypes)
+ -&gt; RegistryT n b middleware reqTypes m ())
+-&gt; (RegistryState n b reqTypes -&gt; RegistryState n b reqTypes)
+-&gt; RegistryT n b middleware reqTypes m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-60"></span><span>    </span><span class="hs-glyph">\</span><span id="local-6989586621679081271"><span class="annot"><span class="annottext">RegistryState n b reqTypes
+</span><a href="#local-6989586621679081271"><span class="hs-identifier hs-var">rs</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-61"></span><span>      </span><span class="annot"><span class="annottext">RegistryState n b reqTypes
+</span><a href="#local-6989586621679081271"><span class="hs-identifier hs-var">rs</span></a></span><span>
+</span><span id="line-62"></span><span>        </span><span class="hs-special">{</span><span> </span><span class="annot"><a href="Web.Routing.Router.html#rs_anyMethod"><span class="hs-identifier hs-var">rs_anyMethod</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#fallbackRoute"><span class="hs-identifier hs-type">fallbackRoute</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081270"><span class="hs-identifier hs-type">action</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.Router.html#rs_anyMethod"><span class="hs-identifier hs-var">rs_anyMethod</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081271"><span class="hs-identifier hs-type">rs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-63"></span><span>        </span><span class="hs-special">}</span><span>
+</span><span id="line-64"></span><span>
+</span><span id="line-65"></span><span id="local-6989586621679080935"><span id="local-6989586621679080936"><span id="local-6989586621679080937"><span id="local-6989586621679080938"><span id="local-6989586621679080939"><span id="local-6989586621679080941"><span class="annot"><a href="Web.Routing.Router.html#hookRoute"><span class="hs-identifier hs-type">hookRoute</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-66"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679080935"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Eq</span></span><span> </span><span class="annot"><a href="#local-6989586621679080936"><span class="hs-identifier hs-type">reqTypes</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Hashable</span></span><span> </span><span class="annot"><a href="#local-6989586621679080936"><span class="hs-identifier hs-type">reqTypes</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-67"></span><span>  </span><span class="annot"><a href="#local-6989586621679080936"><span class="hs-identifier hs-type">reqTypes</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-68"></span><span>  </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathInternal"><span class="hs-identifier hs-type">PathInternal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080937"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-69"></span><span>  </span><span class="annot"><a href="Web.Routing.SafeRouting.html#HVectElim%27"><span class="hs-identifier hs-type">HVectElim'</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679080938"><span class="hs-identifier hs-type">n</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080939"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679080937"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-70"></span><span>  </span><span class="annot"><a href="Web.Routing.Router.html#RegistryT"><span class="hs-identifier hs-type">RegistryT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080938"><span class="hs-identifier hs-type">n</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080939"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080941"><span class="hs-identifier hs-type">middleware</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080936"><span class="hs-identifier hs-type">reqTypes</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080935"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span></span></span></span></span><span>
+</span><span id="line-71"></span><span id="hookRoute"><span class="annot"><span class="annottext">hookRoute :: forall (m :: * -&gt; *) reqTypes (as :: [*]) (n :: * -&gt; *) b
+       middleware.
+(Monad m, Eq reqTypes, Hashable reqTypes) =&gt;
+reqTypes
+-&gt; PathInternal as
+-&gt; HVectElim' (n b) as
+-&gt; RegistryT n b middleware reqTypes m ()
+</span><a href="Web.Routing.Router.html#hookRoute"><span class="hs-identifier hs-var hs-var">hookRoute</span></a></span></span><span> </span><span id="local-6989586621679081284"><span class="annot"><span class="annottext">reqTypes
+</span><a href="#local-6989586621679081284"><span class="hs-identifier hs-var">reqType</span></a></span></span><span> </span><span id="local-6989586621679081285"><span class="annot"><span class="annottext">PathInternal as
+</span><a href="#local-6989586621679081285"><span class="hs-identifier hs-var">path</span></a></span></span><span> </span><span id="local-6989586621679081286"><span class="annot"><span class="annottext">HVectElim' (n b) as
+</span><a href="#local-6989586621679081286"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-72"></span><span>  </span><span class="hs-keyword">do</span><span>
+</span><span id="line-73"></span><span>    </span><span id="local-6989586621679081287"><span class="annot"><a href="#local-6989586621679081287"><span class="hs-identifier hs-var">basePath</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">RegistryT n b middleware reqTypes m (PathInternal '[])
+forall r (m :: * -&gt; *). MonadReader r m =&gt; m r
+</span><span class="hs-identifier hs-var">ask</span></span><span>
+</span><span id="line-74"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">modify</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679081288"><span class="annot"><span class="annottext">RegistryState n b reqTypes
+</span><a href="#local-6989586621679081288"><span class="hs-identifier hs-var">rs</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-75"></span><span>      </span><span class="annot"><span class="annottext">RegistryState n b reqTypes
+</span><a href="#local-6989586621679081288"><span class="hs-identifier hs-var">rs</span></a></span><span>
+</span><span id="line-76"></span><span>        </span><span class="hs-special">{</span><span> </span><span class="annot"><a href="Web.Routing.Router.html#rs_registry"><span class="hs-identifier hs-var">rs_registry</span></a></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-77"></span><span>            </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679081289"><span class="annot"><a href="#local-6989586621679081289"><span class="hs-identifier hs-var hs-var">reg</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(PathMap (n b), [[Text] -&gt; n b])
+-&gt; Maybe (PathMap (n b), [[Text] -&gt; n b])
+-&gt; (PathMap (n b), [[Text] -&gt; n b])
+forall a. a -&gt; Maybe a -&gt; a
+</span><span class="hs-identifier hs-var">fromMaybe</span></span><span> </span><span class="annot"><span class="annottext">(PathMap (n b), [[Text] -&gt; n b])
+forall (m :: * -&gt; *) a. Registry m a
+</span><a href="Web.Routing.SafeRouting.html#emptyRegistry"><span class="hs-identifier hs-var">emptyRegistry</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">reqTypes
+-&gt; HashMap reqTypes (PathMap (n b), [[Text] -&gt; n b])
+-&gt; Maybe (PathMap (n b), [[Text] -&gt; n b])
+forall k v. Hashable k =&gt; k -&gt; HashMap k v -&gt; Maybe v
+</span><span class="hs-identifier hs-var">HM.lookup</span></span><span> </span><span class="annot"><span class="annottext">reqTypes
+</span><a href="#local-6989586621679081284"><span class="hs-identifier hs-var">reqType</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">RegistryState n b reqTypes
+-&gt; HashMap reqTypes (PathMap (n b), [[Text] -&gt; n b])
+forall (n :: * -&gt; *) b reqTypes.
+RegistryState n b reqTypes -&gt; HashMap reqTypes (Registry n b)
+</span><a href="Web.Routing.Router.html#rs_registry"><span class="hs-identifier hs-var">rs_registry</span></a></span><span> </span><span class="annot"><span class="annottext">RegistryState n b reqTypes
+</span><a href="#local-6989586621679081288"><span class="hs-identifier hs-var">rs</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-78"></span><span>                </span><span id="local-6989586621679081290"><span class="annot"><a href="#local-6989586621679081290"><span class="hs-identifier hs-var hs-var">reg'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PathInternal as
+-&gt; HVectElim' (n b) as
+-&gt; (PathMap (n b), [[Text] -&gt; n b])
+-&gt; (PathMap (n b), [[Text] -&gt; n b])
+forall (xs :: [*]) (m :: * -&gt; *) a.
+PathInternal xs
+-&gt; HVectElim' (m a) xs -&gt; Registry m a -&gt; Registry m a
+</span><a href="Web.Routing.SafeRouting.html#defRoute"><span class="hs-identifier hs-var">defRoute</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SlashPolicy -&gt; PathInternal as -&gt; PathInternal as
+forall (as :: [*]).
+SlashPolicy -&gt; PathInternal as -&gt; PathInternal as
+</span><a href="Web.Routing.SafeRouting.html#normalizeInternalPath"><span class="hs-identifier hs-var">normalizeInternalPath</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">RegistryState n b reqTypes -&gt; SlashPolicy
+forall (n :: * -&gt; *) b reqTypes.
+RegistryState n b reqTypes -&gt; SlashPolicy
+</span><a href="Web.Routing.Router.html#rs_slashPolicy"><span class="hs-identifier hs-var">rs_slashPolicy</span></a></span><span> </span><span class="annot"><span class="annottext">RegistryState n b reqTypes
+</span><a href="#local-6989586621679081288"><span class="hs-identifier hs-var">rs</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PathInternal '[]
+</span><a href="#local-6989586621679081287"><span class="hs-identifier hs-var">basePath</span></a></span><span> </span><span class="annot"><span class="annottext">PathInternal '[] -&gt; PathInternal as -&gt; PathInternal (Append '[] as)
+forall (as :: [*]) (bs :: [*]).
+PathInternal as -&gt; PathInternal bs -&gt; PathInternal (Append as bs)
+</span><a href="Web.Routing.SafeRouting.html#%3C%2F%21%3E"><span class="hs-operator hs-var">&lt;/!&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">PathInternal as
+</span><a href="#local-6989586621679081285"><span class="hs-identifier hs-var">path</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">HVectElim' (n b) as
+</span><a href="#local-6989586621679081286"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="annot"><span class="annottext">(PathMap (n b), [[Text] -&gt; n b])
+</span><a href="#local-6989586621679081289"><span class="hs-identifier hs-var">reg</span></a></span><span>
+</span><span id="line-79"></span><span>             </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HM.insert</span></span><span> </span><span class="annot"><a href="#local-6989586621679081284"><span class="hs-identifier hs-type">reqType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081290"><span class="hs-identifier hs-type">reg'</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.Router.html#rs_registry"><span class="hs-identifier hs-var">rs_registry</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081288"><span class="hs-identifier hs-type">rs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-80"></span><span>        </span><span class="hs-special">}</span><span>
+</span><span id="line-81"></span><span>
+</span><span id="line-82"></span><span id="local-6989586621679080955"><span id="local-6989586621679080956"><span id="local-6989586621679080957"><span id="local-6989586621679080958"><span id="local-6989586621679080959"><span id="local-6989586621679080960"><span class="annot"><a href="Web.Routing.Router.html#hookRouteAnyMethod"><span class="hs-identifier hs-type">hookRouteAnyMethod</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-83"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679080955"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-84"></span><span>  </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathInternal"><span class="hs-identifier hs-type">PathInternal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080956"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-85"></span><span>  </span><span class="annot"><a href="Web.Routing.SafeRouting.html#HVectElim%27"><span class="hs-identifier hs-type">HVectElim'</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679080957"><span class="hs-identifier hs-type">n</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080958"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679080956"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-86"></span><span>  </span><span class="annot"><a href="Web.Routing.Router.html#RegistryT"><span class="hs-identifier hs-type">RegistryT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080957"><span class="hs-identifier hs-type">n</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080958"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080959"><span class="hs-identifier hs-type">middleware</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080960"><span class="hs-identifier hs-type">reqTypes</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080955"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span></span></span></span></span><span>
+</span><span id="line-87"></span><span id="hookRouteAnyMethod"><span class="annot"><span class="annottext">hookRouteAnyMethod :: forall (m :: * -&gt; *) (as :: [*]) (n :: * -&gt; *) b middleware
+       reqTypes.
+Monad m =&gt;
+PathInternal as
+-&gt; HVectElim' (n b) as -&gt; RegistryT n b middleware reqTypes m ()
+</span><a href="Web.Routing.Router.html#hookRouteAnyMethod"><span class="hs-identifier hs-var hs-var">hookRouteAnyMethod</span></a></span></span><span> </span><span id="local-6989586621679081302"><span class="annot"><span class="annottext">PathInternal as
+</span><a href="#local-6989586621679081302"><span class="hs-identifier hs-var">path</span></a></span></span><span> </span><span id="local-6989586621679081303"><span class="annot"><span class="annottext">HVectElim' (n b) as
+</span><a href="#local-6989586621679081303"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-88"></span><span>  </span><span class="hs-keyword">do</span><span>
+</span><span id="line-89"></span><span>    </span><span id="local-6989586621679081304"><span class="annot"><a href="#local-6989586621679081304"><span class="hs-identifier hs-var">basePath</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">RegistryT n b middleware reqTypes m (PathInternal '[])
+forall r (m :: * -&gt; *). MonadReader r m =&gt; m r
+</span><span class="hs-identifier hs-var">ask</span></span><span>
+</span><span id="line-90"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">modify</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679081305"><span class="annot"><span class="annottext">RegistryState n b reqTypes
+</span><a href="#local-6989586621679081305"><span class="hs-identifier hs-var">rs</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-91"></span><span>      </span><span class="annot"><span class="annottext">RegistryState n b reqTypes
+</span><a href="#local-6989586621679081305"><span class="hs-identifier hs-var">rs</span></a></span><span>
+</span><span id="line-92"></span><span>        </span><span class="hs-special">{</span><span> </span><span class="annot"><a href="Web.Routing.Router.html#rs_anyMethod"><span class="hs-identifier hs-var">rs_anyMethod</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#defRoute"><span class="hs-identifier hs-type">defRoute</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.SafeRouting.html#normalizeInternalPath"><span class="hs-identifier hs-type">normalizeInternalPath</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.Router.html#rs_slashPolicy"><span class="hs-identifier hs-var">rs_slashPolicy</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081305"><span class="hs-identifier hs-type">rs</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679081304"><span class="hs-identifier hs-type">basePath</span></a></span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#%3C%2F%21%3E"><span class="hs-operator hs-type">&lt;/!&gt;</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081302"><span class="hs-identifier hs-type">path</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679081303"><span class="hs-identifier hs-type">action</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.Router.html#rs_anyMethod"><span class="hs-identifier hs-var">rs_anyMethod</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081305"><span class="hs-identifier hs-type">rs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-93"></span><span>        </span><span class="hs-special">}</span><span>
+</span><span id="line-94"></span><span>
+</span><span id="line-95"></span><span id="local-6989586621679080967"><span id="local-6989586621679080968"><span id="local-6989586621679080969"><span id="local-6989586621679080970"><span id="local-6989586621679080971"><span class="annot"><a href="Web.Routing.Router.html#middleware"><span class="hs-identifier hs-type">middleware</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-96"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679080967"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-97"></span><span>  </span><span class="annot"><a href="#local-6989586621679080968"><span class="hs-identifier hs-type">middleware</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-98"></span><span>  </span><span class="annot"><a href="Web.Routing.Router.html#RegistryT"><span class="hs-identifier hs-type">RegistryT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080969"><span class="hs-identifier hs-type">n</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080970"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080968"><span class="hs-identifier hs-type">middleware</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080971"><span class="hs-identifier hs-type">reqTypes</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080967"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span></span></span></span><span>
+</span><span id="line-99"></span><span id="middleware"><span class="annot"><span class="annottext">middleware :: forall (m :: * -&gt; *) middleware (n :: * -&gt; *) b reqTypes.
+Monad m =&gt;
+middleware -&gt; RegistryT n b middleware reqTypes m ()
+</span><a href="Web.Routing.Router.html#middleware"><span class="hs-identifier hs-var hs-var">middleware</span></a></span></span><span> </span><span id="local-6989586621679081310"><span class="annot"><span class="annottext">middleware
+</span><a href="#local-6989586621679081310"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[middleware] -&gt; RegistryT n b middleware reqTypes m ()
+forall w (m :: * -&gt; *). MonadWriter w m =&gt; w -&gt; m ()
+</span><span class="hs-identifier hs-var">tell</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">middleware
+</span><a href="#local-6989586621679081310"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-100"></span><span>
+</span><span id="line-101"></span><span id="local-6989586621679080977"><span id="local-6989586621679080978"><span id="local-6989586621679080980"><span id="local-6989586621679080981"><span id="local-6989586621679080982"><span id="local-6989586621679080983"><span id="local-6989586621679080984"><span class="annot"><a href="Web.Routing.Router.html#swapMonad"><span class="hs-identifier hs-type">swapMonad</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-102"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679080977"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-103"></span><span>  </span><span class="hs-special">(</span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679080979"><span class="annot"><a href="#local-6989586621679080979"><span class="hs-identifier hs-type">b</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="#local-6989586621679080978"><span class="hs-identifier hs-type">n</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080979"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679080977"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080979"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-104"></span><span>  </span><span class="annot"><a href="Web.Routing.Router.html#RegistryT"><span class="hs-identifier hs-type">RegistryT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080980"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080981"><span class="hs-identifier hs-type">y</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080982"><span class="hs-identifier hs-type">middleware</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080983"><span class="hs-identifier hs-type">reqTypes</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080978"><span class="hs-identifier hs-type">n</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080984"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-105"></span><span>  </span><span class="annot"><a href="Web.Routing.Router.html#RegistryT"><span class="hs-identifier hs-type">RegistryT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080980"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080981"><span class="hs-identifier hs-type">y</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080982"><span class="hs-identifier hs-type">middleware</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080983"><span class="hs-identifier hs-type">reqTypes</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080977"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080984"><span class="hs-identifier hs-type">a</span></a></span></span></span></span></span></span></span></span><span>
+</span><span id="line-106"></span><span id="swapMonad"><span class="annot"><span class="annottext">swapMonad :: forall (m :: * -&gt; *) (n :: * -&gt; *) (x :: * -&gt; *) y middleware
+       reqTypes a.
+Monad m =&gt;
+(forall b. n b -&gt; m b)
+-&gt; RegistryT x y middleware reqTypes n a
+-&gt; RegistryT x y middleware reqTypes m a
+</span><a href="Web.Routing.Router.html#swapMonad"><span class="hs-identifier hs-var hs-var">swapMonad</span></a></span></span><span> </span><span id="local-6989586621679081329"><span class="annot"><span class="annottext">forall b. n b -&gt; m b
+</span><a href="#local-6989586621679081329"><span class="hs-identifier hs-var">liftLower</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.Router.html#RegistryT"><span class="hs-identifier hs-type">RegistryT</span></a></span><span> </span><span id="local-6989586621679081330"><span class="annot"><span class="annottext">RWST
+  (PathInternal '[]) [middleware] (RegistryState x y reqTypes) n a
+</span><a href="#local-6989586621679081330"><span class="hs-identifier hs-var">subReg</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-107"></span><span>  </span><span class="hs-keyword">do</span><span>
+</span><span id="line-108"></span><span>    </span><span id="local-6989586621679081331"><span class="annot"><a href="#local-6989586621679081331"><span class="hs-identifier hs-var">parentSt</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">RegistryT x y middleware reqTypes m (RegistryState x y reqTypes)
+forall s (m :: * -&gt; *). MonadState s m =&gt; m s
+</span><span class="hs-identifier hs-var">get</span></span><span>
+</span><span id="line-109"></span><span>    </span><span id="local-6989586621679081332"><span class="annot"><a href="#local-6989586621679081332"><span class="hs-identifier hs-var">basePath</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ask</span></span><span>
+</span><span id="line-110"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621679081333"><span class="annot"><a href="#local-6989586621679081333"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679081334"><span class="annot"><a href="#local-6989586621679081334"><span class="hs-identifier hs-var">parentSt'</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679081335"><span class="annot"><a href="#local-6989586621679081335"><span class="hs-identifier hs-var">middleware'</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span>
+</span><span id="line-111"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">lift</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="annot"><a href="#local-6989586621679081329"><span class="hs-identifier hs-type">liftLower</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="annot"><span class="hs-identifier hs-var">runRWST</span></span><span> </span><span class="annot"><a href="#local-6989586621679081330"><span class="hs-identifier hs-type">subReg</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081332"><span class="hs-identifier hs-type">basePath</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081331"><span class="hs-identifier hs-type">parentSt</span></a></span><span>
+</span><span id="line-112"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">put</span></span><span> </span><span class="annot"><a href="#local-6989586621679081334"><span class="hs-identifier hs-type">parentSt'</span></a></span><span>
+</span><span id="line-113"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">tell</span></span><span> </span><span class="annot"><a href="#local-6989586621679081335"><span class="hs-identifier hs-type">middleware'</span></a></span><span>
+</span><span id="line-114"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">return</span></span><span> </span><span class="annot"><a href="#local-6989586621679081333"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-115"></span><span>
+</span><span id="line-116"></span><span id="local-6989586621679080997"><span id="local-6989586621679080998"><span id="local-6989586621679080999"><span id="local-6989586621679081000"><span id="local-6989586621679081001"><span id="local-6989586621679081002"><span class="annot"><a href="Web.Routing.Router.html#runRegistry"><span class="hs-identifier hs-type">runRegistry</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-117"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679080997"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Hashable</span></span><span> </span><span class="annot"><a href="#local-6989586621679080998"><span class="hs-identifier hs-type">reqTypes</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Eq</span></span><span> </span><span class="annot"><a href="#local-6989586621679080998"><span class="hs-identifier hs-type">reqTypes</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-118"></span><span>  </span><span class="annot"><a href="Web.Routing.Router.html#RegistryT"><span class="hs-identifier hs-type">RegistryT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080999"><span class="hs-identifier hs-type">n</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081000"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081001"><span class="hs-identifier hs-type">middleware</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080998"><span class="hs-identifier hs-type">reqTypes</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679080997"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081002"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-119"></span><span>  </span><span class="annot"><a href="#local-6989586621679080997"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679081002"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679080998"><span class="hs-identifier hs-type">reqTypes</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679080999"><span class="hs-identifier hs-type">n</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081000"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">]</span><span class="hs-special">,</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679081001"><span class="hs-identifier hs-type">middleware</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span></span></span></span></span></span></span><span>
+</span><span id="line-120"></span><span id="runRegistry"><span class="annot"><span class="annottext">runRegistry :: forall (m :: * -&gt; *) reqTypes (n :: * -&gt; *) b middleware a.
+(Monad m, Hashable reqTypes, Eq reqTypes) =&gt;
+RegistryT n b middleware reqTypes m a
+-&gt; m (a, reqTypes -&gt; [Text] -&gt; [n b], [middleware])
+</span><a href="Web.Routing.Router.html#runRegistry"><span class="hs-identifier hs-var hs-var">runRegistry</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SlashPolicy
+-&gt; RegistryT n b middleware reqTypes m a
+-&gt; m (a, reqTypes -&gt; [Text] -&gt; [n b], [middleware])
+forall (m :: * -&gt; *) reqTypes (n :: * -&gt; *) b middleware a.
+(Monad m, Hashable reqTypes, Eq reqTypes) =&gt;
+SlashPolicy
+-&gt; RegistryT n b middleware reqTypes m a
+-&gt; m (a, reqTypes -&gt; [Text] -&gt; [n b], [middleware])
+</span><a href="Web.Routing.Router.html#runRegistryWith"><span class="hs-identifier hs-var">runRegistryWith</span></a></span><span> </span><span class="annot"><span class="annottext">SlashPolicy
+</span><a href="Web.Routing.SafeRouting.html#IgnoreSlashes"><span class="hs-identifier hs-var">IgnoreSlashes</span></a></span><span>
+</span><span id="line-121"></span><span>
+</span><span id="line-122"></span><span class="hs-comment">-- | Run a registry using the selected slash policy for both definitions and</span><span>
+</span><span id="line-123"></span><span class="hs-comment">-- incoming path pieces. Pass decoded pieces without the initial path separator.</span><span>
+</span><span id="line-124"></span><span id="local-6989586621679081009"><span id="local-6989586621679081010"><span id="local-6989586621679081011"><span id="local-6989586621679081012"><span id="local-6989586621679081013"><span id="local-6989586621679081014"><span class="annot"><a href="Web.Routing.Router.html#runRegistryWith"><span class="hs-identifier hs-type">runRegistryWith</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-125"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679081009"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Hashable</span></span><span> </span><span class="annot"><a href="#local-6989586621679081010"><span class="hs-identifier hs-type">reqTypes</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Eq</span></span><span> </span><span class="annot"><a href="#local-6989586621679081010"><span class="hs-identifier hs-type">reqTypes</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-126"></span><span>  </span><span class="annot"><a href="Web.Routing.SafeRouting.html#SlashPolicy"><span class="hs-identifier hs-type">SlashPolicy</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.Router.html#RegistryT"><span class="hs-identifier hs-type">RegistryT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081011"><span class="hs-identifier hs-type">n</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081012"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081013"><span class="hs-identifier hs-type">middleware</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081010"><span class="hs-identifier hs-type">reqTypes</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081009"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081014"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-127"></span><span>  </span><span class="annot"><a href="#local-6989586621679081009"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679081014"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679081010"><span class="hs-identifier hs-type">reqTypes</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679081011"><span class="hs-identifier hs-type">n</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081012"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">]</span><span class="hs-special">,</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679081013"><span class="hs-identifier hs-type">middleware</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span></span></span></span></span></span></span><span>
+</span><span id="line-128"></span><span id="runRegistryWith"><span class="annot"><span class="annottext">runRegistryWith :: forall (m :: * -&gt; *) reqTypes (n :: * -&gt; *) b middleware a.
+(Monad m, Hashable reqTypes, Eq reqTypes) =&gt;
+SlashPolicy
+-&gt; RegistryT n b middleware reqTypes m a
+-&gt; m (a, reqTypes -&gt; [Text] -&gt; [n b], [middleware])
+</span><a href="Web.Routing.Router.html#runRegistryWith"><span class="hs-identifier hs-var hs-var">runRegistryWith</span></a></span></span><span> </span><span id="local-6989586621679081354"><span class="annot"><span class="annottext">SlashPolicy
+</span><a href="#local-6989586621679081354"><span class="hs-identifier hs-var">policy</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.Router.html#RegistryT"><span class="hs-identifier hs-type">RegistryT</span></a></span><span> </span><span id="local-6989586621679081355"><span class="annot"><span class="annottext">RWST
+  (PathInternal '[]) [middleware] (RegistryState n b reqTypes) m a
+</span><a href="#local-6989586621679081355"><span class="hs-identifier hs-var">rwst</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-129"></span><span>  </span><span class="hs-keyword">do</span><span>
+</span><span id="line-130"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621679081356"><span class="annot"><a href="#local-6989586621679081356"><span class="hs-identifier hs-var">val</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679081357"><span class="annot"><a href="#local-6989586621679081357"><span class="hs-identifier hs-var">st</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679081358"><span class="annot"><a href="#local-6989586621679081358"><span class="hs-identifier hs-var">w</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">RWST
+  (PathInternal '[]) [middleware] (RegistryState n b reqTypes) m a
+-&gt; PathInternal '[]
+-&gt; RegistryState n b reqTypes
+-&gt; m (a, RegistryState n b reqTypes, [middleware])
+forall r w s (m :: * -&gt; *) a.
+RWST r w s m a -&gt; r -&gt; s -&gt; m (a, s, w)
+</span><span class="hs-identifier hs-var">runRWST</span></span><span> </span><span class="annot"><span class="annottext">RWST
+  (PathInternal '[]) [middleware] (RegistryState n b reqTypes) m a
+</span><a href="#local-6989586621679081355"><span class="hs-identifier hs-var">rwst</span></a></span><span> </span><span class="annot"><span class="annottext">PathInternal '[]
+</span><a href="Web.Routing.SafeRouting.html#PI_Empty"><span class="hs-identifier hs-var">PI_Empty</span></a></span><span> </span><span class="annot"><span class="annottext">RegistryState n b reqTypes
+</span><a href="#local-6989586621679081360"><span class="hs-identifier hs-var">initSt</span></a></span><span>
+</span><span id="line-131"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679081356"><span class="hs-identifier hs-type">val</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679081361"><span class="hs-identifier hs-type">handleF</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.Router.html#rs_anyMethod"><span class="hs-identifier hs-var">rs_anyMethod</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081357"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.Router.html#rs_registry"><span class="hs-identifier hs-var">rs_registry</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679081357"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679081358"><span class="hs-identifier hs-type">w</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-132"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-133"></span><span>    </span><span id="local-6989586621679081361"><span class="annot"><span class="annottext">handleF :: (PathMap (n b), [[Text] -&gt; n b])
+-&gt; HashMap reqTypes (PathMap (n b), [[Text] -&gt; n b])
+-&gt; reqTypes
+-&gt; [Text]
+-&gt; [n b]
+</span><a href="#local-6989586621679081361"><span class="hs-identifier hs-var hs-var">handleF</span></a></span></span><span> </span><span id="local-6989586621679081362"><span class="annot"><span class="annottext">(PathMap (n b), [[Text] -&gt; n b])
+</span><a href="#local-6989586621679081362"><span class="hs-identifier hs-var">anyReg</span></a></span></span><span> </span><span id="local-6989586621679081363"><span class="annot"><span class="annottext">HashMap reqTypes (PathMap (n b), [[Text] -&gt; n b])
+</span><a href="#local-6989586621679081363"><span class="hs-identifier hs-var">hm</span></a></span></span><span> </span><span id="local-6989586621679081364"><span class="annot"><span class="annottext">reqTypes
+</span><a href="#local-6989586621679081364"><span class="hs-identifier hs-var">ty</span></a></span></span><span> </span><span id="local-6989586621679081365"><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679081365"><span class="hs-identifier hs-var">route</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-134"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679081366"><span class="annot"><span class="annottext">froute :: [Text]
+</span><a href="#local-6989586621679081366"><span class="hs-identifier hs-var hs-var">froute</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">SlashPolicy
+</span><a href="#local-6989586621679081354"><span class="hs-identifier hs-var">policy</span></a></span><span> </span><span class="annot"><span class="annottext">SlashPolicy -&gt; SlashPolicy -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">SlashPolicy
+</span><a href="Web.Routing.SafeRouting.html#IgnoreSlashes"><span class="hs-identifier hs-var">IgnoreSlashes</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Bool) -&gt; [Text] -&gt; [Text]
+forall a. (a -&gt; Bool) -&gt; [a] -&gt; [a]
+</span><span class="hs-identifier hs-var">filter</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Bool -&gt; Bool
+</span><span class="hs-identifier hs-var">not</span></span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; Bool) -&gt; (Text -&gt; Bool) -&gt; Text -&gt; Bool
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Bool
+</span><span class="hs-identifier hs-var">T.null</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679081365"><span class="hs-identifier hs-var">route</span></a></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679081365"><span class="hs-identifier hs-var">route</span></a></span><span>
+</span><span id="line-135"></span><span>       </span><span class="hs-keyword">in</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">reqTypes
+-&gt; HashMap reqTypes (PathMap (n b), [[Text] -&gt; n b])
+-&gt; Maybe (PathMap (n b), [[Text] -&gt; n b])
+forall k v. Hashable k =&gt; k -&gt; HashMap k v -&gt; Maybe v
+</span><span class="hs-identifier hs-var">HM.lookup</span></span><span> </span><span class="annot"><span class="annottext">reqTypes
+</span><a href="#local-6989586621679081364"><span class="hs-identifier hs-var">ty</span></a></span><span> </span><span class="annot"><span class="annottext">HashMap reqTypes (PathMap (n b), [[Text] -&gt; n b])
+</span><a href="#local-6989586621679081363"><span class="hs-identifier hs-var">hm</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-136"></span><span>            </span><span class="annot"><span class="annottext">Maybe (PathMap (n b), [[Text] -&gt; n b])
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(PathMap (n b), [[Text] -&gt; n b]) -&gt; [Text] -&gt; [n b]
+forall (m :: * -&gt; *) a. Registry m a -&gt; [Text] -&gt; [m a]
+</span><a href="Web.Routing.SafeRouting.html#matchRoute"><span class="hs-identifier hs-var">matchRoute</span></a></span><span> </span><span class="annot"><span class="annottext">(PathMap (n b), [[Text] -&gt; n b])
+</span><a href="#local-6989586621679081362"><span class="hs-identifier hs-var">anyReg</span></a></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679081366"><span class="hs-identifier hs-var">froute</span></a></span><span>
+</span><span id="line-137"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679081371"><span class="annot"><span class="annottext">(PathMap (n b), [[Text] -&gt; n b])
+</span><a href="#local-6989586621679081371"><span class="hs-identifier hs-var">registry</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-138"></span><span>              </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(PathMap (n b), [[Text] -&gt; n b]) -&gt; [Text] -&gt; [n b]
+forall (m :: * -&gt; *) a. Registry m a -&gt; [Text] -&gt; [m a]
+</span><a href="Web.Routing.SafeRouting.html#matchRoute"><span class="hs-identifier hs-var">matchRoute</span></a></span><span> </span><span class="annot"><span class="annottext">(PathMap (n b), [[Text] -&gt; n b])
+</span><a href="#local-6989586621679081371"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679081366"><span class="hs-identifier hs-var">froute</span></a></span><span> </span><span class="annot"><span class="annottext">[n b] -&gt; [n b] -&gt; [n b]
+forall a. [a] -&gt; [a] -&gt; [a]
+</span><span class="hs-operator hs-var">++</span></span><span> </span><span class="annot"><span class="annottext">(PathMap (n b), [[Text] -&gt; n b]) -&gt; [Text] -&gt; [n b]
+forall (m :: * -&gt; *) a. Registry m a -&gt; [Text] -&gt; [m a]
+</span><a href="Web.Routing.SafeRouting.html#matchRoute"><span class="hs-identifier hs-var">matchRoute</span></a></span><span> </span><span class="annot"><span class="annottext">(PathMap (n b), [[Text] -&gt; n b])
+</span><a href="#local-6989586621679081362"><span class="hs-identifier hs-var">anyReg</span></a></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679081366"><span class="hs-identifier hs-var">froute</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-139"></span><span>    </span><span id="local-6989586621679081360"><span class="annot"><span class="annottext">initSt :: RegistryState n b reqTypes
+</span><a href="#local-6989586621679081360"><span class="hs-identifier hs-var hs-var">initSt</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-140"></span><span>      </span><span class="annot"><a href="Web.Routing.Router.html#RegistryState"><span class="hs-identifier hs-type">RegistryState</span></a></span><span>
+</span><span id="line-141"></span><span>        </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">rs_registry :: HashMap reqTypes (PathMap (n b), [[Text] -&gt; n b])
+</span><a href="Web.Routing.Router.html#rs_registry"><span class="hs-identifier hs-var">rs_registry</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HashMap reqTypes (PathMap (n b), [[Text] -&gt; n b])
+forall k v. HashMap k v
+</span><span class="hs-identifier hs-var">HM.empty</span></span><span class="hs-special">,</span><span>
+</span><span id="line-142"></span><span>          </span><span class="annot"><span class="annottext">rs_anyMethod :: (PathMap (n b), [[Text] -&gt; n b])
+</span><a href="Web.Routing.Router.html#rs_anyMethod"><span class="hs-identifier hs-var">rs_anyMethod</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(PathMap (n b), [[Text] -&gt; n b])
+forall (m :: * -&gt; *) a. Registry m a
+</span><a href="Web.Routing.SafeRouting.html#emptyRegistry"><span class="hs-identifier hs-var">emptyRegistry</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-143"></span><span>          </span><span class="annot"><span class="annottext">rs_slashPolicy :: SlashPolicy
+</span><a href="Web.Routing.Router.html#rs_slashPolicy"><span class="hs-identifier hs-var">rs_slashPolicy</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SlashPolicy
+</span><a href="#local-6989586621679081354"><span class="hs-identifier hs-var">policy</span></a></span><span>
+</span><span id="line-144"></span><span>        </span><span class="hs-special">}</span><span>
+</span><span id="line-145"></span></pre></body></html>

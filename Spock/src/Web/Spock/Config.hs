@@ -5,6 +5,7 @@ module Web.Spock.Config
   ( SpockCfg (..),
     defaultSpockCfg,
     defaultBrowserSpockCfg,
+    SlashPolicy (..),
 
     -- * Database
     PoolOrConn (..),
@@ -40,6 +41,7 @@ import qualified Data.Text.IO as T
 import Network.HTTP.Types.Status
 import System.IO
 import Web.Spock.Action
+import Web.Spock.Core (SlashPolicy (..))
 import qualified Web.Spock.Internal.SessionVault as SV
 import Web.Spock.Internal.Types
 
@@ -86,6 +88,7 @@ defaultSpockCfg sess conn st =
           spc_maxRequestSize = Just (5 * 1024 * 1024),
           spc_logError = T.hPutStrLn stderr,
           spc_logging = Nothing,
+          spc_slashPolicy = IgnoreSlashes,
           spc_errorHandler = errorHandler,
           spc_csrfProtection = False,
           spc_csrfHeaderName = "X-Csrf-Token",

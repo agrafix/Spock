@@ -7,6 +7,7 @@ import qualified Web.Spock.SafeSpec
 import qualified Web.Spock.UploadSpec
 import qualified Web.Spock.LoggingSpec
 import qualified Web.Spock.RequestSizeSpec
+import qualified Web.Spock.SlashRoutingSpec
 
 main :: IO ()
 main = hspec $
@@ -17,3 +18,4 @@ main = hspec $
     Web.Spock.UploadSpec.spec
     Web.Spock.LoggingSpec.spec
     Web.Spock.RequestSizeSpec.spec
+    Web.Spock.SlashRoutingSpec.spec

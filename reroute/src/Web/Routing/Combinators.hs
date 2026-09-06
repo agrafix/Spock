@@ -9,6 +9,7 @@
 module Web.Routing.Combinators where
 
 import Data.HVect
+import Data.Maybe (fromMaybe)
 import Data.String
 import qualified Data.Text as T
 import Data.Typeable (Typeable)
@@ -49,10 +50,13 @@ instance (FromHttpApiData a, FromHttpApiData b) => FromHttpApiData (AltVar a b) 
 var :: (Typeable a, FromHttpApiData a) => Path (a ': '[]) 'Open
 var = VarCons Empty
 
--- | A static route piece
+-- | A static route piece. One leading slash is optional. Empty internal and
+-- trailing pieces are retained for strict routing; compatibility routing and
+-- 'renderRoute' ignore them. Use 'renderRouteWith' with the application's policy.
 static :: String -> Path '[] 'Open
 static s =
-  let pieces = filter (not . T.null) $ T.splitOn "/" $ T.pack s
+  let relative = fromMaybe (T.pack s) $ T.stripPrefix "/" $ T.pack s
+      pieces = if T.null relative then [] else T.splitOn "/" relative
    in foldr StaticCons Empty pieces
 
 instance (a ~ '[], pathState ~ 'Open) => IsString (Path a pathState) where
@@ -61,6 +65,18 @@ instance (a ~ '[], pathState ~ 'Open) => IsString (Path a pathState) where
 -- | The root of a path piece. Use to define a handler for "/"
 root :: Path '[] 'Open
 root = Empty
+
+-- | Require a trailing slash in strict routing, including after a capture.
+-- Root remains root, and a path already ending in a slash is unchanged.
+trailingSlash :: Path as 'Open -> Path as 'Open
+trailingSlash Empty = Empty
+trailingSlash path = appendSlash path
+  where
+    appendSlash :: Path xs 'Open -> Path xs 'Open
+    appendSlash Empty = StaticCons "" Empty
+    appendSlash (StaticCons "" Empty) = StaticCons "" Empty
+    appendSlash (StaticCons piece rest) = StaticCons piece (appendSlash rest)
+    appendSlash (VarCons rest) = VarCons (appendSlash rest)
 
 -- | Matches the rest of the route. Should be the last part of the path.
 wildcard :: Path '[T.Text] 'Closed
@@ -78,7 +94,19 @@ pathToRep (VarCons p) = RCons (pathToRep p)
 pathToRep (Wildcard p) = RCons (pathToRep p)
 
 renderRoute :: AllHave ToHttpApiData as => Path as 'Open -> HVect as -> T.Text
-renderRoute p = combineRoutePieces . renderRoute' p
+renderRoute = renderRouteWith IgnoreSlashes
+
+-- | Render with the same empty-segment policy used by the registry. Values are
+-- URL pieces, as with 'renderRoute'; this function does not percent-encode them.
+renderRouteWith :: AllHave ToHttpApiData as => SlashPolicy -> Path as 'Open -> HVect as -> T.Text
+renderRouteWith policy p = combineRoutePieces . renderRoute' (normalizePath policy p)
+
+normalizePath :: SlashPolicy -> Path as ps -> Path as ps
+normalizePath IgnoreSlashes (StaticCons "" rest) = normalizePath IgnoreSlashes rest
+normalizePath policy (StaticCons piece rest) = StaticCons piece (normalizePath policy rest)
+normalizePath policy (VarCons rest) = VarCons (normalizePath policy rest)
+normalizePath policy (Wildcard rest) = Wildcard (normalizePath policy rest)
+normalizePath _ Empty = Empty
 
 renderRoute' :: AllHave ToHttpApiData as => Path as 'Open -> HVect as -> [T.Text]
 renderRoute' Empty _ = []

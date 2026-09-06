@@ -34,7 +34,8 @@ newtype RegistryT n b middleware reqTypes (m :: * -> *) a = RegistryT
 
 data RegistryState n b reqTypes = RegistryState
   { rs_registry :: !(HM.HashMap reqTypes (Registry n b)),
-    rs_anyMethod :: !(Registry n b)
+    rs_anyMethod :: !(Registry n b),
+    rs_slashPolicy :: !SlashPolicy
   }
 
 hookAny ::
@@ -74,7 +75,7 @@ hookRoute reqType path action =
       rs
         { rs_registry =
             let reg = fromMaybe emptyRegistry (HM.lookup reqType (rs_registry rs))
-                reg' = defRoute (basePath </!> path) action reg
+                reg' = defRoute (normalizeInternalPath (rs_slashPolicy rs) (basePath </!> path)) action reg
              in HM.insert reqType reg' (rs_registry rs)
         }
 
@@ -88,7 +89,7 @@ hookRouteAnyMethod path action =
     basePath <- ask
     modify $ \rs ->
       rs
-        { rs_anyMethod = defRoute (basePath </!> path) action (rs_anyMethod rs)
+        { rs_anyMethod = defRoute (normalizeInternalPath (rs_slashPolicy rs) (basePath </!> path)) action (rs_anyMethod rs)
         }
 
 middleware ::
@@ -116,13 +117,21 @@ runRegistry ::
   (Monad m, Hashable reqTypes, Eq reqTypes) =>
   RegistryT n b middleware reqTypes m a ->
   m (a, reqTypes -> [T.Text] -> [n b], [middleware])
-runRegistry (RegistryT rwst) =
+runRegistry = runRegistryWith IgnoreSlashes
+
+-- | Run a registry using the selected slash policy for both definitions and
+-- incoming path pieces. Pass decoded pieces without the initial path separator.
+runRegistryWith ::
+  (Monad m, Hashable reqTypes, Eq reqTypes) =>
+  SlashPolicy -> RegistryT n b middleware reqTypes m a ->
+  m (a, reqTypes -> [T.Text] -> [n b], [middleware])
+runRegistryWith policy (RegistryT rwst) =
   do
     (val, st, w) <- runRWST rwst PI_Empty initSt
     return (val, handleF (rs_anyMethod st) (rs_registry st), w)
   where
     handleF anyReg hm ty route =
-      let froute = filter (not . T.null) route
+      let froute = if policy == IgnoreSlashes then filter (not . T.null) route else route
        in case HM.lookup ty hm of
             Nothing -> matchRoute anyReg froute
             Just registry ->
@@ -130,5 +139,6 @@ runRegistry (RegistryT rwst) =
     initSt =
       RegistryState
         { rs_registry = HM.empty,
-          rs_anyMethod = emptyRegistry
+          rs_anyMethod = emptyRegistry,
+          rs_slashPolicy = policy
         }

@@ -6,6 +6,7 @@
 module Web.Routing.SafeRoutingSpec where
 
 import Control.Monad.Identity
+import Control.Monad (forM_)
 import Control.Monad.RWS.Strict
 import Data.HVect hiding (singleton)
 import qualified Data.HashMap.Strict as HM
@@ -62,6 +63,19 @@ spec =
           checkRoute "" [StrVar "root"]
           checkRoute "/" [StrVar "root"]
           checkRoute "/bar" [StrVar "bar"]
+      it "round-trips a captured route with a trailing slash under strict matching" $ do
+        let path = trailingSlash ("item" </> (var :: Var Int))
+            (_, handle, _) = runIdentity $ runRegistryWith StrictSlashes $ defR path (pure . IntVar)
+        forM_ [-1, 0, 42, 1000000] $ \number -> do
+          let rendered = renderRouteWith StrictSlashes path (number :&: HNil)
+          map runIdentity (handle True $ T.splitOn "/" rendered) `shouldBe` [IntVar number]
+          map runIdentity (handle True ["item", T.pack $ show number]) `shouldBe` []
+      it "uses strict slash matching for any-method routes too" $ do
+        let (_, handle, _) = runIdentity $ runRegistryWith StrictSlashes $ do
+              defRAny "entry" $ pure $ StrVar "file"
+              defRAny "entry/" $ pure $ StrVar "directory"
+        map runIdentity (handle False ["entry"]) `shouldBe` [StrVar "file"]
+        map runIdentity (handle False ["entry", ""]) `shouldBe` [StrVar "directory"]
       it "should match any routes" $
         do
           checkRoute' "/any" True [StrVar "any", StrVar "any"] -- two due to hookAny

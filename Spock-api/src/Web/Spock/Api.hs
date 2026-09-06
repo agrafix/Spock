@@ -9,8 +9,11 @@ module Web.Spock.Api
     MaybeToList,
     (<//>),
     var,
+    trailingSlash,
     Path (..),
     renderRoute,
+    renderRouteWith,
+    SlashPolicy (..),
     Generic,
     ToJSON,
     FromJSON,
@@ -26,6 +29,7 @@ import Data.Proxy
 import Data.Typeable
 import GHC.Generics
 import Web.Routing.Combinators
+import Web.Routing.SafeRouting (SlashPolicy (..))
 
 (<//>) :: Path as 'Open -> Path bs ps -> Path (Append as bs) ps
 (<//>) = (</>)

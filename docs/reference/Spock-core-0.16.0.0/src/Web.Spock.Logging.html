@@ -1,0 +1,587 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-3"></span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- | Request correlation and structured logging, independent of any logger</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- library. Enable through 'Web.Spock.Core.sc_logging' or use the middleware</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- directly in a WAI application.</span><span>
+</span><span id="line-7"></span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Web.Spock.Logging.html"><span class="hs-identifier">Web.Spock.Logging</span></a></span><span>
+</span><span id="line-8"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Web.Spock.Logging.html#LoggingConfig"><span class="hs-identifier">LoggingConfig</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Web.Spock.Logging.html#defaultLoggingConfig"><span class="hs-identifier">defaultLoggingConfig</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-9"></span><span>    </span><span class="annot"><a href="Web.Spock.Logging.html#RequestContext"><span class="hs-identifier">RequestContext</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Web.Spock.Logging.html#LogLevel"><span class="hs-identifier">LogLevel</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Web.Spock.Logging.html#LogEvent"><span class="hs-identifier">LogEvent</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Web.Spock.Logging.html#LogEventType"><span class="hs-identifier">LogEventType</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-10"></span><span>    </span><span class="annot"><a href="Web.Spock.Logging.html#RequestLogger"><span class="hs-identifier">RequestLogger</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Web.Spock.Logging.html#newRequestLogger"><span class="hs-identifier">newRequestLogger</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Web.Spock.Logging.html#requestLoggingMiddleware"><span class="hs-identifier">requestLoggingMiddleware</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Web.Spock.Logging.html#lookupRequestLogger"><span class="hs-identifier">lookupRequestLogger</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-11"></span><span>    </span><span class="annot"><a href="Web.Spock.Logging.html#emitRequestLog"><span class="hs-identifier">emitRequestLog</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-12"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-13"></span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Exception</span></span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">System.Entropy</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Entropy</span></span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ToJSON</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Value</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">object</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-operator">(.=)</span></span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson.Key</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Key</span></span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">BS</span></span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString.Builder</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Builder</span></span><span>
+</span><span id="line-20"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString.Lazy</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">LBS</span></span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Text</span></span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text.Encoding</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text.Encoding.Error</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">lenientDecode</span></span><span class="hs-special">)</span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text.IO</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Time</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">UTCTime</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">getCurrentTime</span></span><span class="hs-special">)</span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Vault.Lazy</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Vault</span></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Word</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Word64</span></span><span class="hs-special">)</span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Clock</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">getMonotonicTimeNSec</span></span><span class="hs-special">)</span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Network.HTTP.Types</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">HeaderName</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">statusCode</span></span><span class="hs-special">)</span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Network.Wai</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Wai</span></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">stderr</span></span><span class="hs-special">)</span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">data</span><span> </span><span id="RequestContext"><span class="annot"><a href="Web.Spock.Logging.html#RequestContext"><span class="hs-identifier hs-var">RequestContext</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="RequestContext"><span class="annot"><a href="Web.Spock.Logging.html#RequestContext"><span class="hs-identifier hs-var">RequestContext</span></a></span></span><span>
+</span><span id="line-35"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="rc_requestId"><span class="annot"><span class="annottext">RequestContext -&gt; Text
+</span><a href="Web.Spock.Logging.html#rc_requestId"><span class="hs-identifier hs-var hs-var">rc_requestId</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">,</span><span>
+</span><span id="line-36"></span><span>    </span><span id="rc_method"><span class="annot"><span class="annottext">RequestContext -&gt; Text
+</span><a href="Web.Spock.Logging.html#rc_method"><span class="hs-identifier hs-var hs-var">rc_method</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">,</span><span>
+</span><span id="line-37"></span><span>    </span><span class="annot"><span class="hs-comment">-- | Raw path only; excludes query strings, headers, and request bodies.</span></span><span>
+</span><span id="line-38"></span><span>    </span><span id="rc_path"><span class="annot"><span class="annottext">RequestContext -&gt; Text
+</span><a href="Web.Spock.Logging.html#rc_path"><span class="hs-identifier hs-var hs-var">rc_path</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
+</span><span id="line-39"></span><span>  </span><span class="hs-special">}</span><span> </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679143519"><span id="local-6989586621679143525"><span class="annot"><span class="annottext">RequestContext -&gt; RequestContext -&gt; Bool
+(RequestContext -&gt; RequestContext -&gt; Bool)
+-&gt; (RequestContext -&gt; RequestContext -&gt; Bool) -&gt; Eq RequestContext
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: RequestContext -&gt; RequestContext -&gt; Bool
+== :: RequestContext -&gt; RequestContext -&gt; Bool
+$c/= :: RequestContext -&gt; RequestContext -&gt; Bool
+/= :: RequestContext -&gt; RequestContext -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679143530"><span id="local-6989586621679143537"><span id="local-6989586621679143541"><span class="annot"><span class="annottext">Int -&gt; RequestContext -&gt; ShowS
+[RequestContext] -&gt; ShowS
+RequestContext -&gt; String
+(Int -&gt; RequestContext -&gt; ShowS)
+-&gt; (RequestContext -&gt; String)
+-&gt; ([RequestContext] -&gt; ShowS)
+-&gt; Show RequestContext
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; RequestContext -&gt; ShowS
+showsPrec :: Int -&gt; RequestContext -&gt; ShowS
+$cshow :: RequestContext -&gt; String
+show :: RequestContext -&gt; String
+$cshowList :: [RequestContext] -&gt; ShowS
+showList :: [RequestContext] -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span class="hs-keyword">data</span><span> </span><span id="LogLevel"><span class="annot"><a href="Web.Spock.Logging.html#LogLevel"><span class="hs-identifier hs-var">LogLevel</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="LogDebug"><span class="annot"><a href="Web.Spock.Logging.html#LogDebug"><span class="hs-identifier hs-var">LogDebug</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="LogInfo"><span class="annot"><a href="Web.Spock.Logging.html#LogInfo"><span class="hs-identifier hs-var">LogInfo</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="LogWarning"><span class="annot"><a href="Web.Spock.Logging.html#LogWarning"><span class="hs-identifier hs-var">LogWarning</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="LogError"><span class="annot"><a href="Web.Spock.Logging.html#LogError"><span class="hs-identifier hs-var">LogError</span></a></span></span><span> </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679143550"><span id="local-6989586621679143555"><span class="annot"><span class="annottext">LogLevel -&gt; LogLevel -&gt; Bool
+(LogLevel -&gt; LogLevel -&gt; Bool)
+-&gt; (LogLevel -&gt; LogLevel -&gt; Bool) -&gt; Eq LogLevel
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: LogLevel -&gt; LogLevel -&gt; Bool
+== :: LogLevel -&gt; LogLevel -&gt; Bool
+$c/= :: LogLevel -&gt; LogLevel -&gt; Bool
+/= :: LogLevel -&gt; LogLevel -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679143559"><span id="local-6989586621679143561"><span id="local-6989586621679143565"><span class="annot"><span class="annottext">Int -&gt; LogLevel -&gt; ShowS
+[LogLevel] -&gt; ShowS
+LogLevel -&gt; String
+(Int -&gt; LogLevel -&gt; ShowS)
+-&gt; (LogLevel -&gt; String) -&gt; ([LogLevel] -&gt; ShowS) -&gt; Show LogLevel
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; LogLevel -&gt; ShowS
+showsPrec :: Int -&gt; LogLevel -&gt; ShowS
+$cshow :: LogLevel -&gt; String
+show :: LogLevel -&gt; String
+$cshowList :: [LogLevel] -&gt; ShowS
+showList :: [LogLevel] -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span class="hs-keyword">data</span><span> </span><span id="LogEventType"><span class="annot"><a href="Web.Spock.Logging.html#LogEventType"><span class="hs-identifier hs-var">LogEventType</span></a></span></span><span>
+</span><span id="line-44"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="hs-comment">-- | Status and elapsed microseconds until the response is available.</span><span>
+</span><span id="line-45"></span><span>    </span><span class="hs-comment">-- Streaming body transmission is not included in the duration.</span><span>
+</span><span id="line-46"></span><span>    </span><span id="AccessLog"><span class="annot"><a href="Web.Spock.Logging.html#AccessLog"><span class="hs-identifier hs-var">AccessLog</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word64</span></span><span>
+</span><span id="line-47"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="MessageLog"><span class="annot"><a href="Web.Spock.Logging.html#MessageLog"><span class="hs-identifier hs-var">MessageLog</span></a></span></span><span> </span><span class="annot"><a href="Web.Spock.Logging.html#LogLevel"><span class="hs-identifier hs-type">LogLevel</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-48"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="ErrorLog"><span class="annot"><a href="Web.Spock.Logging.html#ErrorLog"><span class="hs-identifier hs-var">ErrorLog</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
+</span><span id="line-49"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679143571"><span id="local-6989586621679143585"><span class="annot"><span class="annottext">LogEventType -&gt; LogEventType -&gt; Bool
+(LogEventType -&gt; LogEventType -&gt; Bool)
+-&gt; (LogEventType -&gt; LogEventType -&gt; Bool) -&gt; Eq LogEventType
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: LogEventType -&gt; LogEventType -&gt; Bool
+== :: LogEventType -&gt; LogEventType -&gt; Bool
+$c/= :: LogEventType -&gt; LogEventType -&gt; Bool
+/= :: LogEventType -&gt; LogEventType -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679143592"><span id="local-6989586621679143607"><span id="local-6989586621679143611"><span class="annot"><span class="annottext">Int -&gt; LogEventType -&gt; ShowS
+[LogEventType] -&gt; ShowS
+LogEventType -&gt; String
+(Int -&gt; LogEventType -&gt; ShowS)
+-&gt; (LogEventType -&gt; String)
+-&gt; ([LogEventType] -&gt; ShowS)
+-&gt; Show LogEventType
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; LogEventType -&gt; ShowS
+showsPrec :: Int -&gt; LogEventType -&gt; ShowS
+$cshow :: LogEventType -&gt; String
+show :: LogEventType -&gt; String
+$cshowList :: [LogEventType] -&gt; ShowS
+showList :: [LogEventType] -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span class="hs-keyword">data</span><span> </span><span id="LogEvent"><span class="annot"><a href="Web.Spock.Logging.html#LogEvent"><span class="hs-identifier hs-var">LogEvent</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="LogEvent"><span class="annot"><a href="Web.Spock.Logging.html#LogEvent"><span class="hs-identifier hs-var">LogEvent</span></a></span></span><span>
+</span><span id="line-52"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="le_time"><span class="annot"><span class="annottext">LogEvent -&gt; UTCTime
+</span><a href="Web.Spock.Logging.html#le_time"><span class="hs-identifier hs-var hs-var">le_time</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTCTime</span></span><span class="hs-special">,</span><span>
+</span><span id="line-53"></span><span>    </span><span id="le_request"><span class="annot"><span class="annottext">LogEvent -&gt; RequestContext
+</span><a href="Web.Spock.Logging.html#le_request"><span class="hs-identifier hs-var hs-var">le_request</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Spock.Logging.html#RequestContext"><span class="hs-identifier hs-type">RequestContext</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-54"></span><span>    </span><span id="le_event"><span class="annot"><span class="annottext">LogEvent -&gt; LogEventType
+</span><a href="Web.Spock.Logging.html#le_event"><span class="hs-identifier hs-var hs-var">le_event</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Spock.Logging.html#LogEventType"><span class="hs-identifier hs-type">LogEventType</span></a></span><span>
+</span><span id="line-55"></span><span>  </span><span class="hs-special">}</span><span> </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679143621"><span id="local-6989586621679143627"><span class="annot"><span class="annottext">LogEvent -&gt; LogEvent -&gt; Bool
+(LogEvent -&gt; LogEvent -&gt; Bool)
+-&gt; (LogEvent -&gt; LogEvent -&gt; Bool) -&gt; Eq LogEvent
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: LogEvent -&gt; LogEvent -&gt; Bool
+== :: LogEvent -&gt; LogEvent -&gt; Bool
+$c/= :: LogEvent -&gt; LogEvent -&gt; Bool
+/= :: LogEvent -&gt; LogEvent -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679143631"><span id="local-6989586621679143638"><span id="local-6989586621679143642"><span class="annot"><span class="annottext">Int -&gt; LogEvent -&gt; ShowS
+[LogEvent] -&gt; ShowS
+LogEvent -&gt; String
+(Int -&gt; LogEvent -&gt; ShowS)
+-&gt; (LogEvent -&gt; String) -&gt; ([LogEvent] -&gt; ShowS) -&gt; Show LogEvent
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; LogEvent -&gt; ShowS
+showsPrec :: Int -&gt; LogEvent -&gt; ShowS
+$cshow :: LogEvent -&gt; String
+show :: LogEvent -&gt; String
+$cshowList :: [LogEvent] -&gt; ShowS
+showList :: [LogEvent] -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679143646"><span id="local-6989586621679143650"><span id="local-6989586621679143653"><span id="local-6989586621679143656"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="Web.Spock.Logging.html#LogEvent"><span class="hs-identifier hs-type">LogEvent</span></a></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-58"></span><span>  </span><span id="local-6989586621679143677"><span class="annot"><span class="annottext">toJSON :: LogEvent -&gt; Value
+</span><a href="#local-6989586621679143677"><span class="hs-identifier hs-var hs-var hs-var">toJSON</span></a></span></span><span> </span><span id="local-6989586621679143679"><span class="annot"><span class="annottext">LogEvent
+</span><a href="#local-6989586621679143679"><span class="hs-identifier hs-var">event</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[(Key, Value)] -&gt; Value
+</span><span class="hs-identifier hs-var">object</span></span><span> </span><span class="annot"><span class="annottext">([(Key, Value)] -&gt; Value) -&gt; [(Key, Value)] -&gt; Value
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-59"></span><span>    </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;time&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; UTCTime -&gt; (Key, Value)
+forall v. ToJSON v =&gt; Key -&gt; v -&gt; (Key, Value)
+forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">LogEvent -&gt; UTCTime
+</span><a href="Web.Spock.Logging.html#le_time"><span class="hs-identifier hs-var">le_time</span></a></span><span> </span><span class="annot"><span class="annottext">LogEvent
+</span><a href="#local-6989586621679143679"><span class="hs-identifier hs-var">event</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-60"></span><span>      </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;requestId&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Text -&gt; (Key, Value)
+forall v. ToJSON v =&gt; Key -&gt; v -&gt; (Key, Value)
+forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">RequestContext -&gt; Text
+</span><a href="Web.Spock.Logging.html#rc_requestId"><span class="hs-identifier hs-var">rc_requestId</span></a></span><span> </span><span class="annot"><span class="annottext">RequestContext
+</span><a href="#local-6989586621679143680"><span class="hs-identifier hs-var">context</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-61"></span><span>      </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;method&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Text -&gt; (Key, Value)
+forall v. ToJSON v =&gt; Key -&gt; v -&gt; (Key, Value)
+forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">RequestContext -&gt; Text
+</span><a href="Web.Spock.Logging.html#rc_method"><span class="hs-identifier hs-var">rc_method</span></a></span><span> </span><span class="annot"><span class="annottext">RequestContext
+</span><a href="#local-6989586621679143680"><span class="hs-identifier hs-var">context</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-62"></span><span>      </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;path&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Text -&gt; (Key, Value)
+forall v. ToJSON v =&gt; Key -&gt; v -&gt; (Key, Value)
+forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">RequestContext -&gt; Text
+</span><a href="Web.Spock.Logging.html#rc_path"><span class="hs-identifier hs-var">rc_path</span></a></span><span> </span><span class="annot"><span class="annottext">RequestContext
+</span><a href="#local-6989586621679143680"><span class="hs-identifier hs-var">context</span></a></span><span> </span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">[(Key, Value)] -&gt; [(Key, Value)] -&gt; [(Key, Value)]
+forall a. [a] -&gt; [a] -&gt; [a]
+</span><span class="hs-operator hs-var">++</span></span><span> </span><span class="annot"><span class="annottext">[(Key, Value)]
+</span><a href="#local-6989586621679143681"><span class="hs-identifier hs-var">details</span></a></span><span>
+</span><span id="line-63"></span><span>    </span><span class="hs-keyword">where</span><span>
+</span><span id="line-64"></span><span>      </span><span id="local-6989586621679143680"><span class="annot"><span class="annottext">context :: RequestContext
+</span><a href="#local-6989586621679143680"><span class="hs-identifier hs-var hs-var">context</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LogEvent -&gt; RequestContext
+</span><a href="Web.Spock.Logging.html#le_request"><span class="hs-identifier hs-var">le_request</span></a></span><span> </span><span class="annot"><span class="annottext">LogEvent
+</span><a href="#local-6989586621679143679"><span class="hs-identifier hs-var">event</span></a></span><span>
+</span><span id="line-65"></span><span>      </span><span id="local-6989586621679143681"><span class="annot"><span class="annottext">details :: [(Key, Value)]
+</span><a href="#local-6989586621679143681"><span class="hs-identifier hs-var hs-var">details</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">LogEvent -&gt; LogEventType
+</span><a href="Web.Spock.Logging.html#le_event"><span class="hs-identifier hs-var">le_event</span></a></span><span> </span><span class="annot"><span class="annottext">LogEvent
+</span><a href="#local-6989586621679143679"><span class="hs-identifier hs-var">event</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-66"></span><span>        </span><span class="annot"><a href="Web.Spock.Logging.html#AccessLog"><span class="hs-identifier hs-type">AccessLog</span></a></span><span> </span><span id="local-6989586621679143723"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679143723"><span class="hs-identifier hs-var">status</span></a></span></span><span> </span><span id="local-6989586621679143724"><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679143724"><span class="hs-identifier hs-var">duration</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;type&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Text -&gt; (Key, Value)
+forall v. ToJSON v =&gt; Key -&gt; v -&gt; (Key, Value)
+forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;access&quot;</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;status&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Int -&gt; (Key, Value)
+forall v. ToJSON v =&gt; Key -&gt; v -&gt; (Key, Value)
+forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679143723"><span class="hs-identifier hs-var">status</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;durationMicros&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Word64 -&gt; (Key, Value)
+forall v. ToJSON v =&gt; Key -&gt; v -&gt; (Key, Value)
+forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679143724"><span class="hs-identifier hs-var">duration</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-67"></span><span>        </span><span class="annot"><a href="Web.Spock.Logging.html#MessageLog"><span class="hs-identifier hs-type">MessageLog</span></a></span><span> </span><span id="local-6989586621679143725"><span class="annot"><span class="annottext">LogLevel
+</span><a href="#local-6989586621679143725"><span class="hs-identifier hs-var">level</span></a></span></span><span> </span><span id="local-6989586621679143726"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679143726"><span class="hs-identifier hs-var">message</span></a></span></span><span> </span><span id="local-6989586621679143727"><span class="annot"><span class="annottext">[(Text, Value)]
+</span><a href="#local-6989586621679143727"><span class="hs-identifier hs-var">fields</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-68"></span><span>          </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;type&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Text -&gt; (Key, Value)
+forall v. ToJSON v =&gt; Key -&gt; v -&gt; (Key, Value)
+forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;message&quot;</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;level&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Text -&gt; (Key, Value)
+forall v. ToJSON v =&gt; Key -&gt; v -&gt; (Key, Value)
+forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">LogLevel -&gt; Text
+</span><a href="Web.Spock.Logging.html#levelName"><span class="hs-identifier hs-var">levelName</span></a></span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><a href="#local-6989586621679143725"><span class="hs-identifier hs-var">level</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;message&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Text -&gt; (Key, Value)
+forall v. ToJSON v =&gt; Key -&gt; v -&gt; (Key, Value)
+forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679143726"><span class="hs-identifier hs-var">message</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-69"></span><span>           </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;fields&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Value -&gt; (Key, Value)
+forall v. ToJSON v =&gt; Key -&gt; v -&gt; (Key, Value)
+forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">[(Key, Value)] -&gt; Value
+</span><span class="hs-identifier hs-var">object</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Text -&gt; Key
+</span><span class="hs-identifier hs-var">Key.fromText</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679143730"><span class="hs-identifier hs-var">key</span></a></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Value -&gt; (Key, Value)
+forall v. ToJSON v =&gt; Key -&gt; v -&gt; (Key, Value)
+forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679143731"><span class="hs-identifier hs-var">value</span></a></span><span> </span><span class="hs-glyph">|</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679143730"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679143730"><span class="hs-identifier hs-var">key</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679143731"><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679143731"><span class="hs-identifier hs-var">value</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[(Text, Value)]
+</span><a href="#local-6989586621679143727"><span class="hs-identifier hs-var">fields</span></a></span><span class="hs-special">]</span><span class="hs-special">]</span><span>
+</span><span id="line-70"></span><span>        </span><span class="annot"><a href="Web.Spock.Logging.html#ErrorLog"><span class="hs-identifier hs-type">ErrorLog</span></a></span><span> </span><span id="local-6989586621679143732"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679143732"><span class="hs-identifier hs-var">message</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;type&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Text -&gt; (Key, Value)
+forall v. ToJSON v =&gt; Key -&gt; v -&gt; (Key, Value)
+forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;error&quot;</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;level&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Text -&gt; (Key, Value)
+forall v. ToJSON v =&gt; Key -&gt; v -&gt; (Key, Value)
+forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;error&quot;</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;message&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Text -&gt; (Key, Value)
+forall v. ToJSON v =&gt; Key -&gt; v -&gt; (Key, Value)
+forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679143732"><span class="hs-identifier hs-var">message</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-71"></span><span>
+</span><span id="line-72"></span><span class="annot"><a href="Web.Spock.Logging.html#levelName"><span class="hs-identifier hs-type">levelName</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Spock.Logging.html#LogLevel"><span class="hs-identifier hs-type">LogLevel</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
+</span><span id="line-73"></span><span id="levelName"><span class="annot"><span class="annottext">levelName :: LogLevel -&gt; Text
+</span><a href="Web.Spock.Logging.html#levelName"><span class="hs-identifier hs-var hs-var">levelName</span></a></span></span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><a href="Web.Spock.Logging.html#LogDebug"><span class="hs-identifier hs-var">LogDebug</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;debug&quot;</span></span><span>
+</span><span id="line-74"></span><span class="annot"><a href="Web.Spock.Logging.html#levelName"><span class="hs-identifier hs-var">levelName</span></a></span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><a href="Web.Spock.Logging.html#LogInfo"><span class="hs-identifier hs-var">LogInfo</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;info&quot;</span></span><span>
+</span><span id="line-75"></span><span class="annot"><a href="Web.Spock.Logging.html#levelName"><span class="hs-identifier hs-var">levelName</span></a></span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><a href="Web.Spock.Logging.html#LogWarning"><span class="hs-identifier hs-var">LogWarning</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;warning&quot;</span></span><span>
+</span><span id="line-76"></span><span class="annot"><a href="Web.Spock.Logging.html#levelName"><span class="hs-identifier hs-var">levelName</span></a></span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><a href="Web.Spock.Logging.html#LogError"><span class="hs-identifier hs-var">LogError</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;error&quot;</span></span><span>
+</span><span id="line-77"></span><span>
+</span><span id="line-78"></span><span class="hs-keyword">data</span><span> </span><span id="LoggingConfig"><span class="annot"><a href="Web.Spock.Logging.html#LoggingConfig"><span class="hs-identifier hs-var">LoggingConfig</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="LoggingConfig"><span class="annot"><a href="Web.Spock.Logging.html#LoggingConfig"><span class="hs-identifier hs-var">LoggingConfig</span></a></span></span><span>
+</span><span id="line-79"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="lc_logEvent"><span class="annot"><span class="annottext">LoggingConfig -&gt; LogEvent -&gt; IO ()
+</span><a href="Web.Spock.Logging.html#lc_logEvent"><span class="hs-identifier hs-var hs-var">lc_logEvent</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Spock.Logging.html#LogEvent"><span class="hs-identifier hs-type">LogEvent</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-80"></span><span>    </span><span id="lc_requestIdHeader"><span class="annot"><span class="annottext">LoggingConfig -&gt; CI ByteString
+</span><a href="Web.Spock.Logging.html#lc_requestIdHeader"><span class="hs-identifier hs-var hs-var">lc_requestIdHeader</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HeaderName</span></span><span class="hs-special">,</span><span>
+</span><span id="line-81"></span><span>    </span><span class="hs-comment">-- | Opt in only behind a trusted proxy. Accepted values contain 1-128 ASCII</span><span>
+</span><span id="line-82"></span><span>    </span><span class="hs-comment">-- letters, digits, dots, underscores, or hyphens; duplicates are rejected.</span><span>
+</span><span id="line-83"></span><span>    </span><span id="lc_trustIncomingRequestId"><span class="annot"><span class="annottext">LoggingConfig -&gt; Bool
+</span><a href="Web.Spock.Logging.html#lc_trustIncomingRequestId"><span class="hs-identifier hs-var hs-var">lc_trustIncomingRequestId</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span class="hs-special">,</span><span>
+</span><span id="line-84"></span><span>    </span><span id="lc_generateRequestId"><span class="annot"><span class="annottext">LoggingConfig -&gt; IO Text
+</span><a href="Web.Spock.Logging.html#lc_generateRequestId"><span class="hs-identifier hs-var hs-var">lc_generateRequestId</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">,</span><span>
+</span><span id="line-85"></span><span>    </span><span class="hs-comment">-- | Called when the sink fails. Synchronous failures in logging callbacks</span><span>
+</span><span id="line-86"></span><span>    </span><span class="hs-comment">-- cannot change responses. Asynchronous cancellation is always propagated.</span><span>
+</span><span id="line-87"></span><span>    </span><span id="lc_logFailure"><span class="annot"><span class="annottext">LoggingConfig -&gt; SomeException -&gt; IO ()
+</span><a href="Web.Spock.Logging.html#lc_logFailure"><span class="hs-identifier hs-var hs-var">lc_logFailure</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SomeException</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-88"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-89"></span><span>
+</span><span id="line-90"></span><span class="annot"><a href="Web.Spock.Logging.html#defaultLoggingConfig"><span class="hs-identifier hs-type">defaultLoggingConfig</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Logging.html#LogEvent"><span class="hs-identifier hs-type">LogEvent</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Spock.Logging.html#LoggingConfig"><span class="hs-identifier hs-type">LoggingConfig</span></a></span><span>
+</span><span id="line-91"></span><span id="defaultLoggingConfig"><span class="annot"><span class="annottext">defaultLoggingConfig :: (LogEvent -&gt; IO ()) -&gt; LoggingConfig
+</span><a href="Web.Spock.Logging.html#defaultLoggingConfig"><span class="hs-identifier hs-var hs-var">defaultLoggingConfig</span></a></span></span><span> </span><span id="local-6989586621679143739"><span class="annot"><span class="annottext">LogEvent -&gt; IO ()
+</span><a href="#local-6989586621679143739"><span class="hs-identifier hs-var">sink</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(LogEvent -&gt; IO ())
+-&gt; CI ByteString
+-&gt; Bool
+-&gt; IO Text
+-&gt; (SomeException -&gt; IO ())
+-&gt; LoggingConfig
+</span><a href="Web.Spock.Logging.html#LoggingConfig"><span class="hs-identifier hs-var">LoggingConfig</span></a></span><span> </span><span class="annot"><span class="annottext">LogEvent -&gt; IO ()
+</span><a href="#local-6989586621679143739"><span class="hs-identifier hs-var">sink</span></a></span><span> </span><span class="annot"><span class="annottext">CI ByteString
+</span><span class="hs-string">&quot;X-Request-Id&quot;</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span> </span><span class="annot"><span class="annottext">IO Text
+</span><a href="Web.Spock.Logging.html#generateId"><span class="hs-identifier hs-var">generateId</span></a></span><span>
+</span><span id="line-92"></span><span>  </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">SomeException
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Handle -&gt; Text -&gt; IO ()
+</span><span class="hs-identifier hs-var">T.hPutStrLn</span></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><span class="hs-identifier hs-var">stderr</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Spock: structured log sink failed&quot;</span></span><span class="hs-special">)</span><span>
+</span><span id="line-93"></span><span>
+</span><span id="line-94"></span><span class="hs-keyword">data</span><span> </span><span id="RequestLogger"><span class="annot"><a href="Web.Spock.Logging.html#RequestLogger"><span class="hs-identifier hs-var">RequestLogger</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="RequestLogger"><span class="annot"><a href="Web.Spock.Logging.html#RequestLogger"><span class="hs-identifier hs-var">RequestLogger</span></a></span></span><span> </span><span class="annot"><a href="Web.Spock.Logging.html#LoggingConfig"><span class="hs-identifier hs-type">LoggingConfig</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Vault.Key</span></span><span> </span><span class="annot"><a href="Web.Spock.Logging.html#RequestContext"><span class="hs-identifier hs-type">RequestContext</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-95"></span><span>
+</span><span id="line-96"></span><span class="annot"><a href="Web.Spock.Logging.html#newRequestLogger"><span class="hs-identifier hs-type">newRequestLogger</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Spock.Logging.html#LoggingConfig"><span class="hs-identifier hs-type">LoggingConfig</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="Web.Spock.Logging.html#RequestLogger"><span class="hs-identifier hs-type">RequestLogger</span></a></span><span>
+</span><span id="line-97"></span><span id="newRequestLogger"><span class="annot"><span class="annottext">newRequestLogger :: LoggingConfig -&gt; IO RequestLogger
+</span><a href="Web.Spock.Logging.html#newRequestLogger"><span class="hs-identifier hs-var hs-var">newRequestLogger</span></a></span></span><span> </span><span id="local-6989586621679143743"><span class="annot"><span class="annottext">LoggingConfig
+</span><a href="#local-6989586621679143743"><span class="hs-identifier hs-var">cfg</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LoggingConfig -&gt; Key RequestContext -&gt; RequestLogger
+</span><a href="Web.Spock.Logging.html#RequestLogger"><span class="hs-identifier hs-var">RequestLogger</span></a></span><span> </span><span class="annot"><span class="annottext">LoggingConfig
+</span><a href="#local-6989586621679143743"><span class="hs-identifier hs-var">cfg</span></a></span><span> </span><span class="annot"><span class="annottext">(Key RequestContext -&gt; RequestLogger)
+-&gt; IO (Key RequestContext) -&gt; IO RequestLogger
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">IO (Key RequestContext)
+forall a. IO (Key a)
+</span><span class="hs-identifier hs-var">Vault.newKey</span></span><span>
+</span><span id="line-98"></span><span>
+</span><span id="line-99"></span><span class="annot"><a href="Web.Spock.Logging.html#lookupRequestLogger"><span class="hs-identifier hs-type">lookupRequestLogger</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Spock.Logging.html#RequestLogger"><span class="hs-identifier hs-type">RequestLogger</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Wai.Request</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Logging.html#RequestContext"><span class="hs-identifier hs-type">RequestContext</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Web.Spock.Logging.html#LogEventType"><span class="hs-identifier hs-type">LogEventType</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-100"></span><span id="lookupRequestLogger"><span class="annot"><span class="annottext">lookupRequestLogger :: RequestLogger
+-&gt; Request -&gt; Maybe (RequestContext, LogEventType -&gt; IO ())
+</span><a href="Web.Spock.Logging.html#lookupRequestLogger"><span class="hs-identifier hs-var hs-var">lookupRequestLogger</span></a></span></span><span> </span><span id="local-6989586621679143746"><span class="annot"><span class="annottext">logger :: RequestLogger
+</span><a href="#local-6989586621679143746"><span class="hs-identifier hs-var">logger</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Logging.html#RequestLogger"><span class="hs-identifier hs-type">RequestLogger</span></a></span><span> </span><span class="annot"><span class="annottext">LoggingConfig
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679143747"><span class="annot"><span class="annottext">Key RequestContext
+</span><a href="#local-6989586621679143747"><span class="hs-identifier hs-var">key</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679143748"><span class="annot"><span class="annottext">Request
+</span><a href="#local-6989586621679143748"><span class="hs-identifier hs-var">request</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-101"></span><span>  </span><span id="local-6989586621679143749"><span class="annot"><a href="#local-6989586621679143749"><span class="hs-identifier hs-var">context</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Key RequestContext -&gt; Vault -&gt; Maybe RequestContext
+forall a. Key a -&gt; Vault -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Vault.lookup</span></span><span> </span><span class="annot"><span class="annottext">Key RequestContext
+</span><a href="#local-6989586621679143747"><span class="hs-identifier hs-var">key</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Request -&gt; Vault
+</span><span class="hs-identifier hs-var">Wai.vault</span></span><span> </span><span class="annot"><span class="annottext">Request
+</span><a href="#local-6989586621679143748"><span class="hs-identifier hs-var">request</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-102"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679143749"><span class="hs-identifier hs-type">context</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Web.Spock.Logging.html#emitRequestLog"><span class="hs-identifier hs-type">emitRequestLog</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679143746"><span class="hs-identifier hs-type">logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679143749"><span class="hs-identifier hs-type">context</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-103"></span><span>
+</span><span id="line-104"></span><span class="annot"><a href="Web.Spock.Logging.html#emitRequestLog"><span class="hs-identifier hs-type">emitRequestLog</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Spock.Logging.html#RequestLogger"><span class="hs-identifier hs-type">RequestLogger</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Spock.Logging.html#RequestContext"><span class="hs-identifier hs-type">RequestContext</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Spock.Logging.html#LogEventType"><span class="hs-identifier hs-type">LogEventType</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-105"></span><span id="emitRequestLog"><span class="annot"><span class="annottext">emitRequestLog :: RequestLogger -&gt; RequestContext -&gt; LogEventType -&gt; IO ()
+</span><a href="Web.Spock.Logging.html#emitRequestLog"><span class="hs-identifier hs-var hs-var">emitRequestLog</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Logging.html#RequestLogger"><span class="hs-identifier hs-type">RequestLogger</span></a></span><span> </span><span id="local-6989586621679143752"><span class="annot"><span class="annottext">LoggingConfig
+</span><a href="#local-6989586621679143752"><span class="hs-identifier hs-var">cfg</span></a></span></span><span> </span><span class="annot"><span class="annottext">Key RequestContext
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679143753"><span class="annot"><span class="annottext">RequestContext
+</span><a href="#local-6989586621679143753"><span class="hs-identifier hs-var">context</span></a></span></span><span> </span><span id="local-6989586621679143754"><span class="annot"><span class="annottext">LogEventType
+</span><a href="#local-6989586621679143754"><span class="hs-identifier hs-var">event</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-106"></span><span>  </span><span id="local-6989586621679143755"><span class="annot"><a href="#local-6989586621679143755"><span class="hs-identifier hs-var">now</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO UTCTime
+</span><span class="hs-identifier hs-var">getCurrentTime</span></span><span>
+</span><span id="line-107"></span><span>  </span><span class="annot"><a href="Web.Spock.Logging.html#lc_logEvent"><span class="hs-identifier hs-var">lc_logEvent</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679143752"><span class="hs-identifier hs-type">cfg</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Logging.html#LogEvent"><span class="hs-identifier hs-type">LogEvent</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679143755"><span class="hs-identifier hs-type">now</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679143753"><span class="hs-identifier hs-type">context</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679143754"><span class="hs-identifier hs-type">event</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-operator hs-type">`catch`</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679143757"><span class="annot"><span class="annottext">SomeException
+</span><a href="#local-6989586621679143757"><span class="hs-identifier hs-var">err</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SomeException</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-108"></span><span>    </span><span class="annot"><span class="annottext">SomeException -&gt; IO ()
+</span><a href="Web.Spock.Logging.html#rethrowAsync"><span class="hs-identifier hs-var">rethrowAsync</span></a></span><span> </span><span class="annot"><span class="annottext">SomeException
+</span><a href="#local-6989586621679143757"><span class="hs-identifier hs-var">err</span></a></span><span>
+</span><span id="line-109"></span><span>    </span><span class="annot"><span class="annottext">LoggingConfig -&gt; SomeException -&gt; IO ()
+</span><a href="Web.Spock.Logging.html#lc_logFailure"><span class="hs-identifier hs-var">lc_logFailure</span></a></span><span> </span><span class="annot"><span class="annottext">LoggingConfig
+</span><a href="#local-6989586621679143752"><span class="hs-identifier hs-var">cfg</span></a></span><span> </span><span class="annot"><span class="annottext">SomeException
+</span><a href="#local-6989586621679143757"><span class="hs-identifier hs-var">err</span></a></span><span> </span><span class="annot"><span class="annottext">IO () -&gt; (SomeException -&gt; IO ()) -&gt; IO ()
+forall e a. Exception e =&gt; IO a -&gt; (e -&gt; IO a) -&gt; IO a
+</span><span class="hs-operator hs-var">`catch`</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679143759"><span class="annot"><span class="annottext">SomeException
+</span><a href="#local-6989586621679143759"><span class="hs-identifier hs-var">failure</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SomeException</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">SomeException -&gt; IO ()
+</span><a href="Web.Spock.Logging.html#rethrowAsync"><span class="hs-identifier hs-var">rethrowAsync</span></a></span><span> </span><span class="annot"><span class="annottext">SomeException
+</span><a href="#local-6989586621679143759"><span class="hs-identifier hs-var">failure</span></a></span><span>
+</span><span id="line-110"></span><span>
+</span><span id="line-111"></span><span class="annot"><a href="Web.Spock.Logging.html#requestLoggingMiddleware"><span class="hs-identifier hs-type">requestLoggingMiddleware</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Spock.Logging.html#RequestLogger"><span class="hs-identifier hs-type">RequestLogger</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Wai.Middleware</span></span><span>
+</span><span id="line-112"></span><span id="requestLoggingMiddleware"><span class="annot"><span class="annottext">requestLoggingMiddleware :: RequestLogger -&gt; Middleware
+</span><a href="Web.Spock.Logging.html#requestLoggingMiddleware"><span class="hs-identifier hs-var hs-var">requestLoggingMiddleware</span></a></span></span><span> </span><span id="local-6989586621679143760"><span class="annot"><span class="annottext">logger :: RequestLogger
+</span><a href="#local-6989586621679143760"><span class="hs-identifier hs-var">logger</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Logging.html#RequestLogger"><span class="hs-identifier hs-type">RequestLogger</span></a></span><span> </span><span id="local-6989586621679143761"><span class="annot"><span class="annottext">LoggingConfig
+</span><a href="#local-6989586621679143761"><span class="hs-identifier hs-var">cfg</span></a></span></span><span> </span><span id="local-6989586621679143762"><span class="annot"><span class="annottext">Key RequestContext
+</span><a href="#local-6989586621679143762"><span class="hs-identifier hs-var">key</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679143763"><span class="annot"><span class="annottext">Application
+</span><a href="#local-6989586621679143763"><span class="hs-identifier hs-var">app</span></a></span></span><span> </span><span id="local-6989586621679143764"><span class="annot"><span class="annottext">Request
+</span><a href="#local-6989586621679143764"><span class="hs-identifier hs-var">request</span></a></span></span><span> </span><span id="local-6989586621679143765"><span class="annot"><span class="annottext">Response -&gt; IO ResponseReceived
+</span><a href="#local-6989586621679143765"><span class="hs-identifier hs-var">respond</span></a></span></span><span>
+</span><span id="line-113"></span><span>  </span><span class="hs-comment">-- Error handlers can enter Spock again with the same request.</span><span>
+</span><span id="line-114"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span class="annot"><span class="annottext">RequestContext
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Key RequestContext -&gt; Vault -&gt; Maybe RequestContext
+forall a. Key a -&gt; Vault -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Vault.lookup</span></span><span> </span><span class="annot"><span class="annottext">Key RequestContext
+</span><a href="#local-6989586621679143762"><span class="hs-identifier hs-var">key</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Request -&gt; Vault
+</span><span class="hs-identifier hs-var">Wai.vault</span></span><span> </span><span class="annot"><span class="annottext">Request
+</span><a href="#local-6989586621679143764"><span class="hs-identifier hs-var">request</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Application
+</span><a href="#local-6989586621679143763"><span class="hs-identifier hs-var">app</span></a></span><span> </span><span class="annot"><span class="annottext">Request
+</span><a href="#local-6989586621679143764"><span class="hs-identifier hs-var">request</span></a></span><span> </span><span class="annot"><span class="annottext">Response -&gt; IO ResponseReceived
+</span><a href="#local-6989586621679143765"><span class="hs-identifier hs-var">respond</span></a></span><span>
+</span><span id="line-115"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-116"></span><span>      </span><span id="local-6989586621679143766"><span class="annot"><a href="#local-6989586621679143766"><span class="hs-identifier hs-var">sid</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679143767"><span class="hs-identifier hs-var">value</span></a></span><span> </span><span class="hs-glyph">|</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679143768"><span class="annot"><span class="annottext">CI ByteString
+</span><a href="#local-6989586621679143768"><span class="hs-identifier hs-var">name</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679143767"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679143767"><span class="hs-identifier hs-var">value</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Request -&gt; RequestHeaders
+</span><span class="hs-identifier hs-var">Wai.requestHeaders</span></span><span> </span><span class="annot"><span class="annottext">Request
+</span><a href="#local-6989586621679143764"><span class="hs-identifier hs-var">request</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">CI ByteString
+</span><a href="#local-6989586621679143768"><span class="hs-identifier hs-var">name</span></a></span><span> </span><span class="annot"><span class="annottext">CI ByteString -&gt; CI ByteString -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">LoggingConfig -&gt; CI ByteString
+</span><a href="Web.Spock.Logging.html#lc_requestIdHeader"><span class="hs-identifier hs-var">lc_requestIdHeader</span></a></span><span> </span><span class="annot"><span class="annottext">LoggingConfig
+</span><a href="#local-6989586621679143761"><span class="hs-identifier hs-var">cfg</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-117"></span><span>        </span><span class="hs-special">[</span><span id="local-6989586621679143770"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679143770"><span class="hs-identifier hs-var">value</span></a></span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">LoggingConfig -&gt; Bool
+</span><a href="Web.Spock.Logging.html#lc_trustIncomingRequestId"><span class="hs-identifier hs-var">lc_trustIncomingRequestId</span></a></span><span> </span><span class="annot"><span class="annottext">LoggingConfig
+</span><a href="#local-6989586621679143761"><span class="hs-identifier hs-var">cfg</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Bool
+</span><a href="Web.Spock.Logging.html#validId"><span class="hs-identifier hs-var">validId</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679143770"><span class="hs-identifier hs-var">value</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text -&gt; IO Text
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; IO Text) -&gt; Text -&gt; IO Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Text
+</span><span class="hs-identifier hs-var">T.decodeUtf8</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679143770"><span class="hs-identifier hs-var">value</span></a></span><span>
+</span><span id="line-118"></span><span>        </span><span class="annot"><span class="annottext">[ByteString]
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-119"></span><span>          </span><span id="local-6989586621679143773"><span class="annot"><a href="#local-6989586621679143773"><span class="hs-identifier hs-var">generated</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">LoggingConfig -&gt; IO Text
+</span><a href="Web.Spock.Logging.html#lc_generateRequestId"><span class="hs-identifier hs-var">lc_generateRequestId</span></a></span><span> </span><span class="annot"><span class="annottext">LoggingConfig
+</span><a href="#local-6989586621679143761"><span class="hs-identifier hs-var">cfg</span></a></span><span>
+</span><span id="line-120"></span><span>          </span><span class="hs-keyword">if</span><span> </span><span class="annot"><a href="Web.Spock.Logging.html#validId"><span class="hs-identifier hs-type">validId</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">T.encodeUtf8</span></span><span> </span><span class="annot"><a href="#local-6989586621679143773"><span class="hs-identifier hs-type">generated</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="hs-identifier hs-type">pure</span></span><span> </span><span class="annot"><a href="#local-6989586621679143773"><span class="hs-identifier hs-type">generated</span></a></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><a href="Web.Spock.Logging.html#generateId"><span class="hs-identifier hs-type">generateId</span></a></span><span>
+</span><span id="line-121"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679143775"><span class="annot"><a href="#local-6989586621679143775"><span class="hs-identifier hs-var hs-var">context</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text -&gt; RequestContext
+</span><a href="Web.Spock.Logging.html#RequestContext"><span class="hs-identifier hs-var">RequestContext</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679143766"><span class="hs-identifier hs-var">sid</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; Text
+</span><a href="#local-6989586621679143776"><span class="hs-identifier hs-var">decode</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Text) -&gt; ByteString -&gt; Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Request -&gt; ByteString
+</span><span class="hs-identifier hs-var">Wai.requestMethod</span></span><span> </span><span class="annot"><span class="annottext">Request
+</span><a href="#local-6989586621679143764"><span class="hs-identifier hs-var">request</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; Text
+</span><a href="#local-6989586621679143776"><span class="hs-identifier hs-var">decode</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Text) -&gt; ByteString -&gt; Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Request -&gt; ByteString
+</span><span class="hs-identifier hs-var">Wai.rawPathInfo</span></span><span> </span><span class="annot"><span class="annottext">Request
+</span><a href="#local-6989586621679143764"><span class="hs-identifier hs-var">request</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-122"></span><span>          </span><span id="local-6989586621679143779"><span class="annot"><a href="#local-6989586621679143779"><span class="hs-identifier hs-var hs-var">request'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Request
+</span><a href="#local-6989586621679143764"><span class="hs-identifier hs-var">request</span></a></span><span> </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="hs-identifier hs-var">Wai.vault</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Vault.insert</span></span><span> </span><span class="annot"><a href="#local-6989586621679143762"><span class="hs-identifier hs-type">key</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679143775"><span class="hs-identifier hs-type">context</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-var">Wai.vault</span></span><span> </span><span class="annot"><a href="#local-6989586621679143764"><span class="hs-identifier hs-type">request</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-123"></span><span>      </span><span id="local-6989586621679143781"><span class="annot"><a href="#local-6989586621679143781"><span class="hs-identifier hs-var">start</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="hs-identifier hs-type">getMonotonicTimeNSec</span></span><span>
+</span><span id="line-124"></span><span>      </span><span class="annot"><a href="#local-6989586621679143763"><span class="hs-identifier hs-type">app</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679143779"><span class="hs-identifier hs-type">request'</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679143782"><span class="annot"><span class="annottext">Response
+</span><a href="#local-6989586621679143782"><span class="hs-identifier hs-var">response</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-125"></span><span>        </span><span id="local-6989586621679143783"><span class="annot"><a href="#local-6989586621679143783"><span class="hs-identifier hs-var">end</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO Word64
+</span><span class="hs-identifier hs-var">getMonotonicTimeNSec</span></span><span>
+</span><span id="line-126"></span><span>        </span><span class="annot"><a href="Web.Spock.Logging.html#emitRequestLog"><span class="hs-identifier hs-type">emitRequestLog</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679143760"><span class="hs-identifier hs-type">logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679143775"><span class="hs-identifier hs-type">context</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="annot"><a href="Web.Spock.Logging.html#AccessLog"><span class="hs-identifier hs-type">AccessLog</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-var">statusCode</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Wai.responseStatus</span></span><span> </span><span class="annot"><a href="#local-6989586621679143782"><span class="hs-identifier hs-type">response</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679143783"><span class="hs-identifier hs-type">end</span></a></span><span> </span><span class="annot"><span class="hs-glyph hs-type">-</span></span><span> </span><span class="annot"><a href="#local-6989586621679143781"><span class="hs-identifier hs-type">start</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-operator hs-type">`div`</span></span><span> </span><span class="annot"><span class="hs-number">1000</span></span><span class="hs-special">)</span><span>
+</span><span id="line-127"></span><span>        </span><span class="annot"><a href="#local-6989586621679143765"><span class="hs-identifier hs-type">respond</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Wai.mapResponseHeaders</span></span><span>
+</span><span id="line-128"></span><span>          </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679143787"><span class="annot"><span class="annottext">RequestHeaders
+</span><a href="#local-6989586621679143787"><span class="hs-identifier hs-var">headers</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">LoggingConfig -&gt; CI ByteString
+</span><a href="Web.Spock.Logging.html#lc_requestIdHeader"><span class="hs-identifier hs-var">lc_requestIdHeader</span></a></span><span> </span><span class="annot"><span class="annottext">LoggingConfig
+</span><a href="#local-6989586621679143761"><span class="hs-identifier hs-var">cfg</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text -&gt; ByteString
+</span><span class="hs-identifier hs-var">T.encodeUtf8</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679143766"><span class="hs-identifier hs-var">sid</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(CI ByteString, ByteString) -&gt; RequestHeaders -&gt; RequestHeaders
+forall a. a -&gt; [a] -&gt; [a]
+</span><span class="hs-glyph hs-var">:</span></span><span> </span><span class="annot"><span class="annottext">((CI ByteString, ByteString) -&gt; Bool)
+-&gt; RequestHeaders -&gt; RequestHeaders
+forall a. (a -&gt; Bool) -&gt; [a] -&gt; [a]
+</span><span class="hs-identifier hs-var">filter</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">CI ByteString -&gt; CI ByteString -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">/=</span></span><span> </span><span class="annot"><span class="annottext">LoggingConfig -&gt; CI ByteString
+</span><a href="Web.Spock.Logging.html#lc_requestIdHeader"><span class="hs-identifier hs-var">lc_requestIdHeader</span></a></span><span> </span><span class="annot"><span class="annottext">LoggingConfig
+</span><a href="#local-6989586621679143761"><span class="hs-identifier hs-var">cfg</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(CI ByteString -&gt; Bool)
+-&gt; ((CI ByteString, ByteString) -&gt; CI ByteString)
+-&gt; (CI ByteString, ByteString)
+-&gt; Bool
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(CI ByteString, ByteString) -&gt; CI ByteString
+forall a b. (a, b) -&gt; a
+</span><span class="hs-identifier hs-var">fst</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">RequestHeaders
+</span><a href="#local-6989586621679143787"><span class="hs-identifier hs-var">headers</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679143782"><span class="hs-identifier hs-type">response</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-129"></span><span>        </span><span class="annot"><span class="hs-operator hs-type">`catch`</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679143791"><span class="annot"><span class="annottext">SomeException
+</span><a href="#local-6989586621679143791"><span class="hs-identifier hs-var">err</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SomeException</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-130"></span><span>          </span><span class="annot"><span class="annottext">SomeException -&gt; IO ()
+</span><a href="Web.Spock.Logging.html#rethrowAsync"><span class="hs-identifier hs-var">rethrowAsync</span></a></span><span> </span><span class="annot"><span class="annottext">SomeException
+</span><a href="#local-6989586621679143791"><span class="hs-identifier hs-var">err</span></a></span><span>
+</span><span id="line-131"></span><span>          </span><span class="annot"><span class="annottext">RequestLogger -&gt; RequestContext -&gt; LogEventType -&gt; IO ()
+</span><a href="Web.Spock.Logging.html#emitRequestLog"><span class="hs-identifier hs-var">emitRequestLog</span></a></span><span> </span><span class="annot"><span class="annottext">RequestLogger
+</span><a href="#local-6989586621679143760"><span class="hs-identifier hs-var">logger</span></a></span><span> </span><span class="annot"><span class="annottext">RequestContext
+</span><a href="#local-6989586621679143775"><span class="hs-identifier hs-var">context</span></a></span><span> </span><span class="annot"><span class="annottext">(LogEventType -&gt; IO ()) -&gt; LogEventType -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; LogEventType
+</span><a href="Web.Spock.Logging.html#ErrorLog"><span class="hs-identifier hs-var">ErrorLog</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; Text
+</span><span class="hs-identifier hs-var">T.pack</span></span><span> </span><span class="annot"><span class="annottext">(String -&gt; Text) -&gt; String -&gt; Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">SomeException -&gt; String
+forall e. Exception e =&gt; e -&gt; String
+</span><span class="hs-identifier hs-var">displayException</span></span><span> </span><span class="annot"><span class="annottext">SomeException
+</span><a href="#local-6989586621679143791"><span class="hs-identifier hs-var">err</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-132"></span><span>          </span><span class="annot"><span class="annottext">SomeException -&gt; IO ResponseReceived
+forall e a. (HasCallStack, Exception e) =&gt; e -&gt; IO a
+</span><span class="hs-identifier hs-var">throwIO</span></span><span> </span><span class="annot"><span class="annottext">SomeException
+</span><a href="#local-6989586621679143791"><span class="hs-identifier hs-var">err</span></a></span><span>
+</span><span id="line-133"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-134"></span><span>    </span><span id="local-6989586621679143776"><span class="annot"><span class="annottext">decode :: ByteString -&gt; Text
+</span><a href="#local-6989586621679143776"><span class="hs-identifier hs-var hs-var">decode</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OnDecodeError -&gt; ByteString -&gt; Text
+</span><span class="hs-identifier hs-var">T.decodeUtf8With</span></span><span> </span><span class="annot"><span class="annottext">OnDecodeError
+</span><span class="hs-identifier hs-var">lenientDecode</span></span><span>
+</span><span id="line-135"></span><span>
+</span><span id="line-136"></span><span class="annot"><a href="Web.Spock.Logging.html#validId"><span class="hs-identifier hs-type">validId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BS.ByteString</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-137"></span><span id="validId"><span class="annot"><span class="annottext">validId :: ByteString -&gt; Bool
+</span><a href="Web.Spock.Logging.html#validId"><span class="hs-identifier hs-var hs-var">validId</span></a></span></span><span> </span><span id="local-6989586621679143796"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679143796"><span class="hs-identifier hs-var">value</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool
+</span><span class="hs-identifier hs-var">not</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; Bool
+</span><span class="hs-identifier hs-var">BS.null</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679143796"><span class="hs-identifier hs-var">value</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Int
+</span><span class="hs-identifier hs-var">BS.length</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679143796"><span class="hs-identifier hs-var">value</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;=</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">128</span></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">(Word8 -&gt; Bool) -&gt; ByteString -&gt; Bool
+</span><span class="hs-identifier hs-var">BS.all</span></span><span> </span><span class="annot"><span class="annottext">Word8 -&gt; Bool
+forall {a}. (Ord a, Num a) =&gt; a -&gt; Bool
+</span><a href="#local-6989586621679143803"><span class="hs-identifier hs-var">allowed</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679143796"><span class="hs-identifier hs-var">value</span></a></span><span>
+</span><span id="line-138"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-139"></span><span>    </span><span id="local-6989586621679143803"><span class="annot"><span class="annottext">allowed :: a -&gt; Bool
+</span><a href="#local-6989586621679143803"><span class="hs-identifier hs-var hs-var">allowed</span></a></span></span><span> </span><span id="local-6989586621679143826"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679143826"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679143826"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;=</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><span class="hs-number">65</span></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679143826"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;=</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><span class="hs-number">90</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679143826"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;=</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><span class="hs-number">97</span></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679143826"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;=</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><span class="hs-number">122</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679143826"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;=</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><span class="hs-number">48</span></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679143826"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;=</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><span class="hs-number">57</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679143826"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; [a] -&gt; Bool
+forall a. Eq a =&gt; a -&gt; [a] -&gt; Bool
+forall (t :: * -&gt; *) a. (Foldable t, Eq a) =&gt; a -&gt; t a -&gt; Bool
+</span><span class="hs-operator hs-var">`elem`</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">a
+</span><span class="hs-number">45</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">a
+</span><span class="hs-number">46</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">a
+</span><span class="hs-number">95</span></span><span class="hs-special">]</span><span>
+</span><span id="line-140"></span><span>
+</span><span id="line-141"></span><span class="annot"><a href="Web.Spock.Logging.html#generateId"><span class="hs-identifier hs-type">generateId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
+</span><span id="line-142"></span><span id="generateId"><span class="annot"><span class="annottext">generateId :: IO Text
+</span><a href="Web.Spock.Logging.html#generateId"><span class="hs-identifier hs-var hs-var">generateId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-143"></span><span>  </span><span id="local-6989586621679143829"><span class="annot"><a href="#local-6989586621679143829"><span class="hs-identifier hs-var">bytes</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO ByteString
+</span><span class="hs-identifier hs-var">Entropy.getEntropy</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">16</span></span><span>
+</span><span id="line-144"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">pure</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.decodeUtf8</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">LBS.toStrict</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Builder.toLazyByteString</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span>
+</span><span id="line-145"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">foldMap</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Builder.word8HexFixed</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">BS.unpack</span></span><span> </span><span class="annot"><a href="#local-6989586621679143829"><span class="hs-identifier hs-type">bytes</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-146"></span><span>
+</span><span id="line-147"></span><span class="annot"><a href="Web.Spock.Logging.html#rethrowAsync"><span class="hs-identifier hs-type">rethrowAsync</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SomeException</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-148"></span><span id="rethrowAsync"><span class="annot"><span class="annottext">rethrowAsync :: SomeException -&gt; IO ()
+</span><a href="Web.Spock.Logging.html#rethrowAsync"><span class="hs-identifier hs-var hs-var">rethrowAsync</span></a></span></span><span> </span><span id="local-6989586621679143836"><span class="annot"><span class="annottext">SomeException
+</span><a href="#local-6989586621679143836"><span class="hs-identifier hs-var">err</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">SomeException -&gt; Maybe SomeAsyncException
+forall e. Exception e =&gt; SomeException -&gt; Maybe e
+</span><span class="hs-identifier hs-var">fromException</span></span><span> </span><span class="annot"><span class="annottext">SomeException
+</span><a href="#local-6989586621679143836"><span class="hs-identifier hs-var">err</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SomeAsyncException</span></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-149"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span class="annot"><span class="annottext">SomeAsyncException
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">SomeException -&gt; IO ()
+forall e a. (HasCallStack, Exception e) =&gt; e -&gt; IO a
+</span><span class="hs-identifier hs-var">throwIO</span></span><span> </span><span class="annot"><span class="annottext">SomeException
+</span><a href="#local-6989586621679143836"><span class="hs-identifier hs-var">err</span></a></span><span>
+</span><span id="line-150"></span><span>  </span><span class="annot"><span class="annottext">Maybe SomeAsyncException
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">() -&gt; IO ()
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-151"></span></pre></body></html>

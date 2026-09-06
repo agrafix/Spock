@@ -13,7 +13,7 @@ module Web.Spock.Api.Document
     ParameterInfo (..), parameterInfo, PathParameters (..), Parameter (..), Parameters (..),
     BodySchema (..), OperationInfo (..), operationInfo,
     DocumentedEndpoint (..), SomeEndpoint (..), OpenApiError (..),
-    validateEndpoint, openApiDocument,
+    validateEndpoint, openApiDocument, openApiDocumentWith,
   ) where
 
 import Control.Monad (foldM, forM_, unless, when)
@@ -29,7 +29,7 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import Network.HTTP.Types.URI (urlEncode)
 import Web.HttpApiData (FromHttpApiData)
-import Web.Routing.Combinators (PathState (Open))
+import Web.Routing.Combinators (PathState (Open), normalizePath)
 import Web.Spock.Api
 
 newtype Schema a = Schema { schemaValue :: Value }
@@ -127,7 +127,12 @@ validateEndpoint endpoint = do
 -- query, and header parameters. Conflicting operation IDs, duplicate methods,
 -- and equivalent templates using different path names are rejected.
 openApiDocument :: Text -> Text -> [SomeEndpoint] -> Either OpenApiError Value
-openApiDocument title version endpoints = do
+openApiDocument = openApiDocumentWith IgnoreSlashes
+
+-- | Generate paths with the application's slash policy. Strict and redirect
+-- policies retain trailing and repeated literal slashes in the specification.
+openApiDocumentWith :: SlashPolicy -> Text -> Text -> [SomeEndpoint] -> Either OpenApiError Value
+openApiDocumentWith policy title version endpoints = do
   (paths, _, _) <- foldM add (Map.empty, Set.empty, Map.empty) endpoints
   pure $ object ["openapi" .= ("3.1.1" :: Text), "info" .= object ["title" .= title, "version" .= version],
     "paths" .= Object (KM.fromList [(Key.fromText path, Object $ KM.fromList [(Key.fromText method, value) | (method, value) <- Map.toList methods])
@@ -138,7 +143,7 @@ openApiDocument title version endpoints = do
       let info = de_operation endpoint
           opId = oi_operationId info
           (method, path) = endpointRoute $ de_endpoint endpoint
-          (rendered, template, pathParams) = describePath path (de_pathParameters endpoint)
+          (rendered, template, pathParams) = describePath (normalizePath policy path) (de_pathParameters endpoint)
           methods = Map.findWithDefault Map.empty rendered paths
       when (Set.member opId operations) $ Left $ OpenApiError ("Duplicate operation ID: " <> opId)
       when (Map.member method methods) $ Left $ OpenApiError ("Duplicate endpoint: " <> method <> " " <> rendered)

@@ -13,7 +13,7 @@ permalink: /tutorials/
 - [Building a REST API](rest-api)
 - [Request cookbook: headers, forms, middleware, uploads, and logging](requests)
 - [Automated Testing](testing)
-- [Routing](routing)
+- [Routing, slash policies, and canonical redirects](routing)
 - [Rendering HTML with Blaze and Lucid](rendering)
 
 ## Video tutorials

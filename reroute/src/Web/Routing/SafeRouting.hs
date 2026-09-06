@@ -28,6 +28,19 @@ import qualified Data.Text as T
 import Data.Typeable (Typeable)
 import Web.HttpApiData
 
+-- | How empty path segments are treated. The compatibility default ignores
+-- every empty segment. Strict policies preserve internal and trailing slashes.
+-- Redirects are performed by the HTTP adapter, using strict registry matching.
+data SlashPolicy = IgnoreSlashes | StrictSlashes | RedirectTrailingSlashes
+  deriving (Eq, Show, Read)
+
+normalizeInternalPath :: SlashPolicy -> PathInternal as -> PathInternal as
+normalizeInternalPath IgnoreSlashes (PI_StaticCons "" rest) = normalizeInternalPath IgnoreSlashes rest
+normalizeInternalPath policy (PI_StaticCons piece rest) = PI_StaticCons piece (normalizeInternalPath policy rest)
+normalizeInternalPath policy (PI_VarCons rest) = PI_VarCons (normalizeInternalPath policy rest)
+normalizeInternalPath policy (PI_Wildcard rest) = PI_Wildcard (normalizeInternalPath policy rest)
+normalizeInternalPath _ PI_Empty = PI_Empty
+
 data RouteHandle m a
   = forall as. RouteHandle (PathInternal as) (HVectElim as (m a))
 

@@ -4,9 +4,12 @@ title: "Frequently asked questions"
 permalink: /faq/
 ---
 
-These answers describe the current repository releases (Spock 0.16 and
-Spock-core 0.15). Start with [Getting Started](/tutorials/getting-started),
+These answers describe the current repository releases (Spock 0.17 and
+Spock-core 0.16). Start with [Getting Started](/tutorials/getting-started),
 then use the [API reference](/reference/) to look up individual functions.
+
+For distinct `/foo` and `/foo/` handlers or canonical redirects, see
+[slash policies and canonical routes](/tutorials/routing).
 
 ## Can I use regular expressions or custom types in routes?
 
@@ -144,6 +147,6 @@ terminates TLS. For local HTTP development only, the FAQ executable explicitly
 disables the Secure flag. Preserve it in production. Rotate the session ID
 with `sessionRegenerateId` when signing in and use a CSRF-protected POST route
 calling `sessionDestroy` for logout. See the
-[session configuration reference](/reference/Spock-0.16.0.1/Web-Spock-Config.html).
+[session configuration reference](/reference/Spock-0.17.0.0/Web-Spock-Config.html).
 For a complete tested login, form, JSON, and logout flow, follow the
 [browser security guide](/tutorials/security).
