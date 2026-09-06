@@ -1,0 +1,38 @@
+cabal-version: 2.0
+name: Spock-browser
+version: 0.1.0.0
+synopsis: Typed browser routes and History API navigation for Spock
+description: Reuse reroute's typed paths in the browser, with scoped link interception and explicit listener cleanup.
+homepage: https://www.spock.li
+bug-reports: https://github.com/agrafix/Spock/issues
+license: BSD3
+license-file: LICENSE
+author: Alexander Thiemann
+maintainer: Alexander Thiemann <mail@athiemann.net>
+category: Web
+build-type: Simple
+tested-with: GHC ==9.12.2, GHC ==9.14.1
+extra-source-files: README.md, js/history.js
+
+library
+  hs-source-dirs: src
+  exposed-modules: Web.Spock.Browser
+  build-depends: base >=4.21 && <5, bytestring, hvect >=0.4, http-api-data >=0.6,
+                 http-types >=0.12, reroute >=0.9.0.1 && <0.10, text
+  if arch(javascript)
+    exposed-modules: Web.Spock.Browser.History
+    js-sources: js/history.js
+  default-language: Haskell2010
+  ghc-options: -Wall
+
+test-suite browser-routing-tests
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test
+  main-is: Spec.hs
+  build-depends: base, hspec, hvect, Spock-browser, text
+  default-language: Haskell2010
+  ghc-options: -Wall
+
+source-repository head
+  type: git
+  location: https://github.com/agrafix/Spock.git

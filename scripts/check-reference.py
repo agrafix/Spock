@@ -60,6 +60,19 @@ def check(root, current=False):
         if page and not any("Spock-api-" + versions["Spock-api"] + "/Web-Spock-Api.html#t:Endpoint" in href
                             and not urlsplit(href).scheme for href in page.links):
             failures.append("Missing local browser-client link to the shared Endpoint type")
+    routing_version = versions.get("Spock-browser")
+    if not routing_version:
+        failures.append("Missing Spock-browser from the published reference")
+    else:
+        routing = root / ("Spock-browser-" + routing_version)
+        for name, symbols in {"Web-Spock-Browser.html": ["route", "compileRoutes", "dispatch", "renderPath"],
+                              "Web-Spock-Browser-History.html": ["mountRouter", "navigate", "unmountRouter"]}.items():
+            page = documents.get(routing / name)
+            if page is None or any("v:" + symbol not in page.anchors for symbol in symbols):
+                failures.append(f"Missing browser routing API page or anchors: {name}")
+        info = routing / "build-info.json"
+        if not info.is_file() or json.loads(info.read_text()).get("target") != "javascript":
+            failures.append("Routing reference must be built from JavaScript interfaces")
     for source, document in documents.items():
         for href in document.links:
             url = urlsplit(href)

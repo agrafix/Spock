@@ -23,7 +23,9 @@ makeApp secure assets = do
       configured = cfg { spc_sessionCfg = session
         { sc_cookieSettings = (sc_cookieSettings session) { cs_secure = secure } } }
   S.spockAsApp $ S.spock configured $ do
-    S.get S.root $ S.setHeader "Cache-Control" "no-store" >> S.file "text/html;charset=utf-8" (assets </> "index.html")
+    S.get S.root $ S.redirect "/app/"
+    S.get ("app" S.<//> S.wildcard) $ \_ ->
+      S.setHeader "Cache-Control" "no-store" >> S.file "text/html;charset=utf-8" (assets </> "index.html")
     S.get "all.js" $ S.setHeader "Cache-Control" "no-cache" >> S.file "text/javascript;charset=utf-8" (assets </> "all.js")
     -- GHC's C-library support may emit additional JS/wasm files.
     S.get "clibs.js" $ serve "text/javascript" "clibs.js"

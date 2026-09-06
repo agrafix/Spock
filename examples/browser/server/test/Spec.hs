@@ -13,10 +13,22 @@ import qualified Network.Wai as W
 import qualified Network.Wai.Test as W
 import Shared
 import Test.Hspec
+import System.IO.Temp (withSystemTempDirectory)
+import System.FilePath ((</>))
 import qualified Web.Cookie as C
 
 main :: IO ()
 main = hspec $ beforeAll (makeApp False "/unused-assets") $ describe "Shared browser API server" $ do
+  it "serves the application shell for browser deep links without catching API errors" $ \_ ->
+    withSystemTempDirectory "spock-browser-assets" $ \assets -> do
+      writeFile (assets </> "index.html") "<h1>Application shell</h1>"
+      app <- makeApp False assets
+      forM_ ["/app/", "/app/note/caf%C3%A9%2F%CE%BB", "/app/unknown?x=1"] $ \path -> do
+        response <- send app "GET" path [] ""
+        W.simpleStatus response `shouldBe` status200
+        W.simpleBody response `shouldBe` "<h1>Application shell</h1>"
+      W.simpleStatus <$> send app "GET" "/api/unknown" [] "" `shouldReturn` status404
+      W.simpleStatus <$> send app "POST" "/app/unknown" [] "" `shouldReturn` status404
   it "requires the session cookie and CSRF token on all unsafe methods" $ \app -> do
     (_, headers) <- visitor app
     forM_ ["POST", "PUT", "PATCH", "DELETE"] $ \method -> do

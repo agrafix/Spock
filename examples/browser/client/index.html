@@ -6,7 +6,15 @@
 input, button { font: inherit; margin: .3rem 0; padding: .4rem; } pre { white-space: pre-wrap; overflow-wrap: anywhere; }</style>
 <script defer src="/all.js"></script></head>
 <body><main>
-<h1>Your note</h1><p id="note">Loading…</p>
+<nav><a id="home-link" href="/app/">Home</a> · <a id="about-link" href="/app/about"><span>About</span></a> ·
+<a id="note-link" href="/app/note/example">Typed note route</a></nav>
+<h1 id="route-view" data-renders="0">Home</h1>
+<p>These links navigate in the browser. Back, forward and reload keep the selected route.</p>
+<details id="routing-controls"><summary>Try the router lifecycle</summary>
+<button id="replace-route">Replace with About</button>
+<button id="stop-router">Stop routing</button> <button id="start-router">Start routing</button>
+<p id="router-status" role="status">Starting router…</p></details>
+<h2>Your note</h2><p id="note">Loading…</p>
 <label for="input">Note text</label><br><input id="input" maxlength="200" value="Hello from Haskell">
 <div><button id="create" disabled>Create</button> <button id="replace" disabled>Replace</button>
 <button id="append" disabled>Append</button> <button id="delete" disabled>Delete</button>

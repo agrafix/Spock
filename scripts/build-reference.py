@@ -13,10 +13,11 @@ from urllib.parse import unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 NATIVE_PACKAGES = ["reroute", "Spock-core", "Spock", "Spock-api", "Spock-api-server", "Spock-session-postgresql", "Spock-session-cookie"]
-PACKAGES = NATIVE_PACKAGES + ["Spock-api-ghcjs"]
+JAVASCRIPT_PACKAGES = ["Spock-api-ghcjs", "Spock-browser"]
+PACKAGES = NATIVE_PACKAGES + JAVASCRIPT_PACKAGES
 
 
-def javascript_library():
+def javascript_libraries():
     haddock = shutil.which("javascript-unknown-ghcjs-haddock")
     if not haddock:
         raise SystemExit("Run scripts/setup-javascript.py --prefix DIRECTORY --haddock, then source DIRECTORY/env.sh.")
@@ -27,7 +28,7 @@ def javascript_library():
     builddir = ROOT / "dist-newstyle-docs-javascript"
     common = ["--project-file=cabal.project.javascript", f"--builddir={builddir}",
               "--disable-documentation", "--ghc-options=-haddock -fwrite-ide-info"]
-    names = ["reroute", "Spock-api", "Spock-api-ghcjs"]
+    names = ["reroute", "Spock-api", *JAVASCRIPT_PACKAGES]
     subprocess.run(["cabal", "build", *[name + ":lib:" + name for name in names], *common, "-j4"],
                    cwd=ROOT, env=env, check=True)
     plan = json.loads((builddir / "cache/plan.json").read_text())
@@ -44,12 +45,15 @@ def javascript_library():
                         "--haddock-html", "--haddock-hyperlink-source",
                         "--haddock-html-location=https://hackage.haskell.org/package/$pkg-$version/docs",
                         *["--haddock-option=" + option for option in options]], cwd=ROOT, env=env, check=True)
-    library = libraries["Spock-api-ghcjs"]
-    source = Path(library["dist-dir"]) / "doc/html/Spock-api-ghcjs"
-    assert (source / "Web-Spock-Api-Client-Browser.html").is_file(), "Missing JavaScript-only Browser module"
-    (source / "build-info.json").write_text(json.dumps({"compiler": plan["compiler-id"], "target": plan["arch"],
-        "Spock-api": libraries["Spock-api"]["pkg-version"], "source": "GHC JavaScript .hi/.hie interfaces"}, indent=2) + "\n")
-    return library
+    browser_modules = {"Spock-api-ghcjs": "Web-Spock-Api-Client-Browser.html", "Spock-browser": "Web-Spock-Browser-History.html"}
+    for name in JAVASCRIPT_PACKAGES:
+        source = Path(libraries[name]["dist-dir"]) / "doc/html" / name
+        assert (source / browser_modules[name]).is_file(), "Missing JavaScript-only module for " + name
+        (source / "build-info.json").write_text(json.dumps({"compiler": plan["compiler-id"], "target": plan["arch"],
+            "dependencies": {dependency: libraries[dependency]["pkg-version"] for dependency in
+                             (["Spock-api", "reroute"] if name == "Spock-api-ghcjs" else ["reroute"])},
+            "source": "GHC JavaScript .hi/.hie interfaces"}, indent=2) + "\n")
+    return {name: libraries[name] for name in JAVASCRIPT_PACKAGES}
 
 
 def repair_fragments(text):
@@ -76,7 +80,7 @@ def repair_fragments(text):
 
 
 def build(output):
-    browser = javascript_library()
+    browser = javascript_libraries()
     # Keep optional dependencies and documentation build flags isolated from
     # the native build. Use Cabal's plan to find each local library's output.
     project = ROOT / "dist-newstyle-docs/project"
@@ -95,7 +99,7 @@ def build(output):
     libraries = {p["pkg-name"]: p for p in plan["install-plan"]
                  if p.get("style") == "local" and p.get("component-name") == "lib"}
     assert set(libraries) == set(NATIVE_PACKAGES), "Missing a local library from the documentation plan"
-    libraries["Spock-api-ghcjs"] = browser
+    libraries.update(browser)
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     package_ids = {name: name + "-" + library["pkg-version"] for name, library in libraries.items()}
@@ -140,6 +144,7 @@ def build(output):
                      "Spock-session-postgresql": "Web-Spock-Session-Postgresql.html",
                      "Spock-session-cookie": "Web-Spock-Session-Cookie.html",
                      "Spock-api-ghcjs": "Web-Spock-Api-Client.html",
+                     "Spock-browser": "Web-Spock-Browser.html",
                      "reroute": "Web-Routing-Combinators.html"}
     rows = "".join(f'<tr><td><a href="{package_ids[name]}/{entry_modules[name]}">{name}</a></td>'
                    f'<td>{libraries[name]["pkg-version"]}</td>'
@@ -163,6 +168,9 @@ the native libraries use GHC 9.14.1. Start with
 <a href="{package_ids['Spock-api-ghcjs']}/Web-Spock-Api-Client.html#v:callEndpoint">callEndpoint</a> and
 <a href="{package_ids['Spock-api-ghcjs']}/Web-Spock-Api-Client-Browser.html#v:browserClient">browserClient</a>,
 or follow the <a href="/tutorials/browser-client">shared browser/server tutorial</a>.</p>
+<p>For typed client-side navigation, see
+<a href="{package_ids['Spock-browser']}/Web-Spock-Browser.html#v:route">route</a> and
+<a href="{package_ids['Spock-browser']}/Web-Spock-Browser-History.html#v:mountRouter">mountRouter</a>.</p>
 <h2>Handling requests and responses</h2><p><code>Web.Spock</code> reexports the
 <a href="{core}">Web.Spock.Action</a> module from Spock-core. Start there for request parsing and response helpers.</p>
 <ul>{actions}</ul><p>Typed path captures are arguments to your route handler.

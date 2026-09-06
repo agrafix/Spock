@@ -38,3 +38,24 @@ For production, serve the native executable and matching static assets behind
 TLS on the same origin. The demo's in-memory notes disappear on restart; select
 a persistent backend and database when the application needs durable data.
 The [browser security guide](/tutorials/security) explains cookie and CSRF setup.
+
+## Client-side routing
+
+[`Spock-browser`](https://github.com/agrafix/Spock/tree/master/Spock-browser)
+adds a typed navigation registry and a History API adapter. The demo uses
+`route`, `<//>`, `var` and `renderPath` for Home, About and a note path containing
+Unicode and an encoded slash. The browser changes its view without reloading
+the document and handles back/forward, query strings and fragments.
+
+[`mountRouter`](/reference/Spock-browser-0.1.0.0/Web-Spock-Browser-History.html#v:mountRouter)
+owns links inside a configured path prefix; external links, downloads, modified
+clicks, alternate targets and same-page fragment links keep their normal browser
+behavior. Unknown paths invoke the application's not-found handler. Call
+[`unmountRouter`](/reference/Spock-browser-0.1.0.0/Web-Spock-Browser-History.html#v:unmountRouter)
+when removing the owning component to detach listeners and release callbacks.
+
+Serve the application shell for GET deep links under the same prefix. The
+example reserves `/app/` for that fallback, so refreshing a typed route works
+and missing `/api/` routes still return 404. API authorization remains on the
+server. The demo's Chromium tests exercise navigation, reloads, native link
+behavior and cleanup across repeated mounts.

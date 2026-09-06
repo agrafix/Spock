@@ -18,7 +18,8 @@ python3 scripts/build-reference.py
 
 Install Node 22 and the [browser build prerequisites](../examples/browser/README.md)
 too. The script uses separate Cabal build directories for seven native libraries
-and `Spock-api-ghcjs`. It links their exact versions locally and checks the output.
+and the two browser packages, `Spock-api-ghcjs` and `Spock-browser`. It links
+their exact versions locally and checks the output.
 Available dependency documentation links to versioned Hackage pages. Existing
 directories for older versions are retained. Review and commit the generated
 `docs/reference` files along with the source change; the existing Pages
@@ -30,14 +31,15 @@ official GHC bindist. Its wrapper points at the JavaScript compiler's settings
 and package database. The reference build first compiles current sources with
 GHC JavaScript's `-haddock -fwrite-ide-info`, then uses Haddock's
 [`--no-compilation` interface mode](https://haskell-haddock.readthedocs.io/latest/invoking.html#avoiding-recompilation).
-This includes the JavaScript-only `Web.Spock.Api.Client.Browser` module without
+This includes the JavaScript-only `Web.Spock.Api.Client.Browser` and
+`Web.Spock.Browser.History` modules without
 attempting native dynamic linking or substituting stub implementations.
 The dependency interfaces for reroute and Spock-api are generated first so
 `callEndpoint` links to the published shared endpoint types.
 
-`Spock-api-ghcjs-*/build-info.json` records the documentation's compiler, target
-and compatible API version. The link checker requires both client modules,
-their main entry points, JavaScript provenance and the local `Endpoint` link;
+Each browser package's `build-info.json` records the documentation's compiler,
+target and compatible dependency versions. The link checker requires both
+packages' modules, their main entry points, JavaScript provenance and the local `Endpoint` link;
 a native-only or missing browser reference fails CI. These website Haddocks
 cover the maintained client, not the archived 2016 package releases.
 

@@ -1,0 +1,369 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE DataKinds #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE FlexibleContexts #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE TypeFamilies #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE TypeOperators #-}</span><span>
+</span><span id="line-6"></span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- | Typed routes shared by native tests and GHC's JavaScript backend. Use</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- &quot;Web.Spock.Browser.History&quot; to attach a compiled router to browser navigation.</span><span>
+</span><span id="line-9"></span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Web.Spock.Browser.html"><span class="hs-identifier">Web.Spock.Browser</span></a></span><span>
+</span><span id="line-10"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Web.Spock.Browser.html#Routes"><span class="hs-identifier">Routes</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Web.Spock.Browser.html#Router"><span class="hs-identifier">Router</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Web.Spock.Browser.html#route"><span class="hs-identifier">route</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Web.Spock.Browser.html#compileRoutes"><span class="hs-identifier">compileRoutes</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Web.Spock.Browser.html#dispatch"><span class="hs-identifier">dispatch</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-11"></span><span>    </span><span class="annot"><a href="Web.Spock.Browser.html#Location"><span class="hs-identifier">Location</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Web.Spock.Browser.html#NavigationError"><span class="hs-identifier">NavigationError</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Web.Spock.Browser.html#parseLocation"><span class="hs-identifier">parseLocation</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Web.Spock.Browser.html#renderPath"><span class="hs-identifier">renderPath</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-12"></span><span>    </span><span class="annot"><span class="hs-identifier">Path</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">PathState</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">root</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">static</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">var</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">wildcard</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">trailingSlash</span></span><span class="hs-special">,</span><span>
+</span><span id="line-13"></span><span>    </span><span class="annot"><a href="Web.Spock.Browser.html#%3C%2F%2F%3E"><span class="hs-operator">(&lt;//&gt;)</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-operator">(&lt;.&gt;)</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">SlashPolicy</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-14"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-15"></span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">unless</span></span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.HVect</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">AllHave</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Append</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">HVect</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">HVectElim</span></span><span class="hs-special">)</span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text.Encoding</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-20"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Network.HTTP.Types.URI</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">urlDecode</span></span><span class="hs-special">)</span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Web.HttpApiData</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ToHttpApiData</span></span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Web.Routing.Combinators</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-operator">(&lt;/&gt;)</span></span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Web.Routing.Combinators</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">R</span></span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Web.Routing.Router</span></span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Web.Routing.SafeRouting</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">HVectElim'</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">SlashPolicy</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span class="annot"><span class="hs-comment">-- | A registry of navigation handlers, using the same typed captures as Spock.</span></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">type</span><span> </span><span id="Routes"><span class="annot"><a href="Web.Spock.Browser.html#Routes"><span class="hs-identifier hs-var">Routes</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">RegistryT</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="annot"><span class="hs-comment">-- | A compiled registry. 'dispatch' executes its first matching handler.</span></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">newtype</span><span> </span><span id="Router"><span class="annot"><a href="Web.Spock.Browser.html#Router"><span class="hs-identifier hs-var">Router</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Router"><span class="annot"><a href="Web.Spock.Browser.html#Router"><span class="hs-identifier hs-var">Router</span></a></span></span><span> </span><span class="hs-special">(</span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span class="annot"><span class="hs-comment">-- | Register a route. Handler arguments follow the typed path captures.</span></span><span>
+</span><span id="line-34"></span><span id="local-6989586621679046906"><span id="local-6989586621679046907"><span class="annot"><a href="Web.Spock.Browser.html#route"><span class="hs-identifier hs-type">route</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Path</span></span><span> </span><span class="annot"><a href="#local-6989586621679046906"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679046907"><span class="hs-identifier hs-type">ps</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HVectElim</span></span><span> </span><span class="annot"><a href="#local-6989586621679046906"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Spock.Browser.html#Routes"><span class="hs-identifier hs-type">Routes</span></a></span></span></span><span>
+</span><span id="line-35"></span><span id="route"><span class="annot"><span class="annottext">route :: forall (as :: [*]) (ps :: PathState).
+Path as ps -&gt; HVectElim as (IO ()) -&gt; Routes
+</span><a href="Web.Spock.Browser.html#route"><span class="hs-identifier hs-var hs-var">route</span></a></span></span><span> </span><span id="local-6989586621679047055"><span class="annot"><span class="annottext">Path as ps
+</span><a href="#local-6989586621679047055"><span class="hs-identifier hs-var">path</span></a></span></span><span> </span><span id="local-6989586621679047056"><span class="annot"><span class="annottext">HVectElim as (IO ())
+</span><a href="#local-6989586621679047056"><span class="hs-identifier hs-var">handler</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PathInternal as -&gt; HVectElim' (IO ()) as -&gt; Routes
+forall (m :: * -&gt; *) (as :: [*]) (n :: * -&gt; *) b middleware
+       reqTypes.
+Monad m =&gt;
+PathInternal as
+-&gt; HVectElim' (n b) as -&gt; RegistryT n b middleware reqTypes m ()
+</span><span class="hs-identifier hs-var">hookRouteAnyMethod</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Path as ps -&gt; PathInternal as
+forall (as :: [*]) (pathState :: PathState).
+Path as pathState -&gt; PathInternal as
+</span><span class="hs-identifier hs-var">toInternalPath</span></span><span> </span><span class="annot"><span class="annottext">Path as ps
+</span><a href="#local-6989586621679047055"><span class="hs-identifier hs-var">path</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HVectElim as (IO ()) -&gt; HVectElim' (IO ()) as
+forall x (ts :: [*]). HVectElim ts x -&gt; HVectElim' x ts
+</span><span class="hs-identifier hs-var">HVectElim'</span></span><span> </span><span class="annot"><span class="annottext">HVectElim as (IO ())
+</span><a href="#local-6989586621679047056"><span class="hs-identifier hs-var">handler</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span class="hs-comment">-- | Compile definitions once. IgnoreSlashes is Spock's compatibility policy.</span><span>
+</span><span id="line-38"></span><span class="hs-comment">-- StrictSlashes preserves empty segments. RedirectTrailingSlashes uses strict</span><span>
+</span><span id="line-39"></span><span class="hs-comment">-- matching here; canonical HTTP redirects belong to the server adapter.</span><span>
+</span><span id="line-40"></span><span class="annot"><a href="Web.Spock.Browser.html#compileRoutes"><span class="hs-identifier hs-type">compileRoutes</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SlashPolicy</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Spock.Browser.html#Routes"><span class="hs-identifier hs-type">Routes</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="Web.Spock.Browser.html#Router"><span class="hs-identifier hs-type">Router</span></a></span><span>
+</span><span id="line-41"></span><span id="compileRoutes"><span class="annot"><span class="annottext">compileRoutes :: SlashPolicy -&gt; Routes -&gt; IO Router
+</span><a href="Web.Spock.Browser.html#compileRoutes"><span class="hs-identifier hs-var hs-var">compileRoutes</span></a></span></span><span> </span><span id="local-6989586621679047060"><span class="annot"><span class="annottext">SlashPolicy
+</span><a href="#local-6989586621679047060"><span class="hs-identifier hs-var">policy</span></a></span></span><span> </span><span id="local-6989586621679047061"><span class="annot"><span class="annottext">Routes
+</span><a href="#local-6989586621679047061"><span class="hs-identifier hs-var">definitions</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-42"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679047062"><span class="annot"><a href="#local-6989586621679047062"><span class="hs-identifier hs-var">match</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">SlashPolicy -&gt; Routes -&gt; IO ((), () -&gt; [Text] -&gt; [IO ()], [()])
+forall (m :: * -&gt; *) reqTypes (n :: * -&gt; *) b middleware a.
+(Monad m, Hashable reqTypes, Eq reqTypes) =&gt;
+SlashPolicy
+-&gt; RegistryT n b middleware reqTypes m a
+-&gt; m (a, reqTypes -&gt; [Text] -&gt; [n b], [middleware])
+</span><span class="hs-identifier hs-var">runRegistryWith</span></span><span> </span><span class="annot"><span class="annottext">SlashPolicy
+</span><a href="#local-6989586621679047060"><span class="hs-identifier hs-var">policy</span></a></span><span> </span><span class="annot"><span class="annottext">Routes
+</span><a href="#local-6989586621679047061"><span class="hs-identifier hs-var">definitions</span></a></span><span>
+</span><span id="line-43"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">pure</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="annot"><a href="Web.Spock.Browser.html#Router"><span class="hs-identifier hs-type">Router</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679047062"><span class="hs-identifier hs-type">match</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="hs-comment">-- | Run the first match, returning False when no route matched. Handler</span><span>
+</span><span id="line-46"></span><span class="hs-comment">-- exceptions propagate; no alternative handler runs after a successful match.</span><span>
+</span><span id="line-47"></span><span class="annot"><a href="Web.Spock.Browser.html#dispatch"><span class="hs-identifier hs-type">dispatch</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Spock.Browser.html#Router"><span class="hs-identifier hs-type">Router</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Spock.Browser.html#Location"><span class="hs-identifier hs-type">Location</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-48"></span><span id="dispatch"><span class="annot"><span class="annottext">dispatch :: Router -&gt; Location -&gt; IO Bool
+</span><a href="Web.Spock.Browser.html#dispatch"><span class="hs-identifier hs-var hs-var">dispatch</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Browser.html#Router"><span class="hs-identifier hs-type">Router</span></a></span><span> </span><span id="local-6989586621679047064"><span class="annot"><span class="annottext">[Text] -&gt; [IO ()]
+</span><a href="#local-6989586621679047064"><span class="hs-identifier hs-var">match</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679047065"><span class="annot"><span class="annottext">Location
+</span><a href="#local-6989586621679047065"><span class="hs-identifier hs-var">location</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; [IO ()]
+</span><a href="#local-6989586621679047064"><span class="hs-identifier hs-var">match</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Location -&gt; [Text]
+</span><a href="Web.Spock.Browser.html#locationSegments"><span class="hs-identifier hs-var">locationSegments</span></a></span><span> </span><span class="annot"><span class="annottext">Location
+</span><a href="#local-6989586621679047065"><span class="hs-identifier hs-var">location</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-49"></span><span>  </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; IO Bool
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span>
+</span><span id="line-50"></span><span>  </span><span id="local-6989586621679047067"><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621679047067"><span class="hs-identifier hs-var">handler</span></a></span></span><span> </span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span> </span><span class="annot"><span class="annottext">[IO ()]
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621679047067"><span class="hs-identifier hs-var">handler</span></a></span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO Bool -&gt; IO Bool
+forall a b. IO a -&gt; IO b -&gt; IO b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; IO Bool
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span>
+</span><span id="line-51"></span><span>
+</span><span id="line-52"></span><span class="hs-comment">-- | A validated local URL. Query and fragment remain encoded, with their</span><span>
+</span><span id="line-53"></span><span class="hs-comment">-- leading '?' and '#'. Path captures are percent-decoded once, segment by</span><span>
+</span><span id="line-54"></span><span class="hs-comment">-- segment, so an encoded slash remains inside its captured value.</span><span>
+</span><span id="line-55"></span><span class="hs-keyword">data</span><span> </span><span id="Location"><span class="annot"><a href="Web.Spock.Browser.html#Location"><span class="hs-identifier hs-var">Location</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Location"><span class="annot"><a href="Web.Spock.Browser.html#Location"><span class="hs-identifier hs-var">Location</span></a></span></span><span>
+</span><span id="line-56"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="locationPathname"><span class="annot"><span class="annottext">Location -&gt; Text
+</span><a href="Web.Spock.Browser.html#locationPathname"><span class="hs-identifier hs-var hs-var">locationPathname</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">,</span><span>
+</span><span id="line-57"></span><span>    </span><span id="locationSegments"><span class="annot"><span class="annottext">Location -&gt; [Text]
+</span><a href="Web.Spock.Browser.html#locationSegments"><span class="hs-identifier hs-var hs-var">locationSegments</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">]</span><span class="hs-special">,</span><span>
+</span><span id="line-58"></span><span>    </span><span id="locationQuery"><span class="annot"><span class="annottext">Location -&gt; Text
+</span><a href="Web.Spock.Browser.html#locationQuery"><span class="hs-identifier hs-var hs-var">locationQuery</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">,</span><span>
+</span><span id="line-59"></span><span>    </span><span id="locationFragment"><span class="annot"><span class="annottext">Location -&gt; Text
+</span><a href="Web.Spock.Browser.html#locationFragment"><span class="hs-identifier hs-var hs-var">locationFragment</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span>
+</span><span id="line-60"></span><span>  </span><span class="hs-special">}</span><span> </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679047073"><span id="local-6989586621679047080"><span class="annot"><span class="annottext">Location -&gt; Location -&gt; Bool
+(Location -&gt; Location -&gt; Bool)
+-&gt; (Location -&gt; Location -&gt; Bool) -&gt; Eq Location
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: Location -&gt; Location -&gt; Bool
+== :: Location -&gt; Location -&gt; Bool
+$c/= :: Location -&gt; Location -&gt; Bool
+/= :: Location -&gt; Location -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679047085"><span id="local-6989586621679047095"><span id="local-6989586621679047099"><span class="annot"><span class="annottext">Int -&gt; Location -&gt; ShowS
+[Location] -&gt; ShowS
+Location -&gt; String
+(Int -&gt; Location -&gt; ShowS)
+-&gt; (Location -&gt; String) -&gt; ([Location] -&gt; ShowS) -&gt; Show Location
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; Location -&gt; ShowS
+showsPrec :: Int -&gt; Location -&gt; ShowS
+$cshow :: Location -&gt; String
+show :: Location -&gt; String
+$cshowList :: [Location] -&gt; ShowS
+showList :: [Location] -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-61"></span><span>
+</span><span id="line-62"></span><span class="annot"><span class="hs-comment">-- | Failures omit the rejected URL and any sensitive query values.</span></span><span>
+</span><span id="line-63"></span><span class="hs-keyword">data</span><span> </span><span id="NavigationError"><span class="annot"><a href="Web.Spock.Browser.html#NavigationError"><span class="hs-identifier hs-var">NavigationError</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="InvalidLocation"><span class="annot"><a href="Web.Spock.Browser.html#InvalidLocation"><span class="hs-identifier hs-var">InvalidLocation</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="OutsideScope"><span class="annot"><a href="Web.Spock.Browser.html#OutsideScope"><span class="hs-identifier hs-var">OutsideScope</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="HistoryUnavailable"><span class="annot"><a href="Web.Spock.Browser.html#HistoryUnavailable"><span class="hs-identifier hs-var">HistoryUnavailable</span></a></span></span><span>
+</span><span id="line-64"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="AlreadyMounted"><span class="annot"><a href="Web.Spock.Browser.html#AlreadyMounted"><span class="hs-identifier hs-var">AlreadyMounted</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="RouterStopped"><span class="annot"><a href="Web.Spock.Browser.html#RouterStopped"><span class="hs-identifier hs-var">RouterStopped</span></a></span></span><span>
+</span><span id="line-65"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679047109"><span id="local-6989586621679047114"><span class="annot"><span class="annottext">NavigationError -&gt; NavigationError -&gt; Bool
+(NavigationError -&gt; NavigationError -&gt; Bool)
+-&gt; (NavigationError -&gt; NavigationError -&gt; Bool)
+-&gt; Eq NavigationError
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: NavigationError -&gt; NavigationError -&gt; Bool
+== :: NavigationError -&gt; NavigationError -&gt; Bool
+$c/= :: NavigationError -&gt; NavigationError -&gt; Bool
+/= :: NavigationError -&gt; NavigationError -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679047118"><span id="local-6989586621679047120"><span id="local-6989586621679047124"><span class="annot"><span class="annottext">Int -&gt; NavigationError -&gt; ShowS
+[NavigationError] -&gt; ShowS
+NavigationError -&gt; String
+(Int -&gt; NavigationError -&gt; ShowS)
+-&gt; (NavigationError -&gt; String)
+-&gt; ([NavigationError] -&gt; ShowS)
+-&gt; Show NavigationError
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; NavigationError -&gt; ShowS
+showsPrec :: Int -&gt; NavigationError -&gt; ShowS
+$cshow :: NavigationError -&gt; String
+show :: NavigationError -&gt; String
+$cshowList :: [NavigationError] -&gt; ShowS
+showList :: [NavigationError] -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-66"></span><span>
+</span><span id="line-67"></span><span class="hs-comment">-- | Parse an absolute local path with optional query/fragment. Reject external</span><span>
+</span><span id="line-68"></span><span class="hs-comment">-- origins, malformed escapes/UTF-8, and dot segments browsers would normalize.</span><span>
+</span><span id="line-69"></span><span class="annot"><a href="Web.Spock.Browser.html#parseLocation"><span class="hs-identifier hs-type">parseLocation</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="Web.Spock.Browser.html#NavigationError"><span class="hs-identifier hs-type">NavigationError</span></a></span><span> </span><span class="annot"><a href="Web.Spock.Browser.html#Location"><span class="hs-identifier hs-type">Location</span></a></span><span>
+</span><span id="line-70"></span><span id="parseLocation"><span class="annot"><span class="annottext">parseLocation :: Text -&gt; Either NavigationError Location
+</span><a href="Web.Spock.Browser.html#parseLocation"><span class="hs-identifier hs-var hs-var">parseLocation</span></a></span></span><span> </span><span id="local-6989586621679047126"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679047126"><span class="hs-identifier hs-var">value</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-71"></span><span>  </span><span class="annot"><span class="annottext">Bool -&gt; Either NavigationError () -&gt; Either NavigationError ()
+forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
+</span><span class="hs-identifier hs-var">unless</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Bool
+</span><span class="hs-identifier hs-var">T.isPrefixOf</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;/&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679047126"><span class="hs-identifier hs-var">value</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool
+</span><span class="hs-identifier hs-var">not</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Bool
+</span><span class="hs-identifier hs-var">T.isPrefixOf</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;//&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679047126"><span class="hs-identifier hs-var">value</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-72"></span><span>    </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool
+</span><span class="hs-identifier hs-var">not</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Char -&gt; Bool) -&gt; Text -&gt; Bool
+</span><span class="hs-identifier hs-var">T.any</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679047131"><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679047131"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679047131"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="annottext">Char -&gt; Char -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;=</span></span><span> </span><span class="annot"><span class="annottext">Char
+</span><span class="hs-char">' '</span></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679047131"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="annottext">Char -&gt; Char -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">Char
+</span><span class="hs-char">'\\'</span></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679047131"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="annottext">Char -&gt; Char -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">Char
+</span><span class="hs-char">'\DEL'</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679047126"><span class="hs-identifier hs-var">value</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Either NavigationError () -&gt; Either NavigationError ())
+-&gt; Either NavigationError () -&gt; Either NavigationError ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">NavigationError -&gt; Either NavigationError ()
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="annottext">NavigationError
+</span><a href="Web.Spock.Browser.html#InvalidLocation"><span class="hs-identifier hs-var">InvalidLocation</span></a></span><span>
+</span><span id="line-73"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679047134"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679047134"><span class="hs-identifier hs-var hs-var">beforeFragment</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679047135"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679047135"><span class="hs-identifier hs-var hs-var">fragment</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; Text -&gt; Text -&gt; (Text, Text)
+Text -&gt; Text -&gt; (Text, Text)
+</span><span class="hs-identifier hs-var">T.breakOn</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;#&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679047126"><span class="hs-identifier hs-var">value</span></a></span><span>
+</span><span id="line-74"></span><span>      </span><span class="hs-special">(</span><span id="local-6989586621679047137"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679047137"><span class="hs-identifier hs-var hs-var">pathname</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679047138"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679047138"><span class="hs-identifier hs-var hs-var">query</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; Text -&gt; Text -&gt; (Text, Text)
+Text -&gt; Text -&gt; (Text, Text)
+</span><span class="hs-identifier hs-var">T.breakOn</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;?&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679047134"><span class="hs-identifier hs-var">beforeFragment</span></a></span><span>
+</span><span id="line-75"></span><span>      </span><span id="local-6989586621679047139"><span class="annot"><span class="annottext">pieces :: [Text]
+</span><a href="#local-6989586621679047139"><span class="hs-identifier hs-var hs-var hs-var">pieces</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679047137"><span class="hs-identifier hs-var">pathname</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;/&quot;</span></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; Text -&gt; Text -&gt; [Text]
+Text -&gt; Text -&gt; [Text]
+</span><span class="hs-identifier hs-var">T.splitOn</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;/&quot;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Text -&gt; Text
+</span><span class="hs-identifier hs-var">T.drop</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679047137"><span class="hs-identifier hs-var">pathname</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-76"></span><span>  </span><span id="local-6989586621679047142"><span class="annot"><a href="#local-6989586621679047142"><span class="hs-identifier hs-var">decoded</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Either NavigationError Text)
+-&gt; [Text] -&gt; Either NavigationError [Text]
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Traversable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f (t b)
+forall (f :: * -&gt; *) a b.
+Applicative f =&gt;
+(a -&gt; f b) -&gt; [a] -&gt; f [b]
+</span><span class="hs-identifier hs-var">traverse</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Either NavigationError Text
+</span><a href="#local-6989586621679047144"><span class="hs-identifier hs-var">decodePiece</span></a></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679047139"><span class="hs-identifier hs-var">pieces</span></a></span><span>
+</span><span id="line-77"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">unless</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">all</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-operator">`notElem`</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-string">&quot;.&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;..&quot;</span></span><span class="hs-special">]</span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679047142"><span class="hs-identifier hs-type">decoded</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Left</span></span><span> </span><span class="annot"><a href="Web.Spock.Browser.html#InvalidLocation"><span class="hs-identifier hs-type">InvalidLocation</span></a></span><span>
+</span><span id="line-78"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">pure</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="annot"><a href="Web.Spock.Browser.html#Location"><span class="hs-identifier hs-type">Location</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679047137"><span class="hs-identifier hs-type">pathname</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679047142"><span class="hs-identifier hs-type">decoded</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679047138"><span class="hs-identifier hs-type">query</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679047135"><span class="hs-identifier hs-type">fragment</span></a></span><span>
+</span><span id="line-79"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-80"></span><span>    </span><span id="local-6989586621679047144"><span class="annot"><span class="annottext">decodePiece :: Text -&gt; Either NavigationError Text
+</span><a href="#local-6989586621679047144"><span class="hs-identifier hs-var hs-var">decodePiece</span></a></span></span><span> </span><span id="local-6989586621679047149"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679047149"><span class="hs-identifier hs-var">piece</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-81"></span><span>      </span><span class="annot"><span class="annottext">Bool -&gt; Either NavigationError () -&gt; Either NavigationError ()
+forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
+</span><span class="hs-identifier hs-var">unless</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; Bool
+</span><a href="#local-6989586621679047150"><span class="hs-identifier hs-var">validEscapes</span></a></span><span> </span><span class="annot"><span class="annottext">(String -&gt; Bool) -&gt; String -&gt; Bool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; String
+</span><span class="hs-identifier hs-var">T.unpack</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679047149"><span class="hs-identifier hs-var">piece</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Either NavigationError () -&gt; Either NavigationError ())
+-&gt; Either NavigationError () -&gt; Either NavigationError ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">NavigationError -&gt; Either NavigationError ()
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="annottext">NavigationError
+</span><a href="Web.Spock.Browser.html#InvalidLocation"><span class="hs-identifier hs-var">InvalidLocation</span></a></span><span>
+</span><span id="line-82"></span><span>      </span><span class="annot"><span class="annottext">(UnicodeException -&gt; Either NavigationError Text)
+-&gt; (Text -&gt; Either NavigationError Text)
+-&gt; Either UnicodeException Text
+-&gt; Either NavigationError Text
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Either NavigationError Text
+-&gt; UnicodeException -&gt; Either NavigationError Text
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">(Either NavigationError Text
+ -&gt; UnicodeException -&gt; Either NavigationError Text)
+-&gt; Either NavigationError Text
+-&gt; UnicodeException
+-&gt; Either NavigationError Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">NavigationError -&gt; Either NavigationError Text
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="annottext">NavigationError
+</span><a href="Web.Spock.Browser.html#InvalidLocation"><span class="hs-identifier hs-var">InvalidLocation</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Either NavigationError Text
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span> </span><span class="annot"><span class="annottext">(Either UnicodeException Text -&gt; Either NavigationError Text)
+-&gt; Either UnicodeException Text -&gt; Either NavigationError Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Either UnicodeException Text
+</span><span class="hs-identifier hs-var">T.decodeUtf8'</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Either UnicodeException Text)
+-&gt; ByteString -&gt; Either UnicodeException Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; ByteString -&gt; ByteString
+</span><span class="hs-identifier hs-var">urlDecode</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; ByteString) -&gt; ByteString -&gt; ByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; ByteString
+</span><span class="hs-identifier hs-var">T.encodeUtf8</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679047149"><span class="hs-identifier hs-var">piece</span></a></span><span>
+</span><span id="line-83"></span><span>    </span><span id="local-6989586621679047150"><span class="annot"><span class="annottext">validEscapes :: String -&gt; Bool
+</span><a href="#local-6989586621679047150"><span class="hs-identifier hs-var hs-var">validEscapes</span></a></span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span>
+</span><span id="line-84"></span><span>    </span><span class="annot"><a href="#local-6989586621679047150"><span class="hs-identifier hs-var">validEscapes</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Char
+</span><span class="hs-char">'%'</span></span><span> </span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span> </span><span id="local-6989586621679047160"><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679047160"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span> </span><span id="local-6989586621679047161"><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679047161"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span> </span><span id="local-6989586621679047162"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679047162"><span class="hs-identifier hs-var">rest</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679047160"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Char -&gt; String -&gt; Bool
+forall a. Eq a =&gt; a -&gt; [a] -&gt; Bool
+forall (t :: * -&gt; *) a. (Foldable t, Eq a) =&gt; a -&gt; t a -&gt; Bool
+</span><span class="hs-operator hs-var">`elem`</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679047164"><span class="hs-identifier hs-var">hex</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679047161"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="annot"><span class="annottext">Char -&gt; String -&gt; Bool
+forall a. Eq a =&gt; a -&gt; [a] -&gt; Bool
+forall (t :: * -&gt; *) a. (Foldable t, Eq a) =&gt; a -&gt; t a -&gt; Bool
+</span><span class="hs-operator hs-var">`elem`</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679047164"><span class="hs-identifier hs-var">hex</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Bool
+</span><a href="#local-6989586621679047150"><span class="hs-identifier hs-var">validEscapes</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679047162"><span class="hs-identifier hs-var">rest</span></a></span><span>
+</span><span id="line-85"></span><span>    </span><span class="annot"><a href="#local-6989586621679047150"><span class="hs-identifier hs-var">validEscapes</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Char
+</span><span class="hs-char">'%'</span></span><span> </span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span>
+</span><span id="line-86"></span><span>    </span><span class="annot"><a href="#local-6989586621679047150"><span class="hs-identifier hs-var">validEscapes</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Char
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span> </span><span id="local-6989586621679047165"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679047165"><span class="hs-identifier hs-var">rest</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Bool
+</span><a href="#local-6989586621679047150"><span class="hs-identifier hs-var">validEscapes</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679047165"><span class="hs-identifier hs-var">rest</span></a></span><span>
+</span><span id="line-87"></span><span>    </span><span id="local-6989586621679047164"><span class="annot"><span class="annottext">hex :: String
+</span><a href="#local-6989586621679047164"><span class="hs-identifier hs-var hs-var">hex</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;0123456789abcdefABCDEF&quot;</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span>
+</span><span id="line-88"></span><span>
+</span><span id="line-89"></span><span class="hs-comment">-- | Render a safe local href using the same path and slash policy as the</span><span>
+</span><span id="line-90"></span><span class="hs-comment">-- registry. Values are encoded as complete segments, including extensions.</span><span>
+</span><span id="line-91"></span><span id="local-6989586621679046975"><span class="annot"><a href="Web.Spock.Browser.html#renderPath"><span class="hs-identifier hs-type">renderPath</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AllHave</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToHttpApiData</span></span><span> </span><span class="annot"><a href="#local-6989586621679046975"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SlashPolicy</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Path</span></span><span> </span><span class="annot"><a href="#local-6989586621679046975"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Open</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HVect</span></span><span> </span><span class="annot"><a href="#local-6989586621679046975"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="Web.Spock.Browser.html#NavigationError"><span class="hs-identifier hs-type">NavigationError</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span></span><span>
+</span><span id="line-92"></span><span id="renderPath"><span class="annot"><span class="annottext">renderPath :: forall (as :: [*]).
+AllHave ToHttpApiData as =&gt;
+SlashPolicy
+-&gt; Path as 'Open -&gt; HVect as -&gt; Either NavigationError Text
+</span><a href="Web.Spock.Browser.html#renderPath"><span class="hs-identifier hs-var hs-var">renderPath</span></a></span></span><span> </span><span id="local-6989586621679047173"><span class="annot"><span class="annottext">SlashPolicy
+</span><a href="#local-6989586621679047173"><span class="hs-identifier hs-var">policy</span></a></span></span><span> </span><span id="local-6989586621679047174"><span class="annot"><span class="annottext">Path as 'Open
+</span><a href="#local-6989586621679047174"><span class="hs-identifier hs-var">path</span></a></span></span><span> </span><span id="local-6989586621679047175"><span class="annot"><span class="annottext">HVect as
+</span><a href="#local-6989586621679047175"><span class="hs-identifier hs-var">arguments</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-93"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679047176"><span class="annot"><span class="annottext">href :: Text
+</span><a href="#local-6989586621679047176"><span class="hs-identifier hs-var hs-var hs-var">href</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;/&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">SlashPolicy -&gt; Path as 'Open -&gt; HVect as -&gt; Text
+forall (as :: [*]).
+AllHave ToHttpApiData as =&gt;
+SlashPolicy -&gt; Path as 'Open -&gt; HVect as -&gt; Text
+</span><span class="hs-identifier hs-var">renderRouteEncodedWith</span></span><span> </span><span class="annot"><span class="annottext">SlashPolicy
+</span><a href="#local-6989586621679047173"><span class="hs-identifier hs-var">policy</span></a></span><span> </span><span class="annot"><span class="annottext">Path as 'Open
+</span><a href="#local-6989586621679047174"><span class="hs-identifier hs-var">path</span></a></span><span> </span><span class="annot"><span class="annottext">HVect as
+</span><a href="#local-6989586621679047175"><span class="hs-identifier hs-var">arguments</span></a></span><span>
+</span><span id="line-94"></span><span>  </span><span class="annot"><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Either NavigationError Location
+</span><a href="Web.Spock.Browser.html#parseLocation"><span class="hs-identifier hs-var">parseLocation</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679047176"><span class="hs-identifier hs-var">href</span></a></span><span>
+</span><span id="line-95"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">pure</span></span><span> </span><span class="annot"><a href="#local-6989586621679047176"><span class="hs-identifier hs-type">href</span></a></span><span>
+</span><span id="line-96"></span><span>
+</span><span id="line-97"></span><span class="annot"><span class="hs-comment">-- | Append path components, using Spock's familiar operator spelling.</span></span><span>
+</span><span id="line-98"></span><span id="local-6989586621679046982"><span id="local-6989586621679046983"><span id="local-6989586621679046984"><span class="annot"><a href="Web.Spock.Browser.html#%3C%2F%2F%3E"><span class="hs-operator hs-type">(&lt;//&gt;)</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Path</span></span><span> </span><span class="annot"><a href="#local-6989586621679046982"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Open</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Path</span></span><span> </span><span class="annot"><a href="#local-6989586621679046983"><span class="hs-identifier hs-type">bs</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679046984"><span class="hs-identifier hs-type">ps</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Path</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Append</span></span><span> </span><span class="annot"><a href="#local-6989586621679046982"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679046983"><span class="hs-identifier hs-type">bs</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679046984"><span class="hs-identifier hs-type">ps</span></a></span></span></span></span><span>
+</span><span id="line-99"></span><span id="&lt;//&gt;"><span class="annot"><span class="annottext">&lt;//&gt; :: forall (as :: [*]) (bs :: [*]) (ps :: PathState).
+Path as 'Open -&gt; Path bs ps -&gt; Path (Append as bs) ps
+</span><a href="Web.Spock.Browser.html#%3C%2F%2F%3E"><span class="hs-operator hs-var hs-var">(&lt;//&gt;)</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Path as 'Open -&gt; Path bs ps -&gt; Path (Append as bs) ps
+forall (as :: [*]) (bs :: [*]) (ps :: PathState).
+Path as 'Open -&gt; Path bs ps -&gt; Path (Append as bs) ps
+</span><span class="hs-operator hs-var">(R.&lt;/&gt;)</span></span><span>
+</span><span id="line-100"></span><span class="hs-keyword">infixl</span><span> </span><span class="hs-number">5</span><span> </span><span class="annot"><a href="Web.Spock.Browser.html#%3C%2F%2F%3E"><span class="hs-operator hs-type">&lt;//&gt;</span></a></span><span>
+</span><span id="line-101"></span></pre></body></html>

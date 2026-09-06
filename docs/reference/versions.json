@@ -6,5 +6,6 @@
   "Spock-api-server": "0.17.0.0",
   "Spock-session-postgresql": "0.1.0.3",
   "Spock-session-cookie": "0.1.0.0",
-  "Spock-api-ghcjs": "0.15.0.1"
+  "Spock-api-ghcjs": "0.15.0.1",
+  "Spock-browser": "0.1.0.0"
 }

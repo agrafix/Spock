@@ -10,6 +10,14 @@ path captures with `.json`, required/optional/repeated query values and headers.
 | `server` | Spock handlers, CSRF checks and static assets | GHC 9.14.1 |
 | `client` | DOM interface and typed Fetch calls | GHC JavaScript 9.12.2 |
 
+The client also uses [Spock-browser](../../Spock-browser/README.md) for typed
+navigation under `/app/`. Home, About and the note route use the same reroute
+combinators as the server. The note link demonstrates a slash and Unicode inside
+one capture. Back/forward preserves the route; refresh uses the server's GET
+fallback for `/app/`, while `/api/` keeps its ordinary response semantics.
+The lifecycle controls demonstrate replacing a history entry, removing listeners
+and remounting the router. Repeated cleanup is safe; duplicate mounts are rejected.
+
 The JavaScript compiler is the current prebuilt cross compiler in
 [GHCup's cross metadata](https://github.com/haskell/ghcup-metadata/blob/develop/ghcup-cross-0.0.9.yaml).
 Its bindist requires Emscripten 3.1.74. The native compiler remains 9.14.1.
@@ -67,6 +75,9 @@ test targets and Chromium, and uploads `dist-browser` as a deployment artifact.
 Chromium covers all five methods, exact Unicode round trips, typed parameters,
 session cookies, rejected missing CSRF tokens, decoding/HTTP/network failures,
 timeouts, response limits and recovery after failure.
+It also checks navigation without document reloads, back/forward, query/fragment
+preservation, deep-link refreshes, unknown routes, scope boundaries, native link
+behavior, History API errors and callback cleanup across repeated remounts.
 
 ## Shared definitions and calls
 
@@ -103,6 +114,8 @@ Run the server behind a TLS reverse proxy on the same origin:
 
 The executable binds to loopback. Configure the proxy to forward the site's
 root, assets and `/api/` to `127.0.0.1:8085`, preserving cookies and headers.
+Forward `/app/` and its deep paths too. The executable serves the application
+shell there only for GET requests; never rewrite missing API responses to HTML.
 `--https` enables Secure cookies; it describes the external connection and does
 not make Warp terminate TLS. `--local-http` is the explicit development mode.
 The asset HTML and session reads are not cached. Deploy the binary and assets

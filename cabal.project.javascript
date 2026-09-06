@@ -2,6 +2,7 @@ packages:
   reroute/*.cabal
   Spock-api/*.cabal
   Spock-api-ghcjs/*.cabal
+  Spock-browser/*.cabal
   examples/browser/shared/*.cabal
   examples/browser/client/*.cabal
 

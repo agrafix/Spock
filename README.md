@@ -32,6 +32,7 @@ everything you need to get a quick start into web hacking with haskell:
 * typesafe contexts
 * [typed JSON APIs and OpenAPI generation](Spock-api/README.md)
 * [shared Haskell browser/server applications](examples/browser/README.md)
+* [typed browser routes and History API navigation](Spock-browser/README.md)
 
 ## File uploads
 

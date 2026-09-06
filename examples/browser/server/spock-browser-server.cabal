@@ -1,6 +1,6 @@
 cabal-version: 2.0
 name: spock-browser-server
-version: 0.1.0.0
+version: 0.2.0.0
 build-type: Simple
 license: BSD3
 synopsis: Native server for the shared Haskell browser example
@@ -25,6 +25,6 @@ test-suite browser-server-tests
   hs-source-dirs: test
   main-is: Spec.hs
   build-depends: base, aeson, bytestring, cookie, hspec, http-types,
-                 spock-browser-server, spock-browser-shared, text, wai, wai-extra
+                 spock-browser-server, spock-browser-shared, text, wai, wai-extra, temporary, filepath
   default-language: Haskell2010
   ghc-options: -Wall -threaded

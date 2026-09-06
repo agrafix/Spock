@@ -1,6 +1,6 @@
 cabal-version: 2.0
 name: spock-browser-client
-version: 0.1.0.0
+version: 0.2.0.0
 build-type: Simple
 license: BSD3
 synopsis: Haskell browser UI for the shared Spock API example
@@ -10,7 +10,7 @@ executable spock-browser-client
   hs-source-dirs: src
   main-is: Main.hs
   build-depends: base, aeson, bytestring, Spock-api-ghcjs >= 0.15 && < 0.16,
-                 spock-browser-shared, text
+                 spock-browser-shared, text, Spock-browser, hvect
   if !arch(javascript)
     buildable: False
   default-language: Haskell2010

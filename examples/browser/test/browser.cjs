@@ -56,7 +56,7 @@ async function main() {
     await page.reload();
     await page.waitForFunction(() => document.documentElement.dataset.ready === 'true');
     await noteIs('Hello world');
-    await page.click('summary');
+    await page.click('details:has(#echo) summary');
     await page.click('#echo');
     await page.waitForFunction(() => document.querySelector('#echo-output').textContent.length > 0);
     assert.deepEqual(JSON.parse(await page.locator('#echo-output').textContent()), {
@@ -87,6 +87,7 @@ async function main() {
     await page.click('#load');
     await errorIs('');
     await noteIs('No note yet');
+    await require('./routing.cjs')(page, origin);
     assert.deepEqual(errors, []);
     console.log('Compiled Haskell browser: CRUD, Unicode, typed parameters, CSRF, sessions, error decoding, size limit, network failure and timeout passed');
   } finally {
