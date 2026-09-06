@@ -29,8 +29,10 @@ jobs:
         with:
           ghc-version: '9.14.1'
           cabal-version: '3.18.1.0'
+          cabal-update: false
           enable-stack: true
           stack-version: '3.11.1'
+      - run: cabal update
       - run: cabal build spock-rest-example --project-file=cabal.project.tutorials --builddir=dist-newstyle-tutorials
       - run: cabal test spock-rest-example --project-file=cabal.project.tutorials --builddir=dist-newstyle-tutorials --test-show-details=direct
       - run: stack test spock-rest-example --stack-yaml stack-tutorials.yaml --system-ghc --no-install-ghc --lock-file=error-on-write
