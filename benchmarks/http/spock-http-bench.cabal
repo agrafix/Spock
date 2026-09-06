@@ -1,6 +1,6 @@
 cabal-version: 2.4
 name: spock-http-bench
-version: 0.1.0.0
+version: 0.1.0.1
 synopsis: Comparable HTTP workloads for Spock, Scotty and Warp
 license: BSD-3-Clause
 build-type: Simple

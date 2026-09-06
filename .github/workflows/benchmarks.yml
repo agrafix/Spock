@@ -39,3 +39,4 @@ jobs:
         run: |
           spock_bench_binary="$(cabal list-bin spock-http-bench --project-file=cabal.project.benchmarks)"
           node benchmarks/http/run.mjs "$spock_bench_binary" 100 8 1
+          SPOCK_BENCH_COOKIES=reuse node benchmarks/http/run.mjs "$spock_bench_binary" 100 8 1

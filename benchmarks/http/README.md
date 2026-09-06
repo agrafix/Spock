@@ -17,7 +17,8 @@ spock_bench_binary="$(cabal list-bin spock-http-bench --project-file=cabal.proje
 node benchmarks/http/run.mjs "$spock_bench_binary" 10000 64 3
 ```
 
-The Node 22 client uses persistent HTTP connections and discards cookies. It
+The Node 22 client uses persistent HTTP connections and discards cookies by
+default. Set `SPOCK_BENCH_COOKIES=reuse` for a separate cookie jar per worker. It
 starts and stops each server itself, validates successful and invalid routes
 before timing, validates every measured response, and reports throughput,
 p50/p95/p99 latency, errors and timeouts as CSV. A failed response fails the run.
@@ -59,3 +60,36 @@ unnecessary work for stateless handlers. These results do not establish that
 every historical timeout had the same cause; the harness makes further reports
 reproducible. CI checks response correctness and successful completion without
 enforcing a machine-dependent throughput threshold.
+
+## Updating the old benchmark (#161)
+
+The original Spock/scotty benchmark used `spockT id`, which did not provide
+sessions. The update in #161 used `spock cfg` with the old eager-session default.
+That created and stored a new session for every request when the load generator
+discarded cookies. Changing from an application without sessions to eager
+sessions changed the workload as well as the framework version.
+
+For the equivalent stateless workload with the current API, use `core` or
+`default`. Full Spock now creates sessions only when an action needs them and
+keeps database pooling and application state available. `disabled` explicitly
+disables all session actions. To measure the cost of sessions, compare these two
+client behaviors using the same binary and configuration:
+
+```sh
+node benchmarks/http/run.mjs "$spock_bench_binary" 10000 64 3 always
+SPOCK_BENCH_COOKIES=reuse node benchmarks/http/run.mjs "$spock_bench_binary" 10000 64 3 always
+```
+
+The CSV includes `cookie_policy` and `cookies_issued`. With discarded cookies,
+eager mode must issue one cookie per request. With reused cookies, it must issue
+one per worker for each batch, then reuse that session. The stateless routes in
+the other modes must issue none. The runner checks these counts, response
+contents, invalid-route behavior and errors. These checks run in CI for both
+cookie policies, so a future benchmark cannot silently compare different
+session workloads. This also preserves the original echo behavior for text,
+Unicode, decimal digits and leading zeroes.
+
+Locally, three 5,000-request repetitions with 64 workers issued exactly 64
+cookies per eager-mode batch when reuse was enabled, with zero errors or
+timeouts. The smoke run with discarded cookies issued exactly 100 cookies per
+100-request eager batch. Every stateless mode issued zero in both runs.

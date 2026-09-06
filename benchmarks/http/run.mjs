@@ -11,12 +11,15 @@ if (!binary || ![count, concurrency, repeats].every(n => Number.isSafeInteger(n)
 }
 const modes = selected.length ? selected : ['warp', 'core', 'default', 'always', 'on-demand', 'disabled', 'scotty'];
 const port = Number(process.env.SPOCK_BENCH_PORT || 18083);
+const cookiePolicy = process.env.SPOCK_BENCH_COOKIES || 'discard';
+if (!['discard', 'reuse'].includes(cookiePolicy)) throw new Error('SPOCK_BENCH_COOKIES must be discard or reuse');
 const paths = [['/echo/hello-world', 'Hello World'], ['/echo/plain/hello', 'hello'], ['/echo/regex/42', '42']];
 
-function request(agent, path) {
+function request(agent, path, cookie) {
   return new Promise((resolve, reject) => {
     const start = performance.now();
-    const req = http.get({ host: '127.0.0.1', port, path, agent }, res => {
+    const req = http.get({ host: '127.0.0.1', port, path, agent,
+      headers: cookie ? { Cookie: cookie } : {} }, res => {
       const parts = [];
       res.on('data', part => parts.push(part));
       res.on('error', reject);
@@ -48,7 +51,7 @@ async function verify(agent) {
   }
 }
 
-console.log('mode,path,repeat,requests,concurrency,rps,p50_ms,p95_ms,p99_ms,errors,timeouts');
+console.log('mode,path,repeat,requests,concurrency,rps,p50_ms,p95_ms,p99_ms,errors,timeouts,cookie_policy,cookies_issued');
 for (const mode of modes) {
   const child = spawn(binary, [mode, String(port), '+RTS', '-N2', '-RTS'], { stdio: ['ignore', 'ignore', 'inherit'] });
   let spawnError;
@@ -61,14 +64,21 @@ for (const mode of modes) {
     await verify(agent);
     for (const [path, expected] of paths) {
       for (let repeat = 1; repeat <= repeats; repeat++) {
-        let next = 0, errors = 0, timeouts = 0;
+        let next = 0, errors = 0, timeouts = 0, cookiesIssued = 0;
         const latencies = [];
         const start = performance.now();
         await Promise.all(Array.from({ length: concurrency }, async () => {
+          // Each worker is an independent client, with its own cookie jar.
+          let cookie;
           while (next++ < count) {
             try {
-              const result = await request(agent, path);
+              const result = await request(agent, path, cookie);
               if (result.status !== 200 || result.body !== expected) throw new Error('Response validation failed');
+              const issued = result.headers['set-cookie']?.find(value => value.startsWith('spockcookie='));
+              if (issued) {
+                cookiesIssued++;
+                if (cookiePolicy === 'reuse') cookie = issued.split(';', 1)[0];
+              }
               latencies.push(result.latency);
             } catch (error) { errors++; if (error.code === 'TIMEOUT') timeouts++; }
           }
@@ -77,8 +87,10 @@ for (const mode of modes) {
         latencies.sort((a, b) => a - b);
         const percentile = p => latencies[Math.min(latencies.length - 1, Math.floor(latencies.length * p))] ?? NaN;
         console.log([mode, path, repeat, count, concurrency, ((count - errors) / elapsed).toFixed(2),
-          ...[.5, .95, .99].map(p => percentile(p).toFixed(3)), errors, timeouts].join(','));
+          ...[.5, .95, .99].map(p => percentile(p).toFixed(3)), errors, timeouts, cookiePolicy, cookiesIssued].join(','));
         if (errors) throw new Error(`${errors} failed requests in ${mode}`);
+        const expectedCookies = mode === 'always' ? (cookiePolicy === 'reuse' ? Math.min(count, concurrency) : count) : 0;
+        if (cookiesIssued !== expectedCookies) throw new Error(`Expected ${expectedCookies} cookies, got ${cookiesIssued}`);
       }
     }
   } finally {
