@@ -6,6 +6,9 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
+-- | Read requests and produce responses inside route handlers.
+-- For HTML templates, see the
+-- <https://www.spock.li/tutorials/rendering Blaze and Lucid rendering tutorial>.
 module Web.Spock.Action
   ( -- * Action types
     ActionT,

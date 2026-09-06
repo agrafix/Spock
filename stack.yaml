@@ -8,3 +8,4 @@ packages:
   - Spock-api-server/
   - Spock-core/
   - reroute/
+  - examples/rendering/

@@ -10,6 +10,7 @@ permalink: /tutorials/
 - [Building a REST API](rest-api)
 - [Automated Testing](testing)
 - [Routing](routing)
+- [Rendering HTML with Blaze and Lucid](rendering)
 
 ## Video tutorials
 

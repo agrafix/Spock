@@ -1,0 +1,28 @@
+cabal-version: 2.0
+name: spock-rendering-example
+version: 0.1.0.0
+build-type: Simple
+license: BSD3
+synopsis: Tested Blaze and Lucid rendering examples for Spock
+
+library
+  hs-source-dirs: src
+  exposed-modules: Rendering
+  build-depends: base, Spock-core, blaze-html, lucid, text
+  default-language: Haskell2010
+  ghc-options: -Wall
+
+executable spock-rendering-example
+  hs-source-dirs: app
+  main-is: Main.hs
+  build-depends: base, Spock-core, spock-rendering-example
+  default-language: Haskell2010
+  ghc-options: -Wall -threaded
+
+test-suite rendering-tests
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test
+  main-is: Spec.hs
+  build-depends: base, bytestring, hspec, http-types, Spock-core, spock-rendering-example, text, wai, wai-extra
+  default-language: Haskell2010
+  ghc-options: -Wall -threaded

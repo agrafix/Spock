@@ -4,6 +4,7 @@ packages:
   Spock-api-server/*.cabal
   Spock-core/*.cabal
   reroute/*.cabal
+  examples/rendering/*.cabal
 
 tests: True
 benchmarks: True
