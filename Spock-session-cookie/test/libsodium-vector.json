@@ -1,0 +1,9 @@
+{
+  "cookie": "v1.old.AAECAwQFBgcICQoLDA0ODxAREhMUFRYX5eBmG7Lor8ddIEO-rjzMjSUzBcyZ9DHJHGlN0B-X1zAwYtOUJAltAbvhgzq8UzVAXZiHITcdiXx0uakfvdd3xJ8Qzp44qDC1HGUW8GFVOfh7LD7-0nFcu2yyTQXYZxI4CykAP3JiUraoaj0zc2ZIukhIJvuiU3LT",
+  "session": {
+    "id": "independent-id",
+    "csrf": "independent-csrf",
+    "expires": "2030-01-01T00:01:00Z",
+    "data": "private-user"
+  }
+}

@@ -10,6 +10,7 @@ permalink: /tutorials/
 - [Spock's monads and type parameters](monads)
 - [FAQ: routing, sessions, and CSRF](/faq/)
 - [Securing browser applications](security)
+- [Encrypted cookie sessions and server backend migration](cookie-sessions)
 - [Building a REST API](rest-api)
 - [Request cookbook: headers, forms, middleware, uploads, and logging](requests)
 - [Automated Testing](testing)

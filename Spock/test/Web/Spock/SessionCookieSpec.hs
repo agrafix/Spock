@@ -110,9 +110,10 @@ cookieApp mode settings = do
   store <- newStmSessionStore'
   ready <- newEmptyMVar
   let sessions = (spc_sessionCfg cfg)
-        { sc_sessionMode = mode, sc_store = SessionStoreInstance store,
+        { sc_sessionMode = mode,
           sc_cookieSettings = maybe (sc_cookieSettings $ spc_sessionCfg cfg) id settings,
-          sc_hooks = SessionHooks (const $ putMVar ready ()) }
+          sc_backend = ServerSessions $ (defaultServerSessionCfg $ SessionStoreInstance store)
+            { ssc_hooks = SessionHooks (const $ putMVar ready ()) } }
   app <- spockAsApp $ spock (cfg { spc_sessionCfg = sessions }) $ do
     get "regenerate" $ sessionRegenerateId >> getSessionId >>= text
     get "write" $ writeSession 7 >> text "ok"

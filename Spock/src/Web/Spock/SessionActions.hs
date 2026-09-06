@@ -16,8 +16,6 @@ module Web.Spock.SessionActions
     modifySession,
     modifySession',
     modifyReadSession,
-    mapAllSessions,
-    clearAllSessions,
   )
 where
 
@@ -28,14 +26,17 @@ import Web.Spock.Internal.Types
 
 -- | Regenerate the users sessionId. This preserves all stored data. Call this prior
 -- to logging in a user to prevent session fixation attacks.
+-- Server backends revoke the old ID; a client backend issues new ID/CSRF values
+-- but cannot revoke copies of previously issued cookies.
 sessionRegenerateId :: SpockActionCtx ctx conn sess st ()
 sessionRegenerateId =
   runInContext () $
     getSessMgr >>= sm_regenerateSessionId
 
--- | Revoke the current server session and expire its cookie, preserving other
--- sessions. No replacement is created until another session action is used.
--- Call this from a CSRF-protected logout route.
+-- | Expire this browser's cookie and discard the current request's session.
+-- Server backends also revoke the stored session. Previously issued stateless
+-- cookies remain replayable until expiry or key removal. No replacement is
+-- created until another session action is used. Use a CSRF-protected logout.
 sessionDestroy :: SpockActionCtx ctx conn sess st ()
 sessionDestroy = runInContext () $ getSessMgr >>= sm_destroySession
 
@@ -46,15 +47,16 @@ getSessionId =
   runInContext () $
     getSessMgr >>= sm_getSessionId
 
--- | Write to the current session. Note that all data is stored on the server.
--- The user only reciedes a sessionId to be identified.
+-- | Write to the current session using the configured server or cookie backend.
 writeSession :: forall sess ctx conn st. sess -> SpockActionCtx ctx conn sess st ()
 writeSession d =
   do
     mgr <- getSessMgr
     runInContext () $ sm_writeSession mgr d
 
--- | Modify the stored session
+-- | Modify the current session. Server backends perform this atomically in the
+-- store. Client backends modify this request's copy; simultaneous requests can
+-- overwrite one another when the browser accepts their response cookies.
 modifySession :: (sess -> sess) -> SpockActionCtx ctx conn sess st ()
 modifySession f =
   modifySession' $ \sess -> (f sess, ())
@@ -80,19 +82,3 @@ readSession =
     do
       mgr <- getSessMgr
       sm_readSession mgr
-
--- | Globally delete all existing sessions. This is useful for example if you want
--- to require all users to relogin
-clearAllSessions :: SpockActionCtx ctx conn sess st ()
-clearAllSessions =
-  do
-    mgr <- getSessMgr
-    runInContext () $ sm_clearAllSessions mgr
-
--- | Apply a transformation to all sessions. Be careful with this, as this
--- may cause many STM transaction retries.
-mapAllSessions :: (forall m. Monad m => sess -> m sess) -> SpockActionCtx ctx conn sess st ()
-mapAllSessions f =
-  do
-    mgr <- getSessMgr
-    runInContext () $ sm_mapSessions mgr f

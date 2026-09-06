@@ -13,6 +13,7 @@ import Data.Maybe (isNothing)
 import Data.Time
 import qualified Data.Vault.Lazy as V
 import System.Timeout (timeout)
+import Web.Spock.TestUtils (serverCapability)
 import Test.Hspec
 import Web.Spock.Config
 import Web.Spock.Internal.SessionManager
@@ -89,7 +90,7 @@ spec =
                   withAsync (sm_readSession (manager fixture)) $ \reader ->
                     do
                       awaitCommit fixture
-                      sm_clearAllSessions (manager fixture)
+                      serverCapability (manager fixture) >>= ssm_clearAllSessions
                       releaseCommits fixture
                       void $ wait reader
                   oldSession <- atomically $ ss_loadSession (store fixture) "fake-sid"
@@ -101,7 +102,7 @@ spec =
                   withAsync (sm_modifySession (manager fixture) increment) $ \writer ->
                     do
                       awaitCommit fixture
-                      sm_clearAllSessions (manager fixture)
+                      serverCapability (manager fixture) >>= ssm_clearAllSessions
                       releaseCommits fixture
                       void $ wait writer
                   oldSession <- atomically $ ss_loadSession (store fixture) "fake-sid"
@@ -109,7 +110,7 @@ spec =
             it "can modify a fresh session after all sessions are cleared" $ \fixture ->
               do
                 seedSession fixture 60 42
-                sm_clearAllSessions (manager fixture)
+                serverCapability (manager fixture) >>= ssm_clearAllSessions
                 sm_modifySession (manager fixture) increment `shouldReturn` 1
                 sm_readSession (manager fixture) `shouldReturn` 1
             it "cannot recreate a session after regeneration commits and sessions are revoked" $ \fixture ->
@@ -117,7 +118,7 @@ spec =
                 pauseCommits fixture 1
                 withAsync (sm_regenerateSessionId (manager fixture)) $ \regenerator -> do
                   awaitCommit fixture
-                  sm_clearAllSessions (manager fixture)
+                  serverCapability (manager fixture) >>= ssm_clearAllSessions
                   releaseCommits fixture
                   wait regenerator
                 length <$> atomically (ss_toList $ store fixture) `shouldReturn` 0
@@ -172,10 +173,10 @@ withFixture expand run =
             }
         cfg' =
           cfg
-            { sc_store = SessionStoreInstance gatedStore,
-              sc_sessionExpandTTL = expand,
-              sc_housekeepingInterval = 3600,
-              sc_hooks = SessionHooks (\_ -> void $ tryPutMVar initialSweep ())
+            { sc_sessionExpandTTL = expand,
+              sc_backend = ServerSessions $ (defaultServerSessionCfg $ SessionStoreInstance gatedStore)
+                { ssc_housekeepingInterval = 3600,
+                  ssc_hooks = SessionHooks (\_ -> void $ tryPutMVar initialSweep ()) }
             }
         sessionIf =
           SessionIf

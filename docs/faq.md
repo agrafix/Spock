@@ -4,7 +4,7 @@ title: "Frequently asked questions"
 permalink: /faq/
 ---
 
-These answers describe the current repository releases (Spock 0.17 and
+These answers describe the current repository releases (Spock 0.18 and
 Spock-core 0.16). Start with [Getting Started](/tutorials/getting-started),
 then use the [API reference](/reference/) to look up individual functions.
 
@@ -94,8 +94,8 @@ deadline to at least one hour from that access. In on-demand mode, visits
 that do not use a session do not renew it. Set expansion to `False` for a
 fixed lifetime from session creation.
 
-Expired sessions are rejected immediately when accessed. The default
-`sc_housekeepingInterval` is 600 seconds; its sweep reclaims expired records
+Expired sessions are rejected immediately when accessed. The default server backend's
+`ssc_housekeepingInterval` is 600 seconds; its sweep reclaims expired records
 that nobody accesses. It is not an extra ten-minute validity window.
 
 Cookie lifetime is a separate browser setting (`sc_cookieSettings.cs_EOL`).
@@ -147,6 +147,11 @@ terminates TLS. For local HTTP development only, the FAQ executable explicitly
 disables the Secure flag. Preserve it in production. Rotate the session ID
 with `sessionRegenerateId` when signing in and use a CSRF-protected POST route
 calling `sessionDestroy` for logout. See the
-[session configuration reference](/reference/Spock-0.17.1.0/Web-Spock-Config.html).
+[session configuration reference](/reference/Spock-0.18.0.0/Web-Spock-Config.html).
 For a complete tested login, form, JSON, and logout flow, follow the
 [browser security guide](/tutorials/security).
+
+For session values stored entirely in an encrypted cookie, see
+[cookie sessions and backend migration](/tutorials/cookie-sessions).
+That backend checks expiry on the server but cannot revoke copied cookies or
+merge concurrent request updates; server storage remains the default.

@@ -1,0 +1,535 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- | Encrypted, authenticated sessions stored entirely in a browser cookie.</span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- Uses Crypton's XChaCha20-Poly1305 with fresh 192-bit OS-random nonces.</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- Keys are supplied by the application; this library never writes them to disk.</span><span>
+</span><span id="line-6"></span><span class="hs-comment">--</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- Use 'cookieSessionCodec' with @defaultClientSessionCfg@ and @ClientSessions@</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- from &quot;Web.Spock.Config&quot;.</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- Spock checks the authenticated expiry using the server clock. Use HTTPS,</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- Secure/HttpOnly cookies and CSRF protection, for example defaultBrowserSpockCfg.</span><span>
+</span><span id="line-11"></span><span class="hs-comment">--</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- Stateless cookies cannot revoke individual sessions or merge simultaneous</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- requests. Logout expires this browser's cookie; copies remain replayable until</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- expiry or key removal. Use a server backend when immediate revocation or</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- concurrent counters are required. Keep payloads small; Spock limits the entire</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- Set-Cookie value to 4096 bytes and rejects oversized changes before saving them.</span><span>
+</span><span id="line-17"></span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Web.Spock.Session.Cookie.html"><span class="hs-identifier">Web.Spock.Session.Cookie</span></a></span><span>
+</span><span id="line-18"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Web.Spock.Session.Cookie.html#CookieKey"><span class="hs-identifier">CookieKey</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Web.Spock.Session.Cookie.html#CookieKeyRing"><span class="hs-identifier">CookieKeyRing</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Web.Spock.Session.Cookie.html#CookieKeyError"><span class="hs-identifier">CookieKeyError</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-19"></span><span>    </span><span class="annot"><a href="Web.Spock.Session.Cookie.html#cookieKey"><span class="hs-identifier">cookieKey</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Web.Spock.Session.Cookie.html#cookieKeyRing"><span class="hs-identifier">cookieKeyRing</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Web.Spock.Session.Cookie.html#cookieSessionCodec"><span class="hs-identifier">cookieSessionCodec</span></a></span><span>
+</span><span id="line-20"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-21"></span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Exception</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Exception</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">throwIO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">guard</span></span><span class="hs-special">)</span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Crypto.Cipher.ChaChaPoly1305</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">C</span></span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Crypto.Error</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">CryptoFailable</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson</span></span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteArray</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">BA</span></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">BS</span></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString.Base64.URL</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">B64</span></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString.Lazy</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">BL</span></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.List</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">nub</span></span><span class="hs-special">)</span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text.Encoding</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.Entropy</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">getEntropy</span></span><span class="hs-special">)</span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Web.Spock.Config</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ClientSessionCodec</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Web.Spock.Internal.SessionManager</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Session</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span class="hs-comment">-- | Validated 256-bit key and public wire identifier. No Show instance; identifiers</span><span>
+</span><span id="line-39"></span><span class="hs-comment">-- are visible in the cookie, but key material must come from a secret manager.</span><span>
+</span><span id="line-40"></span><span class="hs-keyword">data</span><span> </span><span id="CookieKey"><span class="annot"><a href="Web.Spock.Session.Cookie.html#CookieKey"><span class="hs-identifier hs-var">CookieKey</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="CookieKey"><span class="annot"><a href="Web.Spock.Session.Cookie.html#CookieKey"><span class="hs-identifier hs-var">CookieKey</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BA.ScrubbedBytes</span></span><span>
+</span><span id="line-41"></span><span>
+</span><span id="line-42"></span><span class="hs-comment">-- | Application namespace, primary encryption key, and accepted older keys.</span><span>
+</span><span id="line-43"></span><span class="hs-comment">-- Deploy a new primary with the old key still accepted, then remove the old key</span><span>
+</span><span id="line-44"></span><span class="hs-comment">-- after its last possible session expiry. All workers must share the key ring.</span><span>
+</span><span id="line-45"></span><span class="hs-keyword">data</span><span> </span><span id="CookieKeyRing"><span class="annot"><a href="Web.Spock.Session.Cookie.html#CookieKeyRing"><span class="hs-identifier hs-var">CookieKeyRing</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="CookieKeyRing"><span class="annot"><a href="Web.Spock.Session.Cookie.html#CookieKeyRing"><span class="hs-identifier hs-var">CookieKeyRing</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="annot"><a href="Web.Spock.Session.Cookie.html#CookieKey"><span class="hs-identifier hs-type">CookieKey</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Web.Spock.Session.Cookie.html#CookieKey"><span class="hs-identifier hs-type">CookieKey</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span class="annot"><span class="hs-comment">-- | Configuration errors never include key material or cookie contents.</span></span><span>
+</span><span id="line-48"></span><span class="hs-keyword">data</span><span> </span><span id="CookieKeyError"><span class="annot"><a href="Web.Spock.Session.Cookie.html#CookieKeyError"><span class="hs-identifier hs-var">CookieKeyError</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="InvalidKeyId"><span class="annot"><a href="Web.Spock.Session.Cookie.html#InvalidKeyId"><span class="hs-identifier hs-var">InvalidKeyId</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="InvalidKeyLength"><span class="annot"><a href="Web.Spock.Session.Cookie.html#InvalidKeyLength"><span class="hs-identifier hs-var">InvalidKeyLength</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="InvalidNamespace"><span class="annot"><a href="Web.Spock.Session.Cookie.html#InvalidNamespace"><span class="hs-identifier hs-var">InvalidNamespace</span></a></span></span><span>
+</span><span id="line-49"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="DuplicateKeyId"><span class="annot"><a href="Web.Spock.Session.Cookie.html#DuplicateKeyId"><span class="hs-identifier hs-var">DuplicateKeyId</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="TooManyKeys"><span class="annot"><a href="Web.Spock.Session.Cookie.html#TooManyKeys"><span class="hs-identifier hs-var">TooManyKeys</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="CookieEncryptionFailure"><span class="annot"><a href="Web.Spock.Session.Cookie.html#CookieEncryptionFailure"><span class="hs-identifier hs-var">CookieEncryptionFailure</span></a></span></span><span>
+</span><span id="line-50"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679108627"><span id="local-6989586621679108632"><span class="annot"><span class="annottext">CookieKeyError -&gt; CookieKeyError -&gt; Bool
+(CookieKeyError -&gt; CookieKeyError -&gt; Bool)
+-&gt; (CookieKeyError -&gt; CookieKeyError -&gt; Bool) -&gt; Eq CookieKeyError
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: CookieKeyError -&gt; CookieKeyError -&gt; Bool
+== :: CookieKeyError -&gt; CookieKeyError -&gt; Bool
+$c/= :: CookieKeyError -&gt; CookieKeyError -&gt; Bool
+/= :: CookieKeyError -&gt; CookieKeyError -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679108637"><span id="local-6989586621679108639"><span id="local-6989586621679108643"><span class="annot"><span class="annottext">Int -&gt; CookieKeyError -&gt; ShowS
+[CookieKeyError] -&gt; ShowS
+CookieKeyError -&gt; String
+(Int -&gt; CookieKeyError -&gt; ShowS)
+-&gt; (CookieKeyError -&gt; String)
+-&gt; ([CookieKeyError] -&gt; ShowS)
+-&gt; Show CookieKeyError
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; CookieKeyError -&gt; ShowS
+showsPrec :: Int -&gt; CookieKeyError -&gt; ShowS
+$cshow :: CookieKeyError -&gt; String
+show :: CookieKeyError -&gt; String
+$cshowList :: [CookieKeyError] -&gt; ShowS
+showList :: [CookieKeyError] -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-51"></span><span>
+</span><span id="line-52"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679108652"><span id="local-6989586621679108656"><span id="local-6989586621679108659"><span id="local-6989586621679108662"><span class="annot"><span class="hs-identifier hs-type">Exception</span></span><span> </span><span class="annot"><a href="Web.Spock.Session.Cookie.html#CookieKeyError"><span class="hs-identifier hs-type">CookieKeyError</span></a></span></span></span></span></span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span class="hs-comment">-- | A 32-byte key and a 1&#8211;32 character identifier using ASCII letters, digits,</span><span>
+</span><span id="line-55"></span><span class="hs-comment">-- underscore or hyphen. Generate keys with a cryptographic OS random source.</span><span>
+</span><span id="line-56"></span><span class="annot"><a href="Web.Spock.Session.Cookie.html#cookieKey"><span class="hs-identifier hs-type">cookieKey</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BS.ByteString</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="Web.Spock.Session.Cookie.html#CookieKeyError"><span class="hs-identifier hs-type">CookieKeyError</span></a></span><span> </span><span class="annot"><a href="Web.Spock.Session.Cookie.html#CookieKey"><span class="hs-identifier hs-type">CookieKey</span></a></span><span>
+</span><span id="line-57"></span><span id="cookieKey"><span class="annot"><span class="annottext">cookieKey :: Text -&gt; ByteString -&gt; Either CookieKeyError CookieKey
+</span><a href="Web.Spock.Session.Cookie.html#cookieKey"><span class="hs-identifier hs-var hs-var">cookieKey</span></a></span></span><span> </span><span id="local-6989586621679108665"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679108665"><span class="hs-identifier hs-var">name</span></a></span></span><span> </span><span id="local-6989586621679108666"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679108666"><span class="hs-identifier hs-var">bytes</span></a></span></span><span>
+</span><span id="line-58"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Bool
+</span><span class="hs-identifier hs-var">T.null</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679108665"><span class="hs-identifier hs-var">name</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Int
+</span><span class="hs-identifier hs-var">T.length</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679108665"><span class="hs-identifier hs-var">name</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">32</span></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool
+</span><span class="hs-identifier hs-var">not</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Char -&gt; Bool) -&gt; Text -&gt; Bool
+</span><span class="hs-identifier hs-var">T.all</span></span><span> </span><span class="annot"><span class="annottext">Char -&gt; Bool
+</span><a href="#local-6989586621679108673"><span class="hs-identifier hs-var">valid</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679108665"><span class="hs-identifier hs-var">name</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CookieKeyError -&gt; Either CookieKeyError CookieKey
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="annottext">CookieKeyError
+</span><a href="Web.Spock.Session.Cookie.html#InvalidKeyId"><span class="hs-identifier hs-var">InvalidKeyId</span></a></span><span>
+</span><span id="line-59"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Int
+</span><span class="hs-identifier hs-var">BS.length</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679108666"><span class="hs-identifier hs-var">bytes</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">/=</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">32</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CookieKeyError -&gt; Either CookieKeyError CookieKey
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="annottext">CookieKeyError
+</span><a href="Web.Spock.Session.Cookie.html#InvalidKeyLength"><span class="hs-identifier hs-var">InvalidKeyLength</span></a></span><span>
+</span><span id="line-60"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CookieKey -&gt; Either CookieKeyError CookieKey
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span> </span><span class="annot"><span class="annottext">(CookieKey -&gt; Either CookieKeyError CookieKey)
+-&gt; CookieKey -&gt; Either CookieKeyError CookieKey
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; ScrubbedBytes -&gt; CookieKey
+</span><a href="Web.Spock.Session.Cookie.html#CookieKey"><span class="hs-identifier hs-var">CookieKey</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679108665"><span class="hs-identifier hs-var">name</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; ScrubbedBytes
+forall bin bout.
+(ByteArrayAccess bin, ByteArray bout) =&gt;
+bin -&gt; bout
+</span><span class="hs-identifier hs-var">BA.convert</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679108666"><span class="hs-identifier hs-var">bytes</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-61"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-62"></span><span>    </span><span id="local-6989586621679108673"><span class="annot"><span class="annottext">valid :: Char -&gt; Bool
+</span><a href="#local-6989586621679108673"><span class="hs-identifier hs-var hs-var">valid</span></a></span></span><span> </span><span id="local-6989586621679108687"><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679108687"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679108687"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="annottext">Char -&gt; Char -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;=</span></span><span> </span><span class="annot"><span class="annottext">Char
+</span><span class="hs-char">'a'</span></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679108687"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="annottext">Char -&gt; Char -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;=</span></span><span> </span><span class="annot"><span class="annottext">Char
+</span><span class="hs-char">'z'</span></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679108687"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="annottext">Char -&gt; Char -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;=</span></span><span> </span><span class="annot"><span class="annottext">Char
+</span><span class="hs-char">'A'</span></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679108687"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="annottext">Char -&gt; Char -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;=</span></span><span> </span><span class="annot"><span class="annottext">Char
+</span><span class="hs-char">'Z'</span></span><span>
+</span><span id="line-63"></span><span>      </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679108687"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="annottext">Char -&gt; Char -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;=</span></span><span> </span><span class="annot"><span class="annottext">Char
+</span><span class="hs-char">'0'</span></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679108687"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="annottext">Char -&gt; Char -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;=</span></span><span> </span><span class="annot"><span class="annottext">Char
+</span><span class="hs-char">'9'</span></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679108687"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="annottext">Char -&gt; Char -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">Char
+</span><span class="hs-char">'_'</span></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679108687"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="annottext">Char -&gt; Char -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">Char
+</span><span class="hs-char">'-'</span></span><span>
+</span><span id="line-64"></span><span>
+</span><span id="line-65"></span><span class="hs-comment">-- | Bind cookies to an application namespace (1&#8211;128 UTF-8 bytes). Accept at</span><span>
+</span><span id="line-66"></span><span class="hs-comment">-- most seven old keys, with unique identifiers across the entire ring.</span><span>
+</span><span id="line-67"></span><span class="annot"><a href="Web.Spock.Session.Cookie.html#cookieKeyRing"><span class="hs-identifier hs-type">cookieKeyRing</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Spock.Session.Cookie.html#CookieKey"><span class="hs-identifier hs-type">CookieKey</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Web.Spock.Session.Cookie.html#CookieKey"><span class="hs-identifier hs-type">CookieKey</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="Web.Spock.Session.Cookie.html#CookieKeyError"><span class="hs-identifier hs-type">CookieKeyError</span></a></span><span> </span><span class="annot"><a href="Web.Spock.Session.Cookie.html#CookieKeyRing"><span class="hs-identifier hs-type">CookieKeyRing</span></a></span><span>
+</span><span id="line-68"></span><span id="cookieKeyRing"><span class="annot"><span class="annottext">cookieKeyRing :: Text
+-&gt; CookieKey -&gt; [CookieKey] -&gt; Either CookieKeyError CookieKeyRing
+</span><a href="Web.Spock.Session.Cookie.html#cookieKeyRing"><span class="hs-identifier hs-var hs-var">cookieKeyRing</span></a></span></span><span> </span><span id="local-6989586621679108690"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679108690"><span class="hs-identifier hs-var">namespace</span></a></span></span><span> </span><span id="local-6989586621679108691"><span class="annot"><span class="annottext">CookieKey
+</span><a href="#local-6989586621679108691"><span class="hs-identifier hs-var">primary</span></a></span></span><span> </span><span id="local-6989586621679108692"><span class="annot"><span class="annottext">[CookieKey]
+</span><a href="#local-6989586621679108692"><span class="hs-identifier hs-var">old</span></a></span></span><span>
+</span><span id="line-69"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Bool
+</span><span class="hs-identifier hs-var">T.null</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679108690"><span class="hs-identifier hs-var">namespace</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Int
+</span><span class="hs-identifier hs-var">BS.length</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; ByteString
+</span><span class="hs-identifier hs-var">T.encodeUtf8</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679108690"><span class="hs-identifier hs-var">namespace</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">128</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CookieKeyError -&gt; Either CookieKeyError CookieKeyRing
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="annottext">CookieKeyError
+</span><a href="Web.Spock.Session.Cookie.html#InvalidNamespace"><span class="hs-identifier hs-var">InvalidNamespace</span></a></span><span>
+</span><span id="line-70"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">[CookieKey] -&gt; Int
+forall a. [a] -&gt; Int
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
+</span><span class="hs-identifier hs-var">length</span></span><span> </span><span class="annot"><span class="annottext">[CookieKey]
+</span><a href="#local-6989586621679108692"><span class="hs-identifier hs-var">old</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">7</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CookieKeyError -&gt; Either CookieKeyError CookieKeyRing
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="annottext">CookieKeyError
+</span><a href="Web.Spock.Session.Cookie.html#TooManyKeys"><span class="hs-identifier hs-var">TooManyKeys</span></a></span><span>
+</span><span id="line-71"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; Int
+forall a. [a] -&gt; Int
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
+</span><span class="hs-identifier hs-var">length</span></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679108695"><span class="hs-identifier hs-var">ids</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">/=</span></span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; Int
+forall a. [a] -&gt; Int
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
+</span><span class="hs-identifier hs-var">length</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Text] -&gt; [Text]
+forall a. Eq a =&gt; [a] -&gt; [a]
+</span><span class="hs-identifier hs-var">nub</span></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679108695"><span class="hs-identifier hs-var">ids</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CookieKeyError -&gt; Either CookieKeyError CookieKeyRing
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="annottext">CookieKeyError
+</span><a href="Web.Spock.Session.Cookie.html#DuplicateKeyId"><span class="hs-identifier hs-var">DuplicateKeyId</span></a></span><span>
+</span><span id="line-72"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CookieKeyRing -&gt; Either CookieKeyError CookieKeyRing
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span> </span><span class="annot"><span class="annottext">(CookieKeyRing -&gt; Either CookieKeyError CookieKeyRing)
+-&gt; CookieKeyRing -&gt; Either CookieKeyError CookieKeyRing
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; CookieKey -&gt; [CookieKey] -&gt; CookieKeyRing
+</span><a href="Web.Spock.Session.Cookie.html#CookieKeyRing"><span class="hs-identifier hs-var">CookieKeyRing</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679108690"><span class="hs-identifier hs-var">namespace</span></a></span><span> </span><span class="annot"><span class="annottext">CookieKey
+</span><a href="#local-6989586621679108691"><span class="hs-identifier hs-var">primary</span></a></span><span> </span><span class="annot"><span class="annottext">[CookieKey]
+</span><a href="#local-6989586621679108692"><span class="hs-identifier hs-var">old</span></a></span><span>
+</span><span id="line-73"></span><span>  </span><span class="hs-keyword">where</span><span> </span><span id="local-6989586621679108695"><span class="annot"><span class="annottext">ids :: [Text]
+</span><a href="#local-6989586621679108695"><span class="hs-identifier hs-var hs-var">ids</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679108696"><span class="hs-identifier hs-var">name</span></a></span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><a href="Web.Spock.Session.Cookie.html#CookieKey"><span class="hs-identifier hs-type">CookieKey</span></a></span><span> </span><span id="local-6989586621679108696"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679108696"><span class="hs-identifier hs-var">name</span></a></span></span><span> </span><span class="annot"><span class="annottext">ScrubbedBytes
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">CookieKey
+</span><a href="#local-6989586621679108691"><span class="hs-identifier hs-var">primary</span></a></span><span> </span><span class="annot"><span class="annottext">CookieKey -&gt; [CookieKey] -&gt; [CookieKey]
+forall a. a -&gt; [a] -&gt; [a]
+</span><span class="hs-glyph hs-var">:</span></span><span> </span><span class="annot"><span class="annottext">[CookieKey]
+</span><a href="#local-6989586621679108692"><span class="hs-identifier hs-var">old</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-74"></span><span>
+</span><span id="line-75"></span><span class="hs-comment">-- | A versioned JSON codec. All session fields are encrypted and authenticated;</span><span>
+</span><span id="line-76"></span><span class="hs-comment">-- the namespace, cookie name, wire version and key identifier are authenticated</span><span>
+</span><span id="line-77"></span><span class="hs-comment">-- as associated data. Decoding never releases unauthenticated JSON. An accepted</span><span>
+</span><span id="line-78"></span><span class="hs-comment">-- old key triggers reissue with the primary key, including with fixed expiry.</span><span>
+</span><span id="line-79"></span><span class="hs-comment">--</span><span>
+</span><span id="line-80"></span><span class="hs-comment">-- Changing the namespace or removing a key invalidates affected cookies. The</span><span>
+</span><span id="line-81"></span><span class="hs-comment">-- decoder also bounds input size before attempting cryptography. It returns</span><span>
+</span><span id="line-82"></span><span class="hs-comment">-- Nothing for malformed, tampered or unknown-key input; the manager creates a</span><span>
+</span><span id="line-83"></span><span class="hs-comment">-- new empty session only if the request uses one.</span><span>
+</span><span id="line-84"></span><span id="local-6989586621679108480"><span class="annot"><a href="Web.Spock.Session.Cookie.html#cookieSessionCodec"><span class="hs-identifier hs-type">cookieSessionCodec</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="#local-6989586621679108480"><span class="hs-identifier hs-type">sess</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><a href="#local-6989586621679108480"><span class="hs-identifier hs-type">sess</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Web.Spock.Session.Cookie.html#CookieKeyRing"><span class="hs-identifier hs-type">CookieKeyRing</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientSessionCodec</span></span><span> </span><span class="annot"><a href="#local-6989586621679108480"><span class="hs-identifier hs-type">sess</span></a></span></span><span>
+</span><span id="line-85"></span><span id="cookieSessionCodec"><span class="annot"><span class="annottext">cookieSessionCodec :: forall sess.
+(ToJSON sess, FromJSON sess) =&gt;
+CookieKeyRing -&gt; ClientSessionCodec sess
+</span><a href="Web.Spock.Session.Cookie.html#cookieSessionCodec"><span class="hs-identifier hs-var hs-var">cookieSessionCodec</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Session.Cookie.html#CookieKeyRing"><span class="hs-identifier hs-type">CookieKeyRing</span></a></span><span> </span><span id="local-6989586621679108699"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679108699"><span class="hs-identifier hs-var">namespace</span></a></span></span><span> </span><span id="local-6989586621679108700"><span class="annot"><span class="annottext">CookieKey
+</span><a href="#local-6989586621679108700"><span class="hs-identifier hs-var">primary</span></a></span></span><span> </span><span id="local-6989586621679108701"><span class="annot"><span class="annottext">[CookieKey]
+</span><a href="#local-6989586621679108701"><span class="hs-identifier hs-var">old</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall conn st. Text -&gt; Session conn sess st -&gt; IO ByteString)
+-&gt; (forall conn st.
+    Text -&gt; ByteString -&gt; IO (Maybe (Session conn sess st, Bool)))
+-&gt; ClientSessionCodec sess
+forall sess.
+(forall conn st. Text -&gt; Session conn sess st -&gt; IO ByteString)
+-&gt; (forall conn st.
+    Text -&gt; ByteString -&gt; IO (Maybe (Session conn sess st, Bool)))
+-&gt; ClientSessionCodec sess
+</span><span class="hs-identifier hs-var">ClientSessionCodec</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Session conn sess st -&gt; IO ByteString
+forall conn st. Text -&gt; Session conn sess st -&gt; IO ByteString
+forall {sess} {conn} {st}.
+ToJSON sess =&gt;
+Text -&gt; Session conn sess st -&gt; IO ByteString
+</span><a href="#local-6989586621679108703"><span class="hs-identifier hs-var">encodeSession</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; ByteString -&gt; IO (Maybe (Session conn sess st, Bool))
+forall conn st.
+Text -&gt; ByteString -&gt; IO (Maybe (Session conn sess st, Bool))
+forall {f :: * -&gt; *} {sess} {conn} {st}.
+(Applicative f, FromJSON sess) =&gt;
+Text -&gt; ByteString -&gt; f (Maybe (Session conn sess st, Bool))
+</span><a href="#local-6989586621679108705"><span class="hs-identifier hs-var">decodeSession</span></a></span><span>
+</span><span id="line-86"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-87"></span><span>    </span><span class="annot"><a href="Web.Spock.Session.Cookie.html#CookieKey"><span class="hs-identifier hs-type">CookieKey</span></a></span><span> </span><span id="local-6989586621679108709"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679108709"><span class="hs-identifier hs-var">primaryId</span></a></span></span><span> </span><span id="local-6989586621679108710"><span class="annot"><span class="annottext">ScrubbedBytes
+</span><a href="#local-6989586621679108710"><span class="hs-identifier hs-var">primaryBytes</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CookieKey
+</span><a href="#local-6989586621679108700"><span class="hs-identifier hs-var">primary</span></a></span><span>
+</span><span id="line-88"></span><span>    </span><span id="local-6989586621679108718"><span class="annot"><span class="annottext">aad :: Text -&gt; Text -&gt; ByteString
+</span><a href="#local-6989586621679108718"><span class="hs-identifier hs-var hs-var">aad</span></a></span></span><span> </span><span id="local-6989586621679108719"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679108719"><span class="hs-identifier hs-var">name</span></a></span></span><span> </span><span id="local-6989586621679108720"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679108720"><span class="hs-identifier hs-var">kid</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LazyByteString -&gt; ByteString
+</span><span class="hs-identifier hs-var">BL.toStrict</span></span><span> </span><span class="annot"><span class="annottext">(LazyByteString -&gt; ByteString) -&gt; LazyByteString -&gt; ByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; LazyByteString
+forall a. ToJSON a =&gt; a -&gt; LazyByteString
+</span><span class="hs-identifier hs-var">encode</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">[</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Spock.session.cookie&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;v1&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679108699"><span class="hs-identifier hs-var">namespace</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679108719"><span class="hs-identifier hs-var">name</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679108720"><span class="hs-identifier hs-var">kid</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-89"></span><span>    </span><span id="local-6989586621679108703"><span class="annot"><span class="annottext">encodeSession :: Text -&gt; Session conn sess st -&gt; IO ByteString
+</span><a href="#local-6989586621679108703"><span class="hs-identifier hs-var hs-var">encodeSession</span></a></span></span><span> </span><span id="local-6989586621679108746"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679108746"><span class="hs-identifier hs-var">name</span></a></span></span><span> </span><span id="local-6989586621679108747"><span class="annot"><span class="annottext">Session conn sess st
+</span><a href="#local-6989586621679108747"><span class="hs-identifier hs-var">session</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-90"></span><span>      </span><span id="local-6989586621679108748"><span class="annot"><a href="#local-6989586621679108748"><span class="hs-identifier hs-var">nonce</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO ByteString
+</span><span class="hs-identifier hs-var">getEntropy</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">24</span></span><span>
+</span><span id="line-91"></span><span>      </span><span id="local-6989586621679108749"><span class="annot"><a href="#local-6989586621679108749"><span class="hs-identifier hs-var">state</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="hs-identifier hs-type">C.nonce24</span></span><span> </span><span class="annot"><a href="#local-6989586621679108748"><span class="hs-identifier hs-type">nonce</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">&gt;&gt;=</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">C.initializeX</span></span><span> </span><span class="annot"><a href="#local-6989586621679108710"><span class="hs-identifier hs-type">primaryBytes</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-92"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">CryptoPassed</span></span><span> </span><span id="local-6989586621679108753"><span class="annot"><span class="annottext">State
+</span><a href="#local-6989586621679108753"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">State -&gt; IO State
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">(State -&gt; IO State) -&gt; State -&gt; IO State
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">State -&gt; State
+</span><span class="hs-identifier hs-var">C.finalizeAAD</span></span><span> </span><span class="annot"><span class="annottext">(State -&gt; State) -&gt; State -&gt; State
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; State -&gt; State
+forall ba. ByteArrayAccess ba =&gt; ba -&gt; State -&gt; State
+</span><span class="hs-identifier hs-var">C.appendAAD</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; ByteString
+</span><a href="#local-6989586621679108718"><span class="hs-identifier hs-var">aad</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679108746"><span class="hs-identifier hs-var">name</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679108709"><span class="hs-identifier hs-var">primaryId</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">State
+</span><a href="#local-6989586621679108753"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-93"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">CryptoFailed</span></span><span> </span><span class="annot"><span class="annottext">CryptoError
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">CookieKeyError -&gt; IO State
+forall e a. (HasCallStack, Exception e) =&gt; e -&gt; IO a
+</span><span class="hs-identifier hs-var">throwIO</span></span><span> </span><span class="annot"><span class="annottext">CookieKeyError
+</span><a href="Web.Spock.Session.Cookie.html#CookieEncryptionFailure"><span class="hs-identifier hs-var">CookieEncryptionFailure</span></a></span><span>
+</span><span id="line-94"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679108776"><span class="annot"><a href="#local-6989586621679108776"><span class="hs-identifier hs-var hs-var">plain</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LazyByteString -&gt; ByteString
+</span><span class="hs-identifier hs-var">BL.toStrict</span></span><span> </span><span class="annot"><span class="annottext">(LazyByteString -&gt; ByteString) -&gt; LazyByteString -&gt; ByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Value -&gt; LazyByteString
+forall a. ToJSON a =&gt; a -&gt; LazyByteString
+</span><span class="hs-identifier hs-var">encode</span></span><span> </span><span class="annot"><span class="annottext">(Value -&gt; LazyByteString) -&gt; Value -&gt; LazyByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">[(Key, Value)] -&gt; Value
+</span><span class="hs-identifier hs-var">object</span></span><span>
+</span><span id="line-95"></span><span>            </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;id&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Text -&gt; (Key, Value)
+forall v. ToJSON v =&gt; Key -&gt; v -&gt; (Key, Value)
+forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">Session conn sess st -&gt; Text
+forall conn sess st. Session conn sess st -&gt; Text
+</span><span class="hs-identifier hs-var">sess_id</span></span><span> </span><span class="annot"><span class="annottext">Session conn sess st
+</span><a href="#local-6989586621679108747"><span class="hs-identifier hs-var">session</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;csrf&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Text -&gt; (Key, Value)
+forall v. ToJSON v =&gt; Key -&gt; v -&gt; (Key, Value)
+forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">Session conn sess st -&gt; Text
+forall conn sess st. Session conn sess st -&gt; Text
+</span><span class="hs-identifier hs-var">sess_csrfToken</span></span><span> </span><span class="annot"><span class="annottext">Session conn sess st
+</span><a href="#local-6989586621679108747"><span class="hs-identifier hs-var">session</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-96"></span><span>             </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;expires&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; UTCTime -&gt; (Key, Value)
+forall v. ToJSON v =&gt; Key -&gt; v -&gt; (Key, Value)
+forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">Session conn sess st -&gt; UTCTime
+forall conn sess st. Session conn sess st -&gt; UTCTime
+</span><span class="hs-identifier hs-var">sess_validUntil</span></span><span> </span><span class="annot"><span class="annottext">Session conn sess st
+</span><a href="#local-6989586621679108747"><span class="hs-identifier hs-var">session</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;data&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; sess -&gt; (Key, Value)
+forall v. ToJSON v =&gt; Key -&gt; v -&gt; (Key, Value)
+forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">Session conn sess st -&gt; sess
+forall conn sess st. Session conn sess st -&gt; sess
+</span><span class="hs-identifier hs-var">sess_data</span></span><span> </span><span class="annot"><span class="annottext">Session conn sess st
+</span><a href="#local-6989586621679108747"><span class="hs-identifier hs-var">session</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-97"></span><span>          </span><span class="hs-special">(</span><span id="local-6989586621679108785"><span class="annot"><a href="#local-6989586621679108785"><span class="hs-identifier hs-var">encrypted</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679108786"><span class="annot"><a href="#local-6989586621679108786"><span class="hs-identifier hs-var">finalState</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">C.encrypt</span></span><span> </span><span class="annot"><a href="#local-6989586621679108776"><span class="hs-identifier hs-type">plain</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679108749"><span class="hs-identifier hs-type">state</span></a></span><span>
+</span><span id="line-98"></span><span>          </span><span id="local-6989586621679108793"><span class="annot"><a href="#local-6989586621679108793"><span class="hs-identifier hs-var hs-var">packed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679108748"><span class="hs-identifier hs-var">nonce</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString -&gt; ByteString
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679108785"><span class="hs-identifier hs-var">encrypted</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString -&gt; ByteString
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Auth -&gt; ByteString
+forall bin bout.
+(ByteArrayAccess bin, ByteArray bout) =&gt;
+bin -&gt; bout
+</span><span class="hs-identifier hs-var">BA.convert</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">State -&gt; Auth
+</span><span class="hs-identifier hs-var">C.finalize</span></span><span> </span><span class="annot"><span class="annottext">State
+</span><a href="#local-6989586621679108786"><span class="hs-identifier hs-var">finalState</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BS.ByteString</span></span><span class="hs-special">)</span><span>
+</span><span id="line-99"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">pure</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="annot"><span class="hs-string">&quot;v1.&quot;</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">&lt;&gt;</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.encodeUtf8</span></span><span> </span><span class="annot"><a href="#local-6989586621679108709"><span class="hs-identifier hs-type">primaryId</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">&lt;&gt;</span></span><span> </span><span class="annot"><span class="hs-string">&quot;.&quot;</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">&lt;&gt;</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">B64.encodeUnpadded</span></span><span> </span><span class="annot"><a href="#local-6989586621679108793"><span class="hs-identifier hs-type">packed</span></a></span><span>
+</span><span id="line-100"></span><span>    </span><span id="local-6989586621679108705"><span class="annot"><span class="annottext">decodeSession :: Text -&gt; ByteString -&gt; f (Maybe (Session conn sess st, Bool))
+</span><a href="#local-6989586621679108705"><span class="hs-identifier hs-var hs-var">decodeSession</span></a></span></span><span> </span><span id="local-6989586621679108839"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679108839"><span class="hs-identifier hs-var">name</span></a></span></span><span> </span><span id="local-6989586621679108840"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679108840"><span class="hs-identifier hs-var">input</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe (Session conn sess st, Bool)
+-&gt; f (Maybe (Session conn sess st, Bool))
+forall a. a -&gt; f a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">(Maybe (Session conn sess st, Bool)
+ -&gt; f (Maybe (Session conn sess st, Bool)))
+-&gt; Maybe (Session conn sess st, Bool)
+-&gt; f (Maybe (Session conn sess st, Bool))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-101"></span><span>      </span><span class="annot"><span class="annottext">Bool -&gt; Maybe ()
+forall (f :: * -&gt; *). Alternative f =&gt; Bool -&gt; f ()
+</span><span class="hs-identifier hs-var">guard</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; Int
+</span><span class="hs-identifier hs-var">BS.length</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679108840"><span class="hs-identifier hs-var">input</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;=</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">4096</span></span><span class="hs-special">)</span><span>
+</span><span id="line-102"></span><span>      </span><span class="hs-special">(</span><span id="local-6989586621679108841"><span class="annot"><a href="#local-6989586621679108841"><span class="hs-identifier hs-var">kid</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679108842"><span class="annot"><a href="#local-6989586621679108842"><span class="hs-identifier hs-var">encoded</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Word8 -&gt; ByteString -&gt; [ByteString]
+</span><span class="hs-identifier hs-var">BS.split</span></span><span> </span><span class="annot"><span class="annottext">Word8
+</span><span class="hs-number">46</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679108840"><span class="hs-identifier hs-var">input</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-103"></span><span>        </span><span class="hs-special">[</span><span class="annot"><span class="annottext">ByteString
+</span><span class="hs-string">&quot;v1&quot;</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679108844"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679108844"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679108845"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679108845"><span class="hs-identifier hs-var">value</span></a></span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(ByteString, ByteString) -&gt; Maybe (ByteString, ByteString)
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679108844"><span class="hs-identifier hs-var">k</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679108845"><span class="hs-identifier hs-var">value</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-104"></span><span>        </span><span class="annot"><span class="annottext">[ByteString]
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe (ByteString, ByteString)
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-105"></span><span>      </span><span id="local-6989586621679108846"><span class="annot"><a href="#local-6989586621679108846"><span class="hs-identifier hs-var">key</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="hs-identifier hs-type">lookup</span></span><span> </span><span class="annot"><a href="#local-6989586621679108841"><span class="hs-identifier hs-type">kid</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">T.encodeUtf8</span></span><span> </span><span class="annot"><a href="#local-6989586621679108848"><span class="hs-identifier hs-type">k</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679108849"><span class="hs-identifier hs-type">bytes</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><a href="Web.Spock.Session.Cookie.html#CookieKey"><span class="hs-identifier hs-type">CookieKey</span></a></span><span> </span><span id="local-6989586621679108848"><span class="annot"><a href="#local-6989586621679108848"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span id="local-6989586621679108849"><span class="annot"><a href="#local-6989586621679108849"><span class="hs-identifier hs-var">bytes</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><a href="#local-6989586621679108700"><span class="hs-identifier hs-type">primary</span></a></span><span> </span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span> </span><span class="annot"><a href="#local-6989586621679108701"><span class="hs-identifier hs-type">old</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-106"></span><span>      </span><span id="local-6989586621679108850"><span class="annot"><a href="#local-6989586621679108850"><span class="hs-identifier hs-var">packed</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="hs-identifier hs-type">either</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">const</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Nothing</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">B64.decodeUnpadded</span></span><span> </span><span class="annot"><a href="#local-6989586621679108842"><span class="hs-identifier hs-type">encoded</span></a></span><span>
+</span><span id="line-107"></span><span>      </span><span class="hs-comment">-- Reject alternate base64 spellings of the same authenticated message.</span><span>
+</span><span id="line-108"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">guard</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">B64.encodeUnpadded</span></span><span> </span><span class="annot"><a href="#local-6989586621679108850"><span class="hs-identifier hs-type">packed</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">==</span></span><span> </span><span class="annot"><a href="#local-6989586621679108842"><span class="hs-identifier hs-type">encoded</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">&amp;&amp;</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BS.length</span></span><span> </span><span class="annot"><a href="#local-6989586621679108850"><span class="hs-identifier hs-type">packed</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">&gt;=</span></span><span> </span><span class="annot"><span class="hs-number">40</span></span><span class="hs-special">)</span><span>
+</span><span id="line-109"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679108854"><span class="annot"><a href="#local-6989586621679108854"><span class="hs-identifier hs-var">nonce</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679108855"><span class="annot"><a href="#local-6989586621679108855"><span class="hs-identifier hs-var">rest</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BS.splitAt</span></span><span> </span><span class="annot"><span class="hs-number">24</span></span><span> </span><span class="annot"><a href="#local-6989586621679108850"><span class="hs-identifier hs-type">packed</span></a></span><span>
+</span><span id="line-110"></span><span>          </span><span class="hs-special">(</span><span id="local-6989586621679108859"><span class="annot"><a href="#local-6989586621679108859"><span class="hs-identifier hs-var">encrypted</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679108860"><span class="annot"><a href="#local-6989586621679108860"><span class="hs-identifier hs-var">tag</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BS.splitAt</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">BS.length</span></span><span> </span><span class="annot"><a href="#local-6989586621679108855"><span class="hs-identifier hs-type">rest</span></a></span><span> </span><span class="annot"><span class="hs-glyph hs-type">-</span></span><span> </span><span class="annot"><span class="hs-number">16</span></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679108855"><span class="hs-identifier hs-type">rest</span></a></span><span>
+</span><span id="line-111"></span><span>      </span><span id="local-6989586621679108861"><span class="annot"><a href="#local-6989586621679108861"><span class="hs-identifier hs-var">initial</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="hs-identifier hs-type">C.nonce24</span></span><span> </span><span class="annot"><a href="#local-6989586621679108854"><span class="hs-identifier hs-type">nonce</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">&gt;&gt;=</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">C.initializeX</span></span><span> </span><span class="annot"><a href="#local-6989586621679108846"><span class="hs-identifier hs-type">key</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-112"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">CryptoPassed</span></span><span> </span><span id="local-6989586621679108862"><span class="annot"><span class="annottext">State
+</span><a href="#local-6989586621679108862"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">State -&gt; Maybe State
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">State
+</span><a href="#local-6989586621679108862"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-113"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">CryptoFailed</span></span><span> </span><span class="annot"><span class="annottext">CryptoError
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe State
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-114"></span><span>      </span><span id="local-6989586621679108863"><span class="annot"><a href="#local-6989586621679108863"><span class="hs-identifier hs-var">kidText</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="hs-identifier hs-type">either</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">const</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Nothing</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.decodeUtf8'</span></span><span> </span><span class="annot"><a href="#local-6989586621679108841"><span class="hs-identifier hs-type">kid</span></a></span><span>
+</span><span id="line-115"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679108866"><span class="annot"><a href="#local-6989586621679108866"><span class="hs-identifier hs-var hs-var">state</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">State -&gt; State
+</span><span class="hs-identifier hs-var">C.finalizeAAD</span></span><span> </span><span class="annot"><span class="annottext">(State -&gt; State) -&gt; State -&gt; State
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; State -&gt; State
+forall ba. ByteArrayAccess ba =&gt; ba -&gt; State -&gt; State
+</span><span class="hs-identifier hs-var">C.appendAAD</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; ByteString
+</span><a href="#local-6989586621679108718"><span class="hs-identifier hs-var">aad</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679108839"><span class="hs-identifier hs-var">name</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679108863"><span class="hs-identifier hs-var">kidText</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">State
+</span><a href="#local-6989586621679108861"><span class="hs-identifier hs-var">initial</span></a></span><span>
+</span><span id="line-116"></span><span>          </span><span class="hs-special">(</span><span id="local-6989586621679108868"><span class="annot"><a href="#local-6989586621679108868"><span class="hs-identifier hs-var">plain</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679108869"><span class="annot"><a href="#local-6989586621679108869"><span class="hs-identifier hs-var">finalState</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">C.decrypt</span></span><span> </span><span class="annot"><a href="#local-6989586621679108859"><span class="hs-identifier hs-type">encrypted</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679108866"><span class="hs-identifier hs-type">state</span></a></span><span>
+</span><span id="line-117"></span><span>          </span><span id="local-6989586621679108873"><span class="annot"><a href="#local-6989586621679108873"><span class="hs-identifier hs-var hs-var">expected</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Auth -&gt; ByteString
+forall bin bout.
+(ByteArrayAccess bin, ByteArray bout) =&gt;
+bin -&gt; bout
+</span><span class="hs-identifier hs-var">BA.convert</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">State -&gt; Auth
+</span><span class="hs-identifier hs-var">C.finalize</span></span><span> </span><span class="annot"><span class="annottext">State
+</span><a href="#local-6989586621679108869"><span class="hs-identifier hs-var">finalState</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BS.ByteString</span></span><span>
+</span><span id="line-118"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">guard</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">BA.constEq</span></span><span> </span><span class="annot"><a href="#local-6989586621679108873"><span class="hs-identifier hs-type">expected</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679108860"><span class="hs-identifier hs-type">tag</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-119"></span><span>      </span><span id="local-6989586621679108875"><span class="annot"><a href="#local-6989586621679108875"><span class="hs-identifier hs-var">value</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="hs-identifier hs-type">decodeStrict'</span></span><span> </span><span class="annot"><a href="#local-6989586621679108868"><span class="hs-identifier hs-type">plain</span></a></span><span>
+</span><span id="line-120"></span><span>      </span><span id="local-6989586621679108877"><span class="annot"><a href="#local-6989586621679108877"><span class="hs-identifier hs-var">session</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><a href="Web.Spock.Session.Cookie.html#parseMaybeSession"><span class="hs-identifier hs-type">parseMaybeSession</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679108875"><span class="hs-identifier hs-type">value</span></a></span><span>
+</span><span id="line-121"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679108877"><span class="hs-identifier hs-type">session</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679108841"><span class="hs-identifier hs-type">kid</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">/=</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.encodeUtf8</span></span><span> </span><span class="annot"><a href="#local-6989586621679108709"><span class="hs-identifier hs-type">primaryId</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-122"></span><span>
+</span><span id="line-123"></span><span id="local-6989586621679108559"><span id="local-6989586621679108560"><span id="local-6989586621679108561"><span class="annot"><a href="Web.Spock.Session.Cookie.html#parseMaybeSession"><span class="hs-identifier hs-type">parseMaybeSession</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><a href="#local-6989586621679108559"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Session</span></span><span> </span><span class="annot"><a href="#local-6989586621679108560"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679108559"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679108561"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-124"></span><span id="parseMaybeSession"><span class="annot"><span class="annottext">parseMaybeSession :: forall sess conn st.
+FromJSON sess =&gt;
+Value -&gt; Maybe (Session conn sess st)
+</span><a href="Web.Spock.Session.Cookie.html#parseMaybeSession"><span class="hs-identifier hs-var hs-var">parseMaybeSession</span></a></span></span><span> </span><span id="local-6989586621679108883"><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679108883"><span class="hs-identifier hs-var">value</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Value -&gt; Result (SessionPayload conn sess st)
+forall a. FromJSON a =&gt; Value -&gt; Result a
+</span><span class="hs-identifier hs-var">fromJSON</span></span><span> </span><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679108883"><span class="hs-identifier hs-var">value</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-125"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Success</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Session.Cookie.html#SessionPayload"><span class="hs-identifier hs-type">SessionPayload</span></a></span><span> </span><span id="local-6989586621679108887"><span class="annot"><span class="annottext">Session conn sess st
+</span><a href="#local-6989586621679108887"><span class="hs-identifier hs-var">session</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Session conn sess st -&gt; Maybe (Session conn sess st)
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">Session conn sess st
+</span><a href="#local-6989586621679108887"><span class="hs-identifier hs-var">session</span></a></span><span>
+</span><span id="line-126"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Error</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe (Session conn sess st)
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-127"></span><span>
+</span><span id="line-128"></span><span class="hs-keyword">newtype</span><span> </span><span id="SessionPayload"><span class="annot"><a href="Web.Spock.Session.Cookie.html#SessionPayload"><span class="hs-identifier hs-var">SessionPayload</span></a></span></span><span> </span><span id="local-6989586621679108578"><span class="annot"><a href="#local-6989586621679108578"><span class="hs-identifier hs-type">conn</span></a></span></span><span> </span><span id="local-6989586621679108579"><span class="annot"><a href="#local-6989586621679108579"><span class="hs-identifier hs-type">sess</span></a></span></span><span> </span><span id="local-6989586621679108580"><span class="annot"><a href="#local-6989586621679108580"><span class="hs-identifier hs-type">st</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="SessionPayload"><span class="annot"><a href="Web.Spock.Session.Cookie.html#SessionPayload"><span class="hs-identifier hs-var">SessionPayload</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Session</span></span><span> </span><span class="annot"><a href="#local-6989586621679108578"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679108579"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679108580"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-129"></span><span>
+</span><span id="line-130"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679108566"><span id="local-6989586621679108567"><span id="local-6989586621679108568"><span id="local-6989586621679108892"><span id="local-6989586621679108896"><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><a href="#local-6989586621679108566"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Session.Cookie.html#SessionPayload"><span class="hs-identifier hs-type">SessionPayload</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679108567"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679108566"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679108568"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-131"></span><span>  </span><span id="local-6989586621679108917"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser (SessionPayload conn sess st)
+</span><a href="#local-6989586621679108917"><span class="hs-identifier hs-var hs-var hs-var">parseJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+-&gt; (Object -&gt; Parser (SessionPayload conn sess st))
+-&gt; Value
+-&gt; Parser (SessionPayload conn sess st)
+forall a. String -&gt; (Object -&gt; Parser a) -&gt; Value -&gt; Parser a
+</span><span class="hs-identifier hs-var">withObject</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;Session&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Object -&gt; Parser (SessionPayload conn sess st))
+ -&gt; Value -&gt; Parser (SessionPayload conn sess st))
+-&gt; (Object -&gt; Parser (SessionPayload conn sess st))
+-&gt; Value
+-&gt; Parser (SessionPayload conn sess st)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679108920"><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621679108920"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Session conn sess st -&gt; SessionPayload conn sess st
+forall conn sess st.
+Session conn sess st -&gt; SessionPayload conn sess st
+</span><a href="Web.Spock.Session.Cookie.html#SessionPayload"><span class="hs-identifier hs-var">SessionPayload</span></a></span><span> </span><span class="annot"><span class="annottext">(Session conn sess st -&gt; SessionPayload conn sess st)
+-&gt; Parser (Session conn sess st)
+-&gt; Parser (SessionPayload conn sess st)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; UTCTime -&gt; sess -&gt; Session conn sess st
+forall conn sess st.
+Text -&gt; Text -&gt; UTCTime -&gt; sess -&gt; Session conn sess st
+</span><span class="hs-identifier hs-var">Session</span></span><span>
+</span><span id="line-132"></span><span>    </span><span class="annot"><span class="annottext">(Text -&gt; Text -&gt; UTCTime -&gt; sess -&gt; Session conn sess st)
+-&gt; Parser Text
+-&gt; Parser (Text -&gt; UTCTime -&gt; sess -&gt; Session conn sess st)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621679108920"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Key -&gt; Parser Text
+forall a. FromJSON a =&gt; Object -&gt; Key -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;id&quot;</span></span><span> </span><span class="annot"><span class="annottext">Parser (Text -&gt; UTCTime -&gt; sess -&gt; Session conn sess st)
+-&gt; Parser Text -&gt; Parser (UTCTime -&gt; sess -&gt; Session conn sess st)
+forall a b. Parser (a -&gt; b) -&gt; Parser a -&gt; Parser b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621679108920"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Key -&gt; Parser Text
+forall a. FromJSON a =&gt; Object -&gt; Key -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;csrf&quot;</span></span><span> </span><span class="annot"><span class="annottext">Parser (UTCTime -&gt; sess -&gt; Session conn sess st)
+-&gt; Parser UTCTime -&gt; Parser (sess -&gt; Session conn sess st)
+forall a b. Parser (a -&gt; b) -&gt; Parser a -&gt; Parser b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621679108920"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Key -&gt; Parser UTCTime
+forall a. FromJSON a =&gt; Object -&gt; Key -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;expires&quot;</span></span><span> </span><span class="annot"><span class="annottext">Parser (sess -&gt; Session conn sess st)
+-&gt; Parser sess -&gt; Parser (Session conn sess st)
+forall a b. Parser (a -&gt; b) -&gt; Parser a -&gt; Parser b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621679108920"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Key -&gt; Parser sess
+forall a. FromJSON a =&gt; Object -&gt; Key -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;data&quot;</span></span><span class="hs-special">)</span><span>
+</span><span id="line-133"></span></pre></body></html>

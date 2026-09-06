@@ -22,6 +22,8 @@ import Control.Monad.Reader
 import Control.Monad.Trans.Control
 import Control.Monad.Trans.Resource
 import qualified Data.HashMap.Strict as HM
+import qualified Data.ByteString as BS
+import qualified Data.Vault.Lazy as V
 import Data.Pool
 import qualified Data.Text as T
 import Data.Time.Clock (NominalDiffTime, UTCTime (..))
@@ -116,12 +118,42 @@ data SessionCfg conn a st = SessionCfg
     sc_sessionExpandTTL :: Bool,
     -- | initial session for visitors
     sc_emptySession :: a,
-    -- | storage interface for sessions
-    sc_store :: SessionStoreInstance (Session conn a st),
-    -- | how often should the session manager check for dangeling dead sessions
-    sc_housekeepingInterval :: NominalDiffTime,
-    -- | hooks into the session manager
-    sc_hooks :: SessionHooks a
+    -- | Server storage or an authenticated client-cookie codec. Client sessions
+    -- do not have server-wide mapping, deletion, or housekeeping capabilities.
+    sc_backend :: SessionBackend conn a st
+  }
+
+-- | Select storage separately from the shared lifetime, cookie and mode options.
+data SessionBackend conn sess st
+  = ServerSessions (ServerSessionCfg conn sess st)
+  | ClientSessions (ClientSessionCfg sess)
+
+-- | Store, sweep interval and removal hooks used only by server backends.
+-- Customize the value returned by @defaultServerSessionCfg@.
+data ServerSessionCfg conn sess st = ServerSessionCfg
+  { ssc_store :: SessionStoreInstance (Session conn sess st),
+    ssc_housekeepingInterval :: NominalDiffTime,
+    ssc_hooks :: SessionHooks sess
+  }
+
+-- | Trusted codec interface for backend packages. Encode must authenticate and
+-- encrypt the complete session, bound to the supplied cookie name. Decode must
+-- authenticate before returning data, and return Nothing for untrusted input.
+-- The Bool asks the manager to reissue a cookie after key or format rotation.
+data ClientSessionCodec sess = ClientSessionCodec
+  { csc_encode :: forall conn st. T.Text -> Session conn sess st -> IO BS.ByteString,
+    csc_decode :: forall conn st. T.Text -> BS.ByteString -> IO (Maybe (Session conn sess st, Bool))
+  }
+
+-- | Cookie backend settings. Use a maintained authenticated codec such as
+-- @Spock-session-cookie@; plain JSON or unauthenticated encryption is unsafe.
+data ClientSessionCfg sess = ClientSessionCfg
+  { csc_codec :: ClientSessionCodec sess,
+    -- | Limit for the complete Set-Cookie value, including name and attributes.
+    -- Must be between 1 and 4096. Oversized writes fail before changing state.
+    csc_maxCookieBytes :: Int,
+    -- | Server clock. Defaults to getCurrentTime; replace in deterministic tests.
+    csc_clock :: IO UTCTime
   }
 
 -- | On-demand sessions are loaded only by session actions (including CSRF
@@ -129,8 +161,10 @@ data SessionCfg conn a st = SessionCfg
 data SessionMode = SessionsAlways | SessionsOnDemand | SessionsDisabled
   deriving (Eq, Show)
 
--- | Configuration or use of sessions that have explicitly been disabled.
+-- | Invalid session configuration, unavailable capabilities or rejected writes.
 data SessionError = SessionUseWhenDisabled | CsrfRequiresSessions
+  | ServerSessionsRequired | ClientSessionOutsideRequest
+  | ClientSessionCookieTooLarge | InvalidClientSessionConfig
   deriving (Eq, Show)
 
 instance Exception SessionError
@@ -239,6 +273,13 @@ instance Show (Session conn sess st) where
 
 type SpockSessionManager conn sess st = SessionManager (SpockActionCtx () conn sess st) conn sess st
 
+data SessionIf m = SessionIf
+  { si_queryVault :: forall a. V.Key a -> m (Maybe a),
+    si_modifyVault :: (V.Vault -> V.Vault) -> m (),
+    si_setRawMultiHeader :: MultiHeader -> BS.ByteString -> m (),
+    si_vaultKey :: IO (V.Key SessionId)
+  }
+
 data SessionManager m conn sess st = SessionManager
   { sm_getSessionId :: m SessionId,
     sm_getCsrfToken :: m T.Text,
@@ -247,8 +288,14 @@ data SessionManager m conn sess st = SessionManager
     sm_readSession :: m sess,
     sm_writeSession :: sess -> m (),
     sm_modifySession :: forall a. (sess -> (sess, a)) -> m a,
-    sm_mapSessions :: (forall n. Monad n => sess -> n sess) -> m (),
-    sm_clearAllSessions :: MonadIO m => m (),
+    sm_serverSessions :: Maybe (ServerSessionManager m sess),
     sm_middleware :: Middleware,
     sm_closeSessionManager :: IO ()
+  }
+
+-- | Explicit capability available only for enabled server-backed sessions.
+-- Public actions in Web.Spock.SessionActions.Server require this handle.
+data ServerSessionManager m sess = ServerSessionManager
+  { ssm_mapSessions :: (forall n. Monad n => sess -> n sess) -> m (),
+    ssm_clearAllSessions :: m ()
   }

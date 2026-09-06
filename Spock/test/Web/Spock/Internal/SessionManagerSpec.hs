@@ -6,6 +6,7 @@ import Control.Concurrent.STM
 import Data.IORef
 import Data.Time
 import qualified Data.Vault.Lazy as V
+import Web.Spock.TestUtils (serverCapability)
 import Test.Hspec
 import Web.Spock.Config
 import Web.Spock.Internal.SessionManager
@@ -40,14 +41,14 @@ spec =
         do
           mgr <- mkMgr
           sm_writeSession mgr True
-          sm_clearAllSessions mgr
+          serverCapability mgr >>= ssm_clearAllSessions
           sm_writeSession mgr True
       it "should be possible to map over all sessions" $
         do
           mgr <- mkMgr
           sm_writeSession mgr True
           sm_readSession mgr `shouldReturn` True
-          sm_mapSessions mgr (const $ return False)
+          serverCapability mgr >>= \server -> ssm_mapSessions server (const $ return False)
           sm_readSession mgr `shouldReturn` False
 
 mkMgr :: IO (SessionManager IO conn Bool st)
@@ -64,7 +65,7 @@ mkMgr =
             }
     atomically $
       ss_storeSession sv testSession
-    let sessionCfg' = sessionCfg {sc_store = SessionStoreInstance sv}
+    let sessionCfg' = sessionCfg {sc_backend = ServerSessions $ defaultServerSessionCfg $ SessionStoreInstance sv}
     k <- V.newKey
     sessionVaultR <- newIORef $ V.insert k (sess_id testSession) V.empty
     mgr <-

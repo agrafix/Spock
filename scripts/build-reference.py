@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build linked Haddocks for all native libraries, including PostgreSQL sessions."""
+"""Build linked Haddocks for all native libraries and optional session backends."""
 
 import argparse
 import html
@@ -12,7 +12,7 @@ import subprocess
 from urllib.parse import unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGES = ["reroute", "Spock-core", "Spock", "Spock-api", "Spock-api-server", "Spock-session-postgresql"]
+PACKAGES = ["reroute", "Spock-core", "Spock", "Spock-api", "Spock-api-server", "Spock-session-postgresql", "Spock-session-cookie"]
 
 
 def repair_fragments(text):
@@ -96,6 +96,7 @@ def build(output):
     entry_modules = {"Spock": "Web-Spock.html", "Spock-core": "Web-Spock-Core.html",
                      "Spock-api": "Web-Spock-Api.html", "Spock-api-server": "Web-Spock-Api-Server.html",
                      "Spock-session-postgresql": "Web-Spock-Session-Postgresql.html",
+                     "Spock-session-cookie": "Web-Spock-Session-Cookie.html",
                      "reroute": "Web-Routing-Combinators.html"}
     rows = "".join(f'<tr><td><a href="{package_ids[name]}/{entry_modules[name]}">{name}</a></td>'
                    f'<td>{libraries[name]["pkg-version"]}</td>'

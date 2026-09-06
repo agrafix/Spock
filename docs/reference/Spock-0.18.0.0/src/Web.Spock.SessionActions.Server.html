@@ -1,0 +1,211 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE RankNTypes #-}</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- | Operations requiring server-side session storage. Client-cookie and</span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- disabled backends do not provide this capability.</span><span>
+</span><span id="line-5"></span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Web.Spock.SessionActions.Server.html"><span class="hs-identifier">Web.Spock.SessionActions.Server</span></a></span><span>
+</span><span id="line-6"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#ServerSessionManager"><span class="hs-identifier">ServerSessionManager</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Web.Spock.SessionActions.Server.html#getServerSessionManager"><span class="hs-identifier">getServerSessionManager</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Web.Spock.SessionActions.Server.html#requireServerSessionManager"><span class="hs-identifier">requireServerSessionManager</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-7"></span><span>    </span><span class="annot"><a href="Web.Spock.SessionActions.Server.html#clearAllSessions"><span class="hs-identifier">clearAllSessions</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Web.Spock.SessionActions.Server.html#mapAllSessions"><span class="hs-identifier">mapAllSessions</span></a></span><span>
+</span><span id="line-8"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-9"></span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Exception</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">throwIO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.IO.Class</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">liftIO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Web.Spock.Action</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">runInContext</span></span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Monad.html"><span class="hs-identifier">Web.Spock.Internal.Monad</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html"><span class="hs-identifier">Web.Spock.Internal.Types</span></a></span><span>
+</span><span id="line-15"></span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- | Inspect whether the configured, enabled backend provides server storage.</span><span>
+</span><span id="line-17"></span><span class="hs-comment">-- This does not load or allocate a visitor session.</span><span>
+</span><span id="line-18"></span><span id="local-6989586621679142598"><span id="local-6989586621679142599"><span id="local-6989586621679142600"><span id="local-6989586621679142601"><span class="annot"><a href="Web.Spock.SessionActions.Server.html#getServerSessionManager"><span class="hs-identifier hs-type">getServerSessionManager</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#SpockActionCtx"><span class="hs-identifier hs-type">SpockActionCtx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142598"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142599"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142600"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142601"><span class="hs-identifier hs-type">st</span></a></span><span>
+</span><span id="line-19"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#ServerSessionManager"><span class="hs-identifier hs-type">ServerSessionManager</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#SpockActionCtx"><span class="hs-identifier hs-type">SpockActionCtx</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679142599"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142600"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142601"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679142600"><span class="hs-identifier hs-type">sess</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span></span></span></span></span><span>
+</span><span id="line-20"></span><span id="getServerSessionManager"><span class="annot"><span class="annottext">getServerSessionManager :: forall ctx conn sess st.
+SpockActionCtx
+  ctx
+  conn
+  sess
+  st
+  (Maybe
+     (ServerSessionManager (SpockActionCtx () conn sess st) sess))
+</span><a href="Web.Spock.SessionActions.Server.html#getServerSessionManager"><span class="hs-identifier hs-var hs-var">getServerSessionManager</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SessionManager (SpockActionCtx () conn sess st) conn sess st
+-&gt; Maybe
+     (ServerSessionManager (SpockActionCtx () conn sess st) sess)
+forall (m :: * -&gt; *) conn sess st.
+SessionManager m conn sess st
+-&gt; Maybe (ServerSessionManager m sess)
+</span><a href="Web.Spock.Internal.Types.html#sm_serverSessions"><span class="hs-identifier hs-var">sm_serverSessions</span></a></span><span> </span><span class="annot"><span class="annottext">(SessionManager (SpockActionCtx () conn sess st) conn sess st
+ -&gt; Maybe
+      (ServerSessionManager (SpockActionCtx () conn sess st) sess))
+-&gt; ActionCtxT
+     ctx
+     (WebStateM conn sess st)
+     (SessionManager (SpockActionCtx () conn sess st) conn sess st)
+-&gt; ActionCtxT
+     ctx
+     (WebStateM conn sess st)
+     (Maybe
+        (ServerSessionManager (SpockActionCtx () conn sess st) sess))
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">ActionCtxT
+  ctx
+  (WebStateM conn sess st)
+  (SessionManager (SpockActionCtx () conn sess st) conn sess st)
+ActionCtxT
+  ctx
+  (WebStateM conn sess st)
+  (SpockSessionManager
+     (SpockConn (ActionCtxT ctx (WebStateM conn sess st)))
+     (SpockSession (ActionCtxT ctx (WebStateM conn sess st)))
+     (SpockState (ActionCtxT ctx (WebStateM conn sess st))))
+forall (m :: * -&gt; *).
+HasSpock m =&gt;
+m (SpockSessionManager
+     (SpockConn m) (SpockSession m) (SpockState m))
+</span><a href="Web.Spock.Internal.Types.html#getSessMgr"><span class="hs-identifier hs-var">getSessMgr</span></a></span><span>
+</span><span id="line-21"></span><span>
+</span><span id="line-22"></span><span class="annot"><span class="hs-comment">-- | Require server storage, throwing 'ServerSessionsRequired' if unavailable.</span></span><span>
+</span><span id="line-23"></span><span id="local-6989586621679142639"><span id="local-6989586621679142640"><span id="local-6989586621679142641"><span id="local-6989586621679142642"><span class="annot"><a href="Web.Spock.SessionActions.Server.html#requireServerSessionManager"><span class="hs-identifier hs-type">requireServerSessionManager</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#SpockActionCtx"><span class="hs-identifier hs-type">SpockActionCtx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142639"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142640"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142641"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142642"><span class="hs-identifier hs-type">st</span></a></span><span>
+</span><span id="line-24"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#ServerSessionManager"><span class="hs-identifier hs-type">ServerSessionManager</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#SpockActionCtx"><span class="hs-identifier hs-type">SpockActionCtx</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679142640"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142641"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142642"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679142641"><span class="hs-identifier hs-type">sess</span></a></span><span class="hs-special">)</span></span></span></span></span><span>
+</span><span id="line-25"></span><span id="requireServerSessionManager"><span class="annot"><span class="annottext">requireServerSessionManager :: forall ctx conn sess st.
+SpockActionCtx
+  ctx
+  conn
+  sess
+  st
+  (ServerSessionManager (SpockActionCtx () conn sess st) sess)
+</span><a href="Web.Spock.SessionActions.Server.html#requireServerSessionManager"><span class="hs-identifier hs-var hs-var">requireServerSessionManager</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SpockActionCtx
+  ctx
+  conn
+  sess
+  st
+  (Maybe
+     (ServerSessionManager (SpockActionCtx () conn sess st) sess))
+forall ctx conn sess st.
+SpockActionCtx
+  ctx
+  conn
+  sess
+  st
+  (Maybe
+     (ServerSessionManager (SpockActionCtx () conn sess st) sess))
+</span><a href="Web.Spock.SessionActions.Server.html#getServerSessionManager"><span class="hs-identifier hs-var">getServerSessionManager</span></a></span><span> </span><span class="annot"><span class="annottext">SpockActionCtx
+  ctx
+  conn
+  sess
+  st
+  (Maybe
+     (ServerSessionManager (SpockActionCtx () conn sess st) sess))
+-&gt; (Maybe
+      (ServerSessionManager (SpockActionCtx () conn sess st) sess)
+    -&gt; ActionCtxT
+         ctx
+         (WebStateM conn sess st)
+         (ServerSessionManager (SpockActionCtx () conn sess st) sess))
+-&gt; ActionCtxT
+     ctx
+     (WebStateM conn sess st)
+     (ServerSessionManager (SpockActionCtx () conn sess st) sess)
+forall a b.
+ActionCtxT ctx (WebStateM conn sess st) a
+-&gt; (a -&gt; ActionCtxT ctx (WebStateM conn sess st) b)
+-&gt; ActionCtxT ctx (WebStateM conn sess st) b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="annot"><span class="annottext">ActionCtxT
+  ctx
+  (WebStateM conn sess st)
+  (ServerSessionManager (SpockActionCtx () conn sess st) sess)
+-&gt; (ServerSessionManager (SpockActionCtx () conn sess st) sess
+    -&gt; ActionCtxT
+         ctx
+         (WebStateM conn sess st)
+         (ServerSessionManager (SpockActionCtx () conn sess st) sess))
+-&gt; Maybe
+     (ServerSessionManager (SpockActionCtx () conn sess st) sess)
+-&gt; ActionCtxT
+     ctx
+     (WebStateM conn sess st)
+     (ServerSessionManager (SpockActionCtx () conn sess st) sess)
+forall b a. b -&gt; (a -&gt; b) -&gt; Maybe a -&gt; b
+</span><span class="hs-identifier hs-var">maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IO (ServerSessionManager (SpockActionCtx () conn sess st) sess)
+-&gt; ActionCtxT
+     ctx
+     (WebStateM conn sess st)
+     (ServerSessionManager (SpockActionCtx () conn sess st) sess)
+forall a. IO a -&gt; ActionCtxT ctx (WebStateM conn sess st) a
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO (ServerSessionManager (SpockActionCtx () conn sess st) sess)
+ -&gt; ActionCtxT
+      ctx
+      (WebStateM conn sess st)
+      (ServerSessionManager (SpockActionCtx () conn sess st) sess))
+-&gt; IO (ServerSessionManager (SpockActionCtx () conn sess st) sess)
+-&gt; ActionCtxT
+     ctx
+     (WebStateM conn sess st)
+     (ServerSessionManager (SpockActionCtx () conn sess st) sess)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">SessionError
+-&gt; IO (ServerSessionManager (SpockActionCtx () conn sess st) sess)
+forall e a. (HasCallStack, Exception e) =&gt; e -&gt; IO a
+</span><span class="hs-identifier hs-var">throwIO</span></span><span> </span><span class="annot"><span class="annottext">SessionError
+</span><a href="Web.Spock.Internal.Types.html#ServerSessionsRequired"><span class="hs-identifier hs-var">ServerSessionsRequired</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ServerSessionManager (SpockActionCtx () conn sess st) sess
+-&gt; ActionCtxT
+     ctx
+     (WebStateM conn sess st)
+     (ServerSessionManager (SpockActionCtx () conn sess st) sess)
+forall a. a -&gt; ActionCtxT ctx (WebStateM conn sess st) a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span class="annot"><span class="hs-comment">-- | Delete every session from this server backend.</span></span><span>
+</span><span id="line-28"></span><span id="local-6989586621679142684"><span id="local-6989586621679142685"><span id="local-6989586621679142686"><span id="local-6989586621679142687"><span class="annot"><a href="Web.Spock.SessionActions.Server.html#clearAllSessions"><span class="hs-identifier hs-type">clearAllSessions</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#ServerSessionManager"><span class="hs-identifier hs-type">ServerSessionManager</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#SpockActionCtx"><span class="hs-identifier hs-type">SpockActionCtx</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679142684"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142685"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142686"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679142685"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#SpockActionCtx"><span class="hs-identifier hs-type">SpockActionCtx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142687"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142684"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142685"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142686"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span></span></span><span>
+</span><span id="line-29"></span><span id="clearAllSessions"><span class="annot"><span class="annottext">clearAllSessions :: forall conn sess st ctx.
+ServerSessionManager (SpockActionCtx () conn sess st) sess
+-&gt; SpockActionCtx ctx conn sess st ()
+</span><a href="Web.Spock.SessionActions.Server.html#clearAllSessions"><span class="hs-identifier hs-var hs-var">clearAllSessions</span></a></span></span><span> </span><span id="local-6989586621679142761"><span class="annot"><span class="annottext">ServerSessionManager (SpockActionCtx () conn sess st) sess
+</span><a href="#local-6989586621679142761"><span class="hs-identifier hs-var">manager</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">()
+-&gt; ActionCtxT () (WebStateM conn sess st) ()
+-&gt; ActionCtxT ctx (WebStateM conn sess st) ()
+forall (m :: * -&gt; *) ctx' a ctx.
+MonadIO m =&gt;
+ctx' -&gt; ActionCtxT ctx' m a -&gt; ActionCtxT ctx m a
+</span><span class="hs-identifier hs-var">runInContext</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(ActionCtxT () (WebStateM conn sess st) ()
+ -&gt; ActionCtxT ctx (WebStateM conn sess st) ())
+-&gt; ActionCtxT () (WebStateM conn sess st) ()
+-&gt; ActionCtxT ctx (WebStateM conn sess st) ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ServerSessionManager (SpockActionCtx () conn sess st) sess
+-&gt; ActionCtxT () (WebStateM conn sess st) ()
+forall (m :: * -&gt; *) sess. ServerSessionManager m sess -&gt; m ()
+</span><a href="Web.Spock.Internal.Types.html#ssm_clearAllSessions"><span class="hs-identifier hs-var">ssm_clearAllSessions</span></a></span><span> </span><span class="annot"><span class="annottext">ServerSessionManager (SpockActionCtx () conn sess st) sess
+</span><a href="#local-6989586621679142761"><span class="hs-identifier hs-var">manager</span></a></span><span>
+</span><span id="line-30"></span><span>
+</span><span id="line-31"></span><span class="annot"><span class="hs-comment">-- | Atomically transform stored sessions. Transaction callbacks may be retried.</span></span><span>
+</span><span id="line-32"></span><span id="local-6989586621679142698"><span id="local-6989586621679142699"><span id="local-6989586621679142700"><span id="local-6989586621679142702"><span class="annot"><a href="Web.Spock.SessionActions.Server.html#mapAllSessions"><span class="hs-identifier hs-type">mapAllSessions</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#ServerSessionManager"><span class="hs-identifier hs-type">ServerSessionManager</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#SpockActionCtx"><span class="hs-identifier hs-type">SpockActionCtx</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679142698"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142699"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142700"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679142699"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-33"></span><span>  </span><span class="hs-special">(</span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679142701"><span class="annot"><a href="#local-6989586621679142701"><span class="hs-identifier hs-type">m</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679142701"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679142699"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679142701"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142699"><span class="hs-identifier hs-type">sess</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#SpockActionCtx"><span class="hs-identifier hs-type">SpockActionCtx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142702"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142698"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142699"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142700"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span></span></span><span>
+</span><span id="line-34"></span><span id="mapAllSessions"><span class="annot"><span class="annottext">mapAllSessions :: forall conn sess st ctx.
+ServerSessionManager (SpockActionCtx () conn sess st) sess
+-&gt; (forall (m :: * -&gt; *). Monad m =&gt; sess -&gt; m sess)
+-&gt; SpockActionCtx ctx conn sess st ()
+</span><a href="Web.Spock.SessionActions.Server.html#mapAllSessions"><span class="hs-identifier hs-var hs-var">mapAllSessions</span></a></span></span><span> </span><span id="local-6989586621679142766"><span class="annot"><span class="annottext">ServerSessionManager (SpockActionCtx () conn sess st) sess
+</span><a href="#local-6989586621679142766"><span class="hs-identifier hs-var">manager</span></a></span></span><span> </span><span id="local-6989586621679142767"><span class="annot"><span class="annottext">forall (m :: * -&gt; *). Monad m =&gt; sess -&gt; m sess
+</span><a href="#local-6989586621679142767"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">()
+-&gt; ActionCtxT () (WebStateM conn sess st) ()
+-&gt; ActionCtxT ctx (WebStateM conn sess st) ()
+forall (m :: * -&gt; *) ctx' a ctx.
+MonadIO m =&gt;
+ctx' -&gt; ActionCtxT ctx' m a -&gt; ActionCtxT ctx m a
+</span><span class="hs-identifier hs-var">runInContext</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(ActionCtxT () (WebStateM conn sess st) ()
+ -&gt; ActionCtxT ctx (WebStateM conn sess st) ())
+-&gt; ActionCtxT () (WebStateM conn sess st) ()
+-&gt; ActionCtxT ctx (WebStateM conn sess st) ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ServerSessionManager (SpockActionCtx () conn sess st) sess
+-&gt; (forall (m :: * -&gt; *). Monad m =&gt; sess -&gt; m sess)
+-&gt; ActionCtxT () (WebStateM conn sess st) ()
+forall (m :: * -&gt; *) sess.
+ServerSessionManager m sess
+-&gt; (forall (n :: * -&gt; *). Monad n =&gt; sess -&gt; n sess) -&gt; m ()
+</span><a href="Web.Spock.Internal.Types.html#ssm_mapSessions"><span class="hs-identifier hs-var">ssm_mapSessions</span></a></span><span> </span><span class="annot"><span class="annottext">ServerSessionManager (SpockActionCtx () conn sess st) sess
+</span><a href="#local-6989586621679142766"><span class="hs-identifier hs-var">manager</span></a></span><span> </span><span class="annot"><span class="annottext">sess -&gt; n sess
+forall (m :: * -&gt; *). Monad m =&gt; sess -&gt; m sess
+</span><a href="#local-6989586621679142767"><span class="hs-identifier hs-var">f</span></a></span><span>
+</span><span id="line-35"></span></pre></body></html>

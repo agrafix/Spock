@@ -1,0 +1,38 @@
+name: Cookie sessions
+
+on:
+  push:
+    paths: ['Spock/**', 'Spock-core/**', 'reroute/**', 'Spock-session-cookie/**', 'cabal.project*', 'stack-cookie.yaml*', '.github/workflows/cookie-sessions.yml']
+  pull_request:
+    paths: ['Spock/**', 'Spock-core/**', 'reroute/**', 'Spock-session-cookie/**', 'cabal.project*', 'stack-cookie.yaml*', '.github/workflows/cookie-sessions.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  cookies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: haskell-actions/setup@v2
+        with:
+          ghc-version: '9.14.1'
+          cabal-version: '3.18.1.0'
+          enable-stack: true
+          stack-version: '3.11.1'
+          cabal-update: false
+      - run: cabal update
+      - run: cabal build Spock-session-cookie --project-file=cabal.project.cookie --builddir=dist-newstyle-cookie
+      - run: cabal test Spock-session-cookie --project-file=cabal.project.cookie --builddir=dist-newstyle-cookie --test-show-details=direct
+      - run: stack --stack-yaml stack-cookie.yaml test --system-ghc --no-install-ghc --lock-file=error-on-write
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Install browser test tools
+        run: |
+          npm install --prefix "$RUNNER_TEMP/browser" playwright@1.61.1
+          "$RUNNER_TEMP/browser/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Test the runnable example in Chromium
+        run: |
+          binary=$(cabal list-bin spock-cookie-example --project-file=cabal.project.cookie --builddir=dist-newstyle-cookie)
+          PLAYWRIGHT_MODULE="$RUNNER_TEMP/browser/node_modules/playwright" node Spock-session-cookie/test/browser.cjs "$binary"

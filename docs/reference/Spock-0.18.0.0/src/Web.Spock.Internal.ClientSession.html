@@ -1,0 +1,522 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE RankNTypes #-}</span><span>
+</span><span id="line-3"></span><span>
+</span><span id="line-4"></span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Web.Spock.Internal.ClientSession.html"><span class="hs-identifier">Web.Spock.Internal.ClientSession</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.ClientSession.html#createClientSessionManager"><span class="hs-identifier">createClientSessionManager</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.MVar</span></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Exception</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">throwIO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">when</span></span><span class="hs-special">)</span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.IO.Class</span></span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">BS</span></span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text.Encoding</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Time</span></span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Vault.Lazy</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">V</span></span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Network.HTTP.Types.URI</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">urlDecode</span></span><span class="hs-special">)</span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Network.Wai</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Wai</span></span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Web.Cookie</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Cookie</span></span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Web.Spock.Internal.Cookies</span></span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Web.Spock.Internal.SessionCommon.html"><span class="hs-identifier">Web.Spock.Internal.SessionCommon</span></a></span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html"><span class="hs-identifier">Web.Spock.Internal.Types</span></a></span><span>
+</span><span id="line-20"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Web.Spock.Internal.Util</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">mapReqHeaders</span></span><span class="hs-special">)</span><span>
+</span><span id="line-21"></span><span>
+</span><span id="line-22"></span><span class="hs-keyword">data</span><span> </span><span id="ClientState"><span class="annot"><a href="Web.Spock.Internal.ClientSession.html#ClientState"><span class="hs-identifier hs-var">ClientState</span></a></span></span><span> </span><span id="local-6989586621679139757"><span class="annot"><a href="#local-6989586621679139757"><span class="hs-identifier hs-type">conn</span></a></span></span><span> </span><span id="local-6989586621679139758"><span class="annot"><a href="#local-6989586621679139758"><span class="hs-identifier hs-type">sess</span></a></span></span><span> </span><span id="local-6989586621679139759"><span class="annot"><a href="#local-6989586621679139759"><span class="hs-identifier hs-type">st</span></a></span></span><span>
+</span><span id="line-23"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="Unloaded"><span class="annot"><a href="Web.Spock.Internal.ClientSession.html#Unloaded"><span class="hs-identifier hs-var">Unloaded</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BS.ByteString</span></span><span class="hs-special">)</span><span>
+</span><span id="line-24"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Loaded"><span class="annot"><a href="Web.Spock.Internal.ClientSession.html#Loaded"><span class="hs-identifier hs-var">Loaded</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#Session"><span class="hs-identifier hs-type">Session</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139757"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139758"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139759"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-25"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Destroyed"><span class="annot"><a href="Web.Spock.Internal.ClientSession.html#Destroyed"><span class="hs-identifier hs-var">Destroyed</span></a></span></span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span class="hs-comment">-- Both state and the pending response cookie commit together. An encoding or</span><span>
+</span><span id="line-28"></span><span class="hs-comment">-- size failure leaves the last successful session operation intact.</span><span>
+</span><span id="line-29"></span><span class="hs-keyword">type</span><span> </span><span id="ClientCell"><span class="annot"><a href="Web.Spock.Internal.ClientSession.html#ClientCell"><span class="hs-identifier hs-var">ClientCell</span></a></span></span><span> </span><span id="local-6989586621679139826"><span class="annot"><a href="#local-6989586621679139826"><span class="hs-identifier hs-type">conn</span></a></span></span><span> </span><span id="local-6989586621679139827"><span class="annot"><a href="#local-6989586621679139827"><span class="hs-identifier hs-type">sess</span></a></span></span><span> </span><span id="local-6989586621679139828"><span class="annot"><a href="#local-6989586621679139828"><span class="hs-identifier hs-type">st</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MVar</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.ClientSession.html#ClientState"><span class="hs-identifier hs-type">ClientState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139826"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139827"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139828"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BS.ByteString</span></span><span class="hs-special">)</span><span>
+</span><span id="line-30"></span><span>
+</span><span id="line-31"></span><span id="local-6989586621679139673"><span id="local-6989586621679139675"><span id="local-6989586621679139676"><span id="local-6989586621679139677"><span class="annot"><a href="Web.Spock.Internal.ClientSession.html#createClientSessionManager"><span class="hs-identifier hs-type">createClientSessionManager</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679139673"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#SessionCfg"><span class="hs-identifier hs-type">SessionCfg</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139675"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139676"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139677"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#ClientSessionCfg"><span class="hs-identifier hs-type">ClientSessionCfg</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139676"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#SessionIf"><span class="hs-identifier hs-type">SessionIf</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139673"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#SessionManager"><span class="hs-identifier hs-type">SessionManager</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139673"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139675"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139676"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139677"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span></span></span></span></span><span>
+</span><span id="line-32"></span><span id="createClientSessionManager"><span class="annot"><span class="annottext">createClientSessionManager :: forall (m :: * -&gt; *) conn sess st.
+MonadIO m =&gt;
+SessionCfg conn sess st
+-&gt; ClientSessionCfg sess
+-&gt; SessionIf m
+-&gt; IO (SessionManager m conn sess st)
+</span><a href="Web.Spock.Internal.ClientSession.html#createClientSessionManager"><span class="hs-identifier hs-var hs-var">createClientSessionManager</span></a></span></span><span> </span><span id="local-6989586621679139874"><span class="annot"><span class="annottext">SessionCfg conn sess st
+</span><a href="#local-6989586621679139874"><span class="hs-identifier hs-var">cfg</span></a></span></span><span> </span><span id="local-6989586621679139875"><span class="annot"><span class="annottext">ClientSessionCfg sess
+</span><a href="#local-6989586621679139875"><span class="hs-identifier hs-var">client</span></a></span></span><span> </span><span id="local-6989586621679139876"><span class="annot"><span class="annottext">SessionIf m
+</span><a href="#local-6989586621679139876"><span class="hs-identifier hs-var">sif</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-33"></span><span>  </span><span class="annot"><span class="annottext">Bool -&gt; IO () -&gt; IO ()
+forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
+</span><span class="hs-identifier hs-var">when</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ClientSessionCfg sess -&gt; Int
+forall sess. ClientSessionCfg sess -&gt; Int
+</span><a href="Web.Spock.Internal.Types.html#csc_maxCookieBytes"><span class="hs-identifier hs-var">csc_maxCookieBytes</span></a></span><span> </span><span class="annot"><span class="annottext">ClientSessionCfg sess
+</span><a href="#local-6989586621679139875"><span class="hs-identifier hs-var">client</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="annot"><span class="annottext">ClientSessionCfg sess -&gt; Int
+forall sess. ClientSessionCfg sess -&gt; Int
+</span><a href="Web.Spock.Internal.Types.html#csc_maxCookieBytes"><span class="hs-identifier hs-var">csc_maxCookieBytes</span></a></span><span> </span><span class="annot"><span class="annottext">ClientSessionCfg sess
+</span><a href="#local-6989586621679139875"><span class="hs-identifier hs-var">client</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">4096</span></span><span>
+</span><span id="line-34"></span><span>        </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="annot"><span class="annottext">SessionCfg conn sess st -&gt; NominalDiffTime
+forall conn a st. SessionCfg conn a st -&gt; NominalDiffTime
+</span><a href="Web.Spock.Internal.Types.html#sc_sessionTTL"><span class="hs-identifier hs-var">sc_sessionTTL</span></a></span><span> </span><span class="annot"><span class="annottext">SessionCfg conn sess st
+</span><a href="#local-6989586621679139874"><span class="hs-identifier hs-var">cfg</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; NominalDiffTime -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;=</span></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
+</span><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="annot"><span class="annottext">SessionCfg conn sess st -&gt; Int
+forall conn a st. SessionCfg conn a st -&gt; Int
+</span><a href="Web.Spock.Internal.Types.html#sc_sessionIdEntropy"><span class="hs-identifier hs-var">sc_sessionIdEntropy</span></a></span><span> </span><span class="annot"><span class="annottext">SessionCfg conn sess st
+</span><a href="#local-6989586621679139874"><span class="hs-identifier hs-var">cfg</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">16</span></span><span>
+</span><span id="line-35"></span><span>        </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="annot"><span class="annottext">SessionCfg conn sess st -&gt; Int
+forall conn a st. SessionCfg conn a st -&gt; Int
+</span><a href="Web.Spock.Internal.Types.html#sc_sessionIdEntropy"><span class="hs-identifier hs-var">sc_sessionIdEntropy</span></a></span><span> </span><span class="annot"><span class="annottext">SessionCfg conn sess st
+</span><a href="#local-6989586621679139874"><span class="hs-identifier hs-var">cfg</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">256</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-36"></span><span>    </span><span class="annot"><span class="annottext">SessionError -&gt; IO ()
+forall e a. (HasCallStack, Exception e) =&gt; e -&gt; IO a
+</span><span class="hs-identifier hs-var">throwIO</span></span><span> </span><span class="annot"><span class="annottext">SessionError
+</span><a href="Web.Spock.Internal.Types.html#InvalidClientSessionConfig"><span class="hs-identifier hs-var">InvalidClientSessionConfig</span></a></span><span>
+</span><span id="line-37"></span><span>  </span><span id="local-6989586621679139885"><span class="annot"><a href="#local-6989586621679139885"><span class="hs-identifier hs-var">key</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (Key (MVar (ClientState conn sess st, Maybe ByteString)))
+forall a. IO (Key a)
+</span><span class="hs-identifier hs-var">V.newKey</span></span><span>
+</span><span id="line-38"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679139904"><span class="annot"><a href="#local-6989586621679139904"><span class="hs-identifier hs-var hs-var">withCell</span></a></span></span><span> </span><span id="local-6989586621679139905"><span class="annot"><span class="annottext">MVar (ClientState conn sess st, Maybe ByteString) -&gt; IO a
+</span><a href="#local-6989586621679139905"><span class="hs-identifier hs-var">action</span></a></span></span><span>
+</span><span id="line-39"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">SessionCfg conn sess st -&gt; SessionMode
+forall conn a st. SessionCfg conn a st -&gt; SessionMode
+</span><a href="Web.Spock.Internal.Types.html#sc_sessionMode"><span class="hs-identifier hs-var">sc_sessionMode</span></a></span><span> </span><span class="annot"><span class="annottext">SessionCfg conn sess st
+</span><a href="#local-6989586621679139874"><span class="hs-identifier hs-var">cfg</span></a></span><span> </span><span class="annot"><span class="annottext">SessionMode -&gt; SessionMode -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">SessionMode
+</span><a href="Web.Spock.Internal.Types.html#SessionsDisabled"><span class="hs-identifier hs-var">SessionsDisabled</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO a -&gt; m a
+forall a. IO a -&gt; m a
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO a -&gt; m a) -&gt; IO a -&gt; m a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">SessionError -&gt; IO a
+forall e a. (HasCallStack, Exception e) =&gt; e -&gt; IO a
+</span><span class="hs-identifier hs-var">throwIO</span></span><span> </span><span class="annot"><span class="annottext">SessionError
+</span><a href="Web.Spock.Internal.Types.html#SessionUseWhenDisabled"><span class="hs-identifier hs-var">SessionUseWhenDisabled</span></a></span><span>
+</span><span id="line-40"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-41"></span><span>            </span><span id="local-6989586621679139910"><span class="annot"><a href="#local-6989586621679139910"><span class="hs-identifier hs-var">cell</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">SessionIf m -&gt; forall a. Key a -&gt; m (Maybe a)
+forall (m :: * -&gt; *). SessionIf m -&gt; forall a. Key a -&gt; m (Maybe a)
+</span><a href="Web.Spock.Internal.Types.html#si_queryVault"><span class="hs-identifier hs-var">si_queryVault</span></a></span><span> </span><span class="annot"><span class="annottext">SessionIf m
+</span><a href="#local-6989586621679139876"><span class="hs-identifier hs-var">sif</span></a></span><span> </span><span class="annot"><span class="annottext">Key (MVar (ClientState conn sess st, Maybe ByteString))
+</span><a href="#local-6989586621679139885"><span class="hs-identifier hs-var">key</span></a></span><span>
+</span><span id="line-42"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">liftIO</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">throwIO</span></span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#ClientSessionOutsideRequest"><span class="hs-identifier hs-type">ClientSessionOutsideRequest</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">liftIO</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">.</span></span><span> </span><span class="annot"><a href="#local-6989586621679139905"><span class="hs-identifier hs-type">action</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679139910"><span class="hs-identifier hs-type">cell</span></a></span><span>
+</span><span id="line-43"></span><span>      </span><span id="local-6989586621679139916"><span class="annot"><a href="#local-6989586621679139916"><span class="hs-identifier hs-var hs-var">readCurrent</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(MVar (ClientState conn sess st, Maybe ByteString)
+ -&gt; IO (Session conn sess st))
+-&gt; m (Session conn sess st)
+forall {a}.
+(MVar (ClientState conn sess st, Maybe ByteString) -&gt; IO a) -&gt; m a
+</span><a href="#local-6989586621679139904"><span class="hs-identifier hs-var">withCell</span></a></span><span> </span><span class="annot"><span class="annottext">((MVar (ClientState conn sess st, Maybe ByteString)
+  -&gt; IO (Session conn sess st))
+ -&gt; m (Session conn sess st))
+-&gt; (MVar (ClientState conn sess st, Maybe ByteString)
+    -&gt; IO (Session conn sess st))
+-&gt; m (Session conn sess st)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">SessionCfg conn sess st
+-&gt; ClientSessionCfg sess
+-&gt; Bool
+-&gt; (Session conn sess st
+    -&gt; IO (Session conn sess st, Session conn sess st))
+-&gt; MVar (ClientState conn sess st, Maybe ByteString)
+-&gt; IO (Session conn sess st)
+forall conn sess st a.
+SessionCfg conn sess st
+-&gt; ClientSessionCfg sess
+-&gt; Bool
+-&gt; (Session conn sess st -&gt; IO (Session conn sess st, a))
+-&gt; ClientCell conn sess st
+-&gt; IO a
+</span><a href="Web.Spock.Internal.ClientSession.html#operate"><span class="hs-identifier hs-var">operate</span></a></span><span> </span><span class="annot"><span class="annottext">SessionCfg conn sess st
+</span><a href="#local-6989586621679139874"><span class="hs-identifier hs-var">cfg</span></a></span><span> </span><span class="annot"><span class="annottext">ClientSessionCfg sess
+</span><a href="#local-6989586621679139875"><span class="hs-identifier hs-var">client</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679139918"><span class="annot"><span class="annottext">Session conn sess st
+</span><a href="#local-6989586621679139918"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Session conn sess st, Session conn sess st)
+-&gt; IO (Session conn sess st, Session conn sess st)
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Session conn sess st
+</span><a href="#local-6989586621679139918"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Session conn sess st
+</span><a href="#local-6989586621679139918"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-44"></span><span>      </span><span id="local-6989586621679139919"><span class="annot"><a href="#local-6989586621679139919"><span class="hs-identifier hs-var hs-var">change</span></a></span></span><span> </span><span id="local-6989586621679139920"><span class="annot"><span class="annottext">Session conn sess st -&gt; IO (Session conn sess st, a)
+</span><a href="#local-6989586621679139920"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(MVar (ClientState conn sess st, Maybe ByteString) -&gt; IO a) -&gt; m a
+forall {a}.
+(MVar (ClientState conn sess st, Maybe ByteString) -&gt; IO a) -&gt; m a
+</span><a href="#local-6989586621679139904"><span class="hs-identifier hs-var">withCell</span></a></span><span> </span><span class="annot"><span class="annottext">((MVar (ClientState conn sess st, Maybe ByteString) -&gt; IO a)
+ -&gt; m a)
+-&gt; (MVar (ClientState conn sess st, Maybe ByteString) -&gt; IO a)
+-&gt; m a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">SessionCfg conn sess st
+-&gt; ClientSessionCfg sess
+-&gt; Bool
+-&gt; (Session conn sess st -&gt; IO (Session conn sess st, a))
+-&gt; MVar (ClientState conn sess st, Maybe ByteString)
+-&gt; IO a
+forall conn sess st a.
+SessionCfg conn sess st
+-&gt; ClientSessionCfg sess
+-&gt; Bool
+-&gt; (Session conn sess st -&gt; IO (Session conn sess st, a))
+-&gt; ClientCell conn sess st
+-&gt; IO a
+</span><a href="Web.Spock.Internal.ClientSession.html#operate"><span class="hs-identifier hs-var">operate</span></a></span><span> </span><span class="annot"><span class="annottext">SessionCfg conn sess st
+</span><a href="#local-6989586621679139874"><span class="hs-identifier hs-var">cfg</span></a></span><span> </span><span class="annot"><span class="annottext">ClientSessionCfg sess
+</span><a href="#local-6989586621679139875"><span class="hs-identifier hs-var">client</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span> </span><span class="annot"><span class="annottext">Session conn sess st -&gt; IO (Session conn sess st, a)
+</span><a href="#local-6989586621679139920"><span class="hs-identifier hs-var">f</span></a></span><span>
+</span><span id="line-45"></span><span>      </span><span id="local-6989586621679139934"><span class="annot"><a href="#local-6989586621679139934"><span class="hs-identifier hs-var hs-var">middleware</span></a></span></span><span> </span><span id="local-6989586621679139935"><span class="annot"><span class="annottext">Request -&gt; (Response -&gt; IO b) -&gt; IO b
+</span><a href="#local-6989586621679139935"><span class="hs-identifier hs-var">app</span></a></span></span><span> </span><span id="local-6989586621679139936"><span class="annot"><span class="annottext">Request
+</span><a href="#local-6989586621679139936"><span class="hs-identifier hs-var">req</span></a></span></span><span> </span><span id="local-6989586621679139937"><span class="annot"><span class="annottext">Response -&gt; IO b
+</span><a href="#local-6989586621679139937"><span class="hs-identifier hs-var">respond</span></a></span></span><span>
+</span><span id="line-46"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">SessionCfg conn sess st -&gt; SessionMode
+forall conn a st. SessionCfg conn a st -&gt; SessionMode
+</span><a href="Web.Spock.Internal.Types.html#sc_sessionMode"><span class="hs-identifier hs-var">sc_sessionMode</span></a></span><span> </span><span class="annot"><span class="annottext">SessionCfg conn sess st
+</span><a href="#local-6989586621679139874"><span class="hs-identifier hs-var">cfg</span></a></span><span> </span><span class="annot"><span class="annottext">SessionMode -&gt; SessionMode -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">SessionMode
+</span><a href="Web.Spock.Internal.Types.html#SessionsDisabled"><span class="hs-identifier hs-var">SessionsDisabled</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Request -&gt; (Response -&gt; IO b) -&gt; IO b
+</span><a href="#local-6989586621679139935"><span class="hs-identifier hs-var">app</span></a></span><span> </span><span class="annot"><span class="annottext">Request
+</span><a href="#local-6989586621679139936"><span class="hs-identifier hs-var">req</span></a></span><span> </span><span class="annot"><span class="annottext">Response -&gt; IO b
+</span><a href="#local-6989586621679139937"><span class="hs-identifier hs-var">respond</span></a></span><span>
+</span><span id="line-47"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-48"></span><span>            </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679139948"><span class="annot"><span class="annottext">raw :: Maybe ByteString
+</span><a href="#local-6989586621679139948"><span class="hs-identifier hs-var hs-var hs-var">raw</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CI ByteString -&gt; [(CI ByteString, ByteString)] -&gt; Maybe ByteString
+forall a b. Eq a =&gt; a -&gt; [(a, b)] -&gt; Maybe b
+</span><span class="hs-identifier hs-var">lookup</span></span><span> </span><span class="annot"><span class="annottext">CI ByteString
+</span><span class="hs-string">&quot;Cookie&quot;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Request -&gt; [(CI ByteString, ByteString)]
+</span><span class="hs-identifier hs-var">Wai.requestHeaders</span></span><span> </span><span class="annot"><span class="annottext">Request
+</span><a href="#local-6989586621679139936"><span class="hs-identifier hs-var">req</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe ByteString
+-&gt; (ByteString -&gt; Maybe ByteString) -&gt; Maybe ByteString
+forall a b. Maybe a -&gt; (a -&gt; Maybe b) -&gt; Maybe b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span>
+</span><span id="line-49"></span><span>                  </span><span class="annot"><span class="annottext">ByteString -&gt; [(ByteString, ByteString)] -&gt; Maybe ByteString
+forall a b. Eq a =&gt; a -&gt; [(a, b)] -&gt; Maybe b
+</span><span class="hs-identifier hs-var">lookup</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; ByteString
+</span><span class="hs-identifier hs-var">T.encodeUtf8</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; ByteString) -&gt; Text -&gt; ByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">SessionCfg conn sess st -&gt; Text
+forall conn a st. SessionCfg conn a st -&gt; Text
+</span><a href="Web.Spock.Internal.Types.html#sc_cookieName"><span class="hs-identifier hs-var">sc_cookieName</span></a></span><span> </span><span class="annot"><span class="annottext">SessionCfg conn sess st
+</span><a href="#local-6989586621679139874"><span class="hs-identifier hs-var">cfg</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">([(ByteString, ByteString)] -&gt; Maybe ByteString)
+-&gt; (ByteString -&gt; [(ByteString, ByteString)])
+-&gt; ByteString
+-&gt; Maybe ByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; [(ByteString, ByteString)]
+</span><span class="hs-identifier hs-var">Cookie.parseCookies</span></span><span>
+</span><span id="line-50"></span><span>                </span><span id="local-6989586621679139956"><span class="annot"><span class="annottext">incoming :: Maybe ByteString
+</span><a href="#local-6989586621679139956"><span class="hs-identifier hs-var hs-var hs-var">incoming</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe ByteString
+</span><a href="#local-6989586621679139948"><span class="hs-identifier hs-var">raw</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe ByteString
+-&gt; (ByteString -&gt; Maybe ByteString) -&gt; Maybe ByteString
+forall a b. Maybe a -&gt; (a -&gt; Maybe b) -&gt; Maybe b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679139957"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679139957"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Int
+</span><span class="hs-identifier hs-var">BS.length</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679139957"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;=</span></span><span> </span><span class="annot"><span class="annottext">ClientSessionCfg sess -&gt; Int
+forall sess. ClientSessionCfg sess -&gt; Int
+</span><a href="Web.Spock.Internal.Types.html#csc_maxCookieBytes"><span class="hs-identifier hs-var">csc_maxCookieBytes</span></a></span><span> </span><span class="annot"><span class="annottext">ClientSessionCfg sess
+</span><a href="#local-6989586621679139875"><span class="hs-identifier hs-var">client</span></a></span><span>
+</span><span id="line-51"></span><span>                  </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Maybe ByteString
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Bool -&gt; ByteString -&gt; ByteString
+</span><span class="hs-identifier hs-var">urlDecode</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679139957"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">Maybe ByteString
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-52"></span><span>            </span><span id="local-6989586621679139959"><span class="annot"><a href="#local-6989586621679139959"><span class="hs-identifier hs-var">cell</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(ClientState conn sess st, Maybe ByteString)
+-&gt; IO (MVar (ClientState conn sess st, Maybe ByteString))
+forall a. a -&gt; IO (MVar a)
+</span><span class="hs-identifier hs-var">newMVar</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe ByteString -&gt; ClientState conn sess st
+forall conn sess st. Maybe ByteString -&gt; ClientState conn sess st
+</span><a href="Web.Spock.Internal.ClientSession.html#Unloaded"><span class="hs-identifier hs-var">Unloaded</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe ByteString
+</span><a href="#local-6989586621679139956"><span class="hs-identifier hs-var">incoming</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe ByteString
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">)</span><span>
+</span><span id="line-53"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">when</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#sc_sessionMode"><span class="hs-identifier hs-var">sc_sessionMode</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139874"><span class="hs-identifier hs-type">cfg</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">==</span></span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#SessionsAlways"><span class="hs-identifier hs-type">SessionsAlways</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span>
+</span><span id="line-54"></span><span>              </span><span class="annot"><a href="Web.Spock.Internal.ClientSession.html#operate"><span class="hs-identifier hs-type">operate</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139874"><span class="hs-identifier hs-type">cfg</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139875"><span class="hs-identifier hs-type">client</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">False</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679139962"><span class="annot"><span class="annottext">Session conn sess st
+</span><a href="#local-6989586621679139962"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Session conn sess st, ()) -&gt; IO (Session conn sess st, ())
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Session conn sess st
+</span><a href="#local-6989586621679139962"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679139959"><span class="hs-identifier hs-type">cell</span></a></span><span>
+</span><span id="line-55"></span><span>            </span><span class="annot"><a href="#local-6989586621679139935"><span class="hs-identifier hs-type">app</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679139936"><span class="hs-identifier hs-type">req</span></a></span><span> </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="hs-identifier hs-var">Wai.vault</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">V.insert</span></span><span> </span><span class="annot"><a href="#local-6989586621679139885"><span class="hs-identifier hs-type">key</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139959"><span class="hs-identifier hs-type">cell</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-var">Wai.vault</span></span><span> </span><span class="annot"><a href="#local-6989586621679139936"><span class="hs-identifier hs-type">req</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">}</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679139965"><span class="annot"><span class="annottext">Response
+</span><a href="#local-6989586621679139965"><span class="hs-identifier hs-var">response</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-56"></span><span>              </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679139966"><span class="annot"><a href="#local-6989586621679139966"><span class="hs-identifier hs-var">pending</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">MVar (ClientState conn sess st, Maybe ByteString)
+-&gt; IO (ClientState conn sess st, Maybe ByteString)
+forall a. MVar a -&gt; IO a
+</span><span class="hs-identifier hs-var">readMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar (ClientState conn sess st, Maybe ByteString)
+</span><a href="#local-6989586621679139959"><span class="hs-identifier hs-var">cell</span></a></span><span>
+</span><span id="line-57"></span><span>              </span><span class="annot"><a href="#local-6989586621679139937"><span class="hs-identifier hs-type">respond</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621679139965"><span class="hs-identifier hs-type">response</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679139968"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679139968"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">([(CI ByteString, ByteString)] -&gt; [(CI ByteString, ByteString)])
+-&gt; Response -&gt; Response
+</span><span class="hs-identifier hs-var">mapReqHeaders</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">CI ByteString
+</span><span class="hs-string">&quot;Set-Cookie&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679139968"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(CI ByteString, ByteString)
+-&gt; [(CI ByteString, ByteString)] -&gt; [(CI ByteString, ByteString)]
+forall a. a -&gt; [a] -&gt; [a]
+</span><span class="hs-glyph hs-var">:</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Response
+</span><a href="#local-6989586621679139965"><span class="hs-identifier hs-var">response</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679139966"><span class="hs-identifier hs-type">pending</span></a></span><span>
+</span><span id="line-58"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">pure</span></span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#SessionManager"><span class="hs-identifier hs-type">SessionManager</span></a></span><span>
+</span><span id="line-59"></span><span>    </span><span class="hs-special">{</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#sm_getSessionId"><span class="hs-identifier hs-var">sm_getSessionId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#sess_id"><span class="hs-identifier hs-var">sess_id</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">&lt;$&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621679139916"><span class="hs-identifier hs-type">readCurrent</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-60"></span><span>      </span><span class="annot"><a href="Web.Spock.Internal.Types.html#sm_getCsrfToken"><span class="hs-identifier hs-var">sm_getCsrfToken</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#sess_csrfToken"><span class="hs-identifier hs-var">sess_csrfToken</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">&lt;$&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621679139916"><span class="hs-identifier hs-type">readCurrent</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-61"></span><span>      </span><span class="annot"><a href="Web.Spock.Internal.Types.html#sm_readSession"><span class="hs-identifier hs-var">sm_readSession</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#sess_data"><span class="hs-identifier hs-var">sess_data</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">&lt;$&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621679139916"><span class="hs-identifier hs-type">readCurrent</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-62"></span><span>      </span><span class="annot"><a href="Web.Spock.Internal.Types.html#sm_writeSession"><span class="hs-identifier hs-var">sm_writeSession</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679139978"><span class="annot"><span class="annottext">sess
+</span><a href="#local-6989586621679139978"><span class="hs-identifier hs-var">value</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Session conn sess st -&gt; IO (Session conn sess st, ())) -&gt; m ()
+forall {a}.
+(Session conn sess st -&gt; IO (Session conn sess st, a)) -&gt; m a
+</span><a href="#local-6989586621679139919"><span class="hs-identifier hs-var">change</span></a></span><span> </span><span class="annot"><span class="annottext">((Session conn sess st -&gt; IO (Session conn sess st, ())) -&gt; m ())
+-&gt; (Session conn sess st -&gt; IO (Session conn sess st, ())) -&gt; m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679139979"><span class="annot"><span class="annottext">Session conn sess st
+</span><a href="#local-6989586621679139979"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Session conn sess st, ()) -&gt; IO (Session conn sess st, ())
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Session conn sess st
+</span><a href="#local-6989586621679139979"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-special">{</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#sess_data"><span class="hs-identifier hs-var">sess_data</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621679139978"><span class="hs-identifier hs-type">value</span></a></span><span> </span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-63"></span><span>      </span><span class="annot"><a href="Web.Spock.Internal.Types.html#sm_modifySession"><span class="hs-identifier hs-var">sm_modifySession</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679139982"><span class="annot"><span class="annottext">sess -&gt; (sess, a)
+</span><a href="#local-6989586621679139982"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Session conn sess st -&gt; IO (Session conn sess st, a)) -&gt; m a
+forall {a}.
+(Session conn sess st -&gt; IO (Session conn sess st, a)) -&gt; m a
+</span><a href="#local-6989586621679139919"><span class="hs-identifier hs-var">change</span></a></span><span> </span><span class="annot"><span class="annottext">((Session conn sess st -&gt; IO (Session conn sess st, a)) -&gt; m a)
+-&gt; (Session conn sess st -&gt; IO (Session conn sess st, a)) -&gt; m a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679139983"><span class="annot"><span class="annottext">Session conn sess st
+</span><a href="#local-6989586621679139983"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-64"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679139984"><span class="annot"><span class="annottext">sess
+</span><a href="#local-6989586621679139984"><span class="hs-identifier hs-var">value</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679139985"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679139985"><span class="hs-identifier hs-var">result</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">sess -&gt; (sess, a)
+</span><a href="#local-6989586621679139982"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Session conn sess st -&gt; sess
+forall conn sess st. Session conn sess st -&gt; sess
+</span><a href="Web.Spock.Internal.Types.html#sess_data"><span class="hs-identifier hs-var">sess_data</span></a></span><span> </span><span class="annot"><span class="annottext">Session conn sess st
+</span><a href="#local-6989586621679139983"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">(Session conn sess st, a) -&gt; IO (Session conn sess st, a)
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Session conn sess st
+</span><a href="#local-6989586621679139983"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-special">{</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#sess_data"><span class="hs-identifier hs-var">sess_data</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621679139984"><span class="hs-identifier hs-type">value</span></a></span><span> </span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679139985"><span class="hs-identifier hs-var">result</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-65"></span><span>      </span><span class="annot"><a href="Web.Spock.Internal.Types.html#sm_regenerateSessionId"><span class="hs-identifier hs-var">sm_regenerateSessionId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621679139919"><span class="hs-identifier hs-type">change</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679139987"><span class="annot"><span class="annottext">Session conn sess st
+</span><a href="#local-6989586621679139987"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-66"></span><span>        </span><span id="local-6989586621679139988"><span class="annot"><a href="#local-6989586621679139988"><span class="hs-identifier hs-var">now</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ClientSessionCfg sess -&gt; IO UTCTime
+forall sess. ClientSessionCfg sess -&gt; IO UTCTime
+</span><a href="Web.Spock.Internal.Types.html#csc_clock"><span class="hs-identifier hs-var">csc_clock</span></a></span><span> </span><span class="annot"><span class="annottext">ClientSessionCfg sess
+</span><a href="#local-6989586621679139875"><span class="hs-identifier hs-var">client</span></a></span><span>
+</span><span id="line-67"></span><span>        </span><span id="local-6989586621679139990"><span class="annot"><a href="#local-6989586621679139990"><span class="hs-identifier hs-var">fresh</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><a href="Web.Spock.Internal.SessionCommon.html#createSessionAt"><span class="hs-identifier hs-type">createSessionAt</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139874"><span class="hs-identifier hs-type">cfg</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139988"><span class="hs-identifier hs-type">now</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#sess_data"><span class="hs-identifier hs-var">sess_data</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139987"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-68"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679139990"><span class="hs-identifier hs-type">fresh</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-69"></span><span>      </span><span class="annot"><a href="Web.Spock.Internal.Types.html#sm_destroySession"><span class="hs-identifier hs-var">sm_destroySession</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621679139904"><span class="hs-identifier hs-type">withCell</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679139993"><span class="annot"><span class="annottext">MVar (ClientState conn sess st, Maybe ByteString)
+</span><a href="#local-6989586621679139993"><span class="hs-identifier hs-var">cell</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">MVar (ClientState conn sess st, Maybe ByteString)
+-&gt; ((ClientState conn sess st, Maybe ByteString)
+    -&gt; IO (ClientState conn sess st, Maybe ByteString))
+-&gt; IO ()
+forall a. MVar a -&gt; (a -&gt; IO a) -&gt; IO ()
+</span><span class="hs-identifier hs-var">modifyMVar_</span></span><span> </span><span class="annot"><span class="annottext">MVar (ClientState conn sess st, Maybe ByteString)
+</span><a href="#local-6989586621679139993"><span class="hs-identifier hs-var">cell</span></a></span><span> </span><span class="annot"><span class="annottext">(((ClientState conn sess st, Maybe ByteString)
+  -&gt; IO (ClientState conn sess st, Maybe ByteString))
+ -&gt; IO ())
+-&gt; ((ClientState conn sess st, Maybe ByteString)
+    -&gt; IO (ClientState conn sess st, Maybe ByteString))
+-&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">(ClientState conn sess st, Maybe ByteString)
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-70"></span><span>        </span><span id="local-6989586621679139995"><span class="annot"><a href="#local-6989586621679139995"><span class="hs-identifier hs-var">now</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ClientSessionCfg sess -&gt; IO UTCTime
+forall sess. ClientSessionCfg sess -&gt; IO UTCTime
+</span><a href="Web.Spock.Internal.Types.html#csc_clock"><span class="hs-identifier hs-var">csc_clock</span></a></span><span> </span><span class="annot"><span class="annottext">ClientSessionCfg sess
+</span><a href="#local-6989586621679139875"><span class="hs-identifier hs-var">client</span></a></span><span>
+</span><span id="line-71"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679139997"><span class="annot"><a href="#local-6989586621679139997"><span class="hs-identifier hs-var hs-var">settings</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SessionCfg conn sess st -&gt; CookieSettings
+forall conn a st. SessionCfg conn a st -&gt; CookieSettings
+</span><a href="Web.Spock.Internal.Types.html#sc_cookieSettings"><span class="hs-identifier hs-var">sc_cookieSettings</span></a></span><span> </span><span class="annot"><span class="annottext">SessionCfg conn sess st
+</span><a href="#local-6989586621679139874"><span class="hs-identifier hs-var">cfg</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="hs-identifier hs-var">cs_EOL</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CookieValidFor</span></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-72"></span><span>        </span><span id="local-6989586621679140001"><span class="annot"><a href="#local-6989586621679140001"><span class="hs-identifier hs-var">header</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><a href="Web.Spock.Internal.ClientSession.html#checkedHeader"><span class="hs-identifier hs-type">checkedHeader</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139875"><span class="hs-identifier hs-type">client</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">generateCookieHeaderString</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#sc_cookieName"><span class="hs-identifier hs-var">sc_cookieName</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139874"><span class="hs-identifier hs-type">cfg</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-string">&quot;&quot;</span></span><span> </span><span class="annot"><a href="#local-6989586621679139997"><span class="hs-identifier hs-type">settings</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139995"><span class="hs-identifier hs-type">now</span></a></span><span>
+</span><span id="line-73"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.ClientSession.html#Destroyed"><span class="hs-identifier hs-type">Destroyed</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span class="annot"><a href="#local-6989586621679140001"><span class="hs-identifier hs-type">header</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-74"></span><span>      </span><span class="annot"><a href="Web.Spock.Internal.Types.html#sm_serverSessions"><span class="hs-identifier hs-var">sm_serverSessions</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Nothing</span></span><span class="hs-special">,</span><span>
+</span><span id="line-75"></span><span>      </span><span class="annot"><a href="Web.Spock.Internal.Types.html#sm_middleware"><span class="hs-identifier hs-var">sm_middleware</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621679139934"><span class="hs-identifier hs-type">middleware</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-76"></span><span>      </span><span class="annot"><a href="Web.Spock.Internal.Types.html#sm_closeSessionManager"><span class="hs-identifier hs-var">sm_closeSessionManager</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">pure</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-77"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-78"></span><span>
+</span><span id="line-79"></span><span id="local-6989586621679139732"><span id="local-6989586621679139733"><span id="local-6989586621679139734"><span id="local-6989586621679139735"><span class="annot"><a href="Web.Spock.Internal.ClientSession.html#operate"><span class="hs-identifier hs-type">operate</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#SessionCfg"><span class="hs-identifier hs-type">SessionCfg</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139732"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139733"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139734"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#ClientSessionCfg"><span class="hs-identifier hs-type">ClientSessionCfg</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139733"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-80"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#Session"><span class="hs-identifier hs-type">Session</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139732"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139733"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139734"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#Session"><span class="hs-identifier hs-type">Session</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139732"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139733"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139734"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679139735"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Spock.Internal.ClientSession.html#ClientCell"><span class="hs-identifier hs-type">ClientCell</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139732"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139733"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139734"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679139735"><span class="hs-identifier hs-type">a</span></a></span></span></span></span></span><span>
+</span><span id="line-81"></span><span id="operate"><span class="annot"><span class="annottext">operate :: forall conn sess st a.
+SessionCfg conn sess st
+-&gt; ClientSessionCfg sess
+-&gt; Bool
+-&gt; (Session conn sess st -&gt; IO (Session conn sess st, a))
+-&gt; ClientCell conn sess st
+-&gt; IO a
+</span><a href="Web.Spock.Internal.ClientSession.html#operate"><span class="hs-identifier hs-var hs-var">operate</span></a></span></span><span> </span><span id="local-6989586621679140021"><span class="annot"><span class="annottext">SessionCfg conn sess st
+</span><a href="#local-6989586621679140021"><span class="hs-identifier hs-var">cfg</span></a></span></span><span> </span><span id="local-6989586621679140022"><span class="annot"><span class="annottext">ClientSessionCfg sess
+</span><a href="#local-6989586621679140022"><span class="hs-identifier hs-var">client</span></a></span></span><span> </span><span id="local-6989586621679140023"><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679140023"><span class="hs-identifier hs-var">changed</span></a></span></span><span> </span><span id="local-6989586621679140024"><span class="annot"><span class="annottext">Session conn sess st -&gt; IO (Session conn sess st, a)
+</span><a href="#local-6989586621679140024"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679140025"><span class="annot"><span class="annottext">ClientCell conn sess st
+</span><a href="#local-6989586621679140025"><span class="hs-identifier hs-var">cell</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ClientCell conn sess st
+-&gt; ((ClientState conn sess st, Maybe ByteString)
+    -&gt; IO ((ClientState conn sess st, Maybe ByteString), a))
+-&gt; IO a
+forall a b. MVar a -&gt; (a -&gt; IO (a, b)) -&gt; IO b
+</span><span class="hs-identifier hs-var">modifyMVar</span></span><span> </span><span class="annot"><span class="annottext">ClientCell conn sess st
+</span><a href="#local-6989586621679140025"><span class="hs-identifier hs-var">cell</span></a></span><span> </span><span class="annot"><span class="annottext">(((ClientState conn sess st, Maybe ByteString)
+  -&gt; IO ((ClientState conn sess st, Maybe ByteString), a))
+ -&gt; IO a)
+-&gt; ((ClientState conn sess st, Maybe ByteString)
+    -&gt; IO ((ClientState conn sess st, Maybe ByteString), a))
+-&gt; IO a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679140027"><span class="annot"><span class="annottext">ClientState conn sess st
+</span><a href="#local-6989586621679140027"><span class="hs-identifier hs-var">state</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679140028"><span class="annot"><span class="annottext">Maybe ByteString
+</span><a href="#local-6989586621679140028"><span class="hs-identifier hs-var">pending</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-82"></span><span>  </span><span id="local-6989586621679140029"><span class="annot"><a href="#local-6989586621679140029"><span class="hs-identifier hs-var">now</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ClientSessionCfg sess -&gt; IO UTCTime
+forall sess. ClientSessionCfg sess -&gt; IO UTCTime
+</span><a href="Web.Spock.Internal.Types.html#csc_clock"><span class="hs-identifier hs-var">csc_clock</span></a></span><span> </span><span class="annot"><span class="annottext">ClientSessionCfg sess
+</span><a href="#local-6989586621679140022"><span class="hs-identifier hs-var">client</span></a></span><span>
+</span><span id="line-83"></span><span>  </span><span class="hs-special">(</span><span id="local-6989586621679140030"><span class="annot"><a href="#local-6989586621679140030"><span class="hs-identifier hs-var">session</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679140031"><span class="annot"><a href="#local-6989586621679140031"><span class="hs-identifier hs-var">reissue</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><a href="#local-6989586621679140032"><span class="hs-identifier hs-type">resolve</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679140029"><span class="hs-identifier hs-type">now</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679140027"><span class="hs-identifier hs-type">state</span></a></span><span>
+</span><span id="line-84"></span><span>  </span><span class="hs-special">(</span><span id="local-6989586621679140033"><span class="annot"><a href="#local-6989586621679140033"><span class="hs-identifier hs-var">updated</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679140034"><span class="annot"><a href="#local-6989586621679140034"><span class="hs-identifier hs-var">result</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><a href="#local-6989586621679140024"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679140030"><span class="hs-identifier hs-type">session</span></a></span><span>
+</span><span id="line-85"></span><span>  </span><span id="local-6989586621679140035"><span class="annot"><a href="#local-6989586621679140035"><span class="hs-identifier hs-var">cookie</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><a href="#local-6989586621679140023"><span class="hs-identifier hs-type">changed</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">||</span></span><span> </span><span class="annot"><a href="#local-6989586621679140031"><span class="hs-identifier hs-type">reissue</span></a></span><span>
+</span><span id="line-86"></span><span>    </span><span class="hs-keyword">then</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-87"></span><span>      </span><span id="local-6989586621679140036"><span class="annot"><a href="#local-6989586621679140036"><span class="hs-identifier hs-var">encoded</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#csc_encode"><span class="hs-identifier hs-var">csc_encode</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#csc_codec"><span class="hs-identifier hs-var">csc_codec</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679140022"><span class="hs-identifier hs-type">client</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#sc_cookieName"><span class="hs-identifier hs-var">sc_cookieName</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679140021"><span class="hs-identifier hs-type">cfg</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679140033"><span class="hs-identifier hs-type">updated</span></a></span><span>
+</span><span id="line-88"></span><span>      </span><span id="local-6989586621679140039"><span class="annot"><a href="#local-6989586621679140039"><span class="hs-identifier hs-var">value</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="hs-identifier hs-type">either</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">const</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">throwIO</span></span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#InvalidClientSessionConfig"><span class="hs-identifier hs-type">InvalidClientSessionConfig</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-identifier hs-type">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">T.decodeUtf8'</span></span><span> </span><span class="annot"><a href="#local-6989586621679140036"><span class="hs-identifier hs-type">encoded</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-89"></span><span>      </span><span id="local-6989586621679140043"><span class="annot"><a href="#local-6989586621679140043"><span class="hs-identifier hs-var">header</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><a href="Web.Spock.Internal.ClientSession.html#checkedHeader"><span class="hs-identifier hs-type">checkedHeader</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679140022"><span class="hs-identifier hs-type">client</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">generateCookieHeaderString</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#sc_cookieName"><span class="hs-identifier hs-var">sc_cookieName</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679140021"><span class="hs-identifier hs-type">cfg</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679140039"><span class="hs-identifier hs-type">value</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#sc_cookieSettings"><span class="hs-identifier hs-var">sc_cookieSettings</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679140021"><span class="hs-identifier hs-type">cfg</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679140029"><span class="hs-identifier hs-type">now</span></a></span><span>
+</span><span id="line-90"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span class="annot"><a href="#local-6989586621679140043"><span class="hs-identifier hs-type">header</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-91"></span><span>    </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="hs-identifier hs-type">pure</span></span><span> </span><span class="annot"><a href="#local-6989586621679140028"><span class="hs-identifier hs-type">pending</span></a></span><span>
+</span><span id="line-92"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">pure</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.ClientSession.html#Loaded"><span class="hs-identifier hs-type">Loaded</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679140033"><span class="hs-identifier hs-type">updated</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679140035"><span class="hs-identifier hs-type">cookie</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679140034"><span class="hs-identifier hs-type">result</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-93"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-94"></span><span>    </span><span id="local-6989586621679140046"><span class="annot"><span class="annottext">fresh :: UTCTime -&gt; IO (Session conn sess st, Bool)
+</span><a href="#local-6989586621679140046"><span class="hs-identifier hs-var hs-var">fresh</span></a></span></span><span> </span><span id="local-6989586621679140047"><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679140047"><span class="hs-identifier hs-var">now</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-95"></span><span>      </span><span id="local-6989586621679140048"><span class="annot"><a href="#local-6989586621679140048"><span class="hs-identifier hs-var">session</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">SessionCfg conn sess st
+-&gt; UTCTime -&gt; sess -&gt; IO (Session conn sess st)
+forall conn sess st.
+SessionCfg conn sess st
+-&gt; UTCTime -&gt; sess -&gt; IO (Session conn sess st)
+</span><a href="Web.Spock.Internal.SessionCommon.html#createSessionAt"><span class="hs-identifier hs-var">createSessionAt</span></a></span><span> </span><span class="annot"><span class="annottext">SessionCfg conn sess st
+</span><a href="#local-6989586621679140021"><span class="hs-identifier hs-var">cfg</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679140047"><span class="hs-identifier hs-var">now</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SessionCfg conn sess st -&gt; sess
+forall conn a st. SessionCfg conn a st -&gt; a
+</span><a href="Web.Spock.Internal.Types.html#sc_emptySession"><span class="hs-identifier hs-var">sc_emptySession</span></a></span><span> </span><span class="annot"><span class="annottext">SessionCfg conn sess st
+</span><a href="#local-6989586621679140021"><span class="hs-identifier hs-var">cfg</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-96"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679140048"><span class="hs-identifier hs-type">session</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">True</span></span><span class="hs-special">)</span><span>
+</span><span id="line-97"></span><span>    </span><span id="local-6989586621679140032"><span class="annot"><span class="annottext">resolve :: UTCTime
+-&gt; ClientState conn sess st -&gt; IO (Session conn sess st, Bool)
+</span><a href="#local-6989586621679140032"><span class="hs-identifier hs-var hs-var">resolve</span></a></span></span><span> </span><span id="local-6989586621679140059"><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679140059"><span class="hs-identifier hs-var">now</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.ClientSession.html#Unloaded"><span class="hs-identifier hs-type">Unloaded</span></a></span><span> </span><span id="local-6989586621679140060"><span class="annot"><span class="annottext">Maybe ByteString
+</span><a href="#local-6989586621679140060"><span class="hs-identifier hs-var">raw</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-98"></span><span>      </span><span id="local-6989586621679140061"><span class="annot"><a href="#local-6989586621679140061"><span class="hs-identifier hs-var">decoded</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (Maybe (Session conn sess st, Bool))
+-&gt; (ByteString -&gt; IO (Maybe (Session conn sess st, Bool)))
+-&gt; Maybe ByteString
+-&gt; IO (Maybe (Session conn sess st, Bool))
+forall b a. b -&gt; (a -&gt; b) -&gt; Maybe a -&gt; b
+</span><span class="hs-identifier hs-var">maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe (Session conn sess st, Bool)
+-&gt; IO (Maybe (Session conn sess st, Bool))
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">Maybe (Session conn sess st, Bool)
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ClientSessionCodec sess
+-&gt; forall conn st.
+   Text -&gt; ByteString -&gt; IO (Maybe (Session conn sess st, Bool))
+forall sess.
+ClientSessionCodec sess
+-&gt; forall conn st.
+   Text -&gt; ByteString -&gt; IO (Maybe (Session conn sess st, Bool))
+</span><a href="Web.Spock.Internal.Types.html#csc_decode"><span class="hs-identifier hs-var">csc_decode</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ClientSessionCfg sess -&gt; ClientSessionCodec sess
+forall sess. ClientSessionCfg sess -&gt; ClientSessionCodec sess
+</span><a href="Web.Spock.Internal.Types.html#csc_codec"><span class="hs-identifier hs-var">csc_codec</span></a></span><span> </span><span class="annot"><span class="annottext">ClientSessionCfg sess
+</span><a href="#local-6989586621679140022"><span class="hs-identifier hs-var">client</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SessionCfg conn sess st -&gt; Text
+forall conn a st. SessionCfg conn a st -&gt; Text
+</span><a href="Web.Spock.Internal.Types.html#sc_cookieName"><span class="hs-identifier hs-var">sc_cookieName</span></a></span><span> </span><span class="annot"><span class="annottext">SessionCfg conn sess st
+</span><a href="#local-6989586621679140021"><span class="hs-identifier hs-var">cfg</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe ByteString
+</span><a href="#local-6989586621679140060"><span class="hs-identifier hs-var">raw</span></a></span><span>
+</span><span id="line-99"></span><span>      </span><span class="hs-keyword">case</span><span> </span><span class="annot"><a href="#local-6989586621679140061"><span class="hs-identifier hs-type">decoded</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-100"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679140063"><span class="annot"><span class="annottext">Session conn sess st
+</span><a href="#local-6989586621679140063"><span class="hs-identifier hs-var">s</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679140064"><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679140064"><span class="hs-identifier hs-var">rotate</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Session conn sess st -&gt; UTCTime
+forall conn sess st. Session conn sess st -&gt; UTCTime
+</span><a href="Web.Spock.Internal.Types.html#sess_validUntil"><span class="hs-identifier hs-var">sess_validUntil</span></a></span><span> </span><span class="annot"><span class="annottext">Session conn sess st
+</span><a href="#local-6989586621679140063"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; UTCTime -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;</span></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679140059"><span class="hs-identifier hs-var">now</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-101"></span><span>          </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">SessionCfg conn sess st -&gt; Bool
+forall conn a st. SessionCfg conn a st -&gt; Bool
+</span><a href="Web.Spock.Internal.Types.html#sc_sessionExpandTTL"><span class="hs-identifier hs-var">sc_sessionExpandTTL</span></a></span><span> </span><span class="annot"><span class="annottext">SessionCfg conn sess st
+</span><a href="#local-6989586621679140021"><span class="hs-identifier hs-var">cfg</span></a></span><span>
+</span><span id="line-102"></span><span>            </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">(Session conn sess st, Bool) -&gt; IO (Session conn sess st, Bool)
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Session conn sess st
+</span><a href="#local-6989586621679140063"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-special">{</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#sess_validUntil"><span class="hs-identifier hs-var">sess_validUntil</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">max</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#sess_validUntil"><span class="hs-identifier hs-var">sess_validUntil</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679140063"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">addUTCTime</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#sc_sessionTTL"><span class="hs-identifier hs-var">sc_sessionTTL</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679140021"><span class="hs-identifier hs-type">cfg</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679140059"><span class="hs-identifier hs-type">now</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span class="hs-special">)</span><span>
+</span><span id="line-103"></span><span>            </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">(Session conn sess st, Bool) -&gt; IO (Session conn sess st, Bool)
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Session conn sess st
+</span><a href="#local-6989586621679140063"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679140064"><span class="hs-identifier hs-var">rotate</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-104"></span><span>        </span><span class="annot"><span class="annottext">Maybe (Session conn sess st, Bool)
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; IO (Session conn sess st, Bool)
+</span><a href="#local-6989586621679140046"><span class="hs-identifier hs-var">fresh</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679140059"><span class="hs-identifier hs-var">now</span></a></span><span>
+</span><span id="line-105"></span><span>    </span><span class="annot"><a href="#local-6989586621679140032"><span class="hs-identifier hs-var">resolve</span></a></span><span> </span><span id="local-6989586621679140069"><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679140069"><span class="hs-identifier hs-var">now</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.ClientSession.html#Loaded"><span class="hs-identifier hs-type">Loaded</span></a></span><span> </span><span id="local-6989586621679140070"><span class="annot"><span class="annottext">Session conn sess st
+</span><a href="#local-6989586621679140070"><span class="hs-identifier hs-var">s</span></a></span></span><span class="hs-special">)</span><span>
+</span><span id="line-106"></span><span>      </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Session conn sess st -&gt; UTCTime
+forall conn sess st. Session conn sess st -&gt; UTCTime
+</span><a href="Web.Spock.Internal.Types.html#sess_validUntil"><span class="hs-identifier hs-var">sess_validUntil</span></a></span><span> </span><span class="annot"><span class="annottext">Session conn sess st
+</span><a href="#local-6989586621679140070"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; UTCTime -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;</span></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679140069"><span class="hs-identifier hs-var">now</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Session conn sess st, Bool) -&gt; IO (Session conn sess st, Bool)
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Session conn sess st
+</span><a href="#local-6989586621679140070"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span class="hs-special">)</span><span>
+</span><span id="line-107"></span><span>      </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; IO (Session conn sess st, Bool)
+</span><a href="#local-6989586621679140046"><span class="hs-identifier hs-var">fresh</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679140069"><span class="hs-identifier hs-var">now</span></a></span><span>
+</span><span id="line-108"></span><span>    </span><span class="annot"><a href="#local-6989586621679140032"><span class="hs-identifier hs-var">resolve</span></a></span><span> </span><span id="local-6989586621679140071"><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679140071"><span class="hs-identifier hs-var">now</span></a></span></span><span> </span><span class="annot"><span class="annottext">ClientState conn sess st
+</span><a href="Web.Spock.Internal.ClientSession.html#Destroyed"><span class="hs-identifier hs-var">Destroyed</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; IO (Session conn sess st, Bool)
+</span><a href="#local-6989586621679140046"><span class="hs-identifier hs-var">fresh</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679140071"><span class="hs-identifier hs-var">now</span></a></span><span>
+</span><span id="line-109"></span><span>
+</span><span id="line-110"></span><span id="local-6989586621679139787"><span class="annot"><a href="Web.Spock.Internal.ClientSession.html#checkedHeader"><span class="hs-identifier hs-type">checkedHeader</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#ClientSessionCfg"><span class="hs-identifier hs-type">ClientSessionCfg</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139787"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BS.ByteString</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BS.ByteString</span></span></span><span>
+</span><span id="line-111"></span><span id="checkedHeader"><span class="annot"><span class="annottext">checkedHeader :: forall sess. ClientSessionCfg sess -&gt; ByteString -&gt; IO ByteString
+</span><a href="Web.Spock.Internal.ClientSession.html#checkedHeader"><span class="hs-identifier hs-var hs-var">checkedHeader</span></a></span></span><span> </span><span id="local-6989586621679140077"><span class="annot"><span class="annottext">ClientSessionCfg sess
+</span><a href="#local-6989586621679140077"><span class="hs-identifier hs-var">client</span></a></span></span><span> </span><span id="local-6989586621679140078"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679140078"><span class="hs-identifier hs-var">header</span></a></span></span><span>
+</span><span id="line-112"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Int
+</span><span class="hs-identifier hs-var">BS.length</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679140078"><span class="hs-identifier hs-var">header</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;</span></span><span> </span><span class="annot"><span class="annottext">ClientSessionCfg sess -&gt; Int
+forall sess. ClientSessionCfg sess -&gt; Int
+</span><a href="Web.Spock.Internal.Types.html#csc_maxCookieBytes"><span class="hs-identifier hs-var">csc_maxCookieBytes</span></a></span><span> </span><span class="annot"><span class="annottext">ClientSessionCfg sess
+</span><a href="#local-6989586621679140077"><span class="hs-identifier hs-var">client</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SessionError -&gt; IO ByteString
+forall e a. (HasCallStack, Exception e) =&gt; e -&gt; IO a
+</span><span class="hs-identifier hs-var">throwIO</span></span><span> </span><span class="annot"><span class="annottext">SessionError
+</span><a href="Web.Spock.Internal.Types.html#ClientSessionCookieTooLarge"><span class="hs-identifier hs-var">ClientSessionCookieTooLarge</span></a></span><span>
+</span><span id="line-113"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; IO ByteString
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679140078"><span class="hs-identifier hs-var">header</span></a></span><span>
+</span><span id="line-114"></span></pre></body></html>

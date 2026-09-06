@@ -93,3 +93,28 @@ Typed file extensions use `<.>`: `var <.> "txt"` or `var <.> var`.
 Use `renderRouteEncoded` for percent-encoded links. The
 [routing guide](https://www.spock.li/tutorials/routing#file-extensions-in-typed-routes)
 covers matching precedence, multiple dots, and typed extension values.
+
+## Session backends (0.18)
+
+The optional [Spock-session-cookie](../Spock-session-cookie/README.md) package
+provides authenticated encrypted client sessions with key rotation and
+server-checked expiry. See its guide for size, concurrency and revocation
+semantics. Default sessions still use the STM server store.
+
+`SessionCfg` now selects `sc_backend = ServerSessions serverCfg` or
+`ClientSessions clientCfg`. Migrate custom server settings together:
+
+```haskell
+let serverCfg = (defaultServerSessionCfg store)
+      { ssc_housekeepingInterval = 600, ssc_hooks = hooks }
+    sessions = (spc_sessionCfg cfg) { sc_backend = ServerSessions serverCfg }
+```
+
+This replaces `sc_store`, `sc_housekeepingInterval` and `sc_hooks` in the old
+record. Read/write/modify/ID/CSRF/logout actions retain their signatures.
+Server-wide actions moved to `Web.Spock.SessionActions.Server` and require a
+capability: `requireServerSessionManager >>= clearAllSessions`, or
+`getServerSessionManager` to handle unavailable storage explicitly. The internal
+manager exposes `sm_serverSessions :: Maybe (ServerSessionManager m sess)` in
+place of its old bulk-operation fields. Cookie and disabled backends supply no
+server capability and do not silently ignore server-wide operations.

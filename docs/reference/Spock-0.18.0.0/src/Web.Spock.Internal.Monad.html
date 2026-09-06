@@ -1,0 +1,241 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE FlexibleContexts #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE FlexibleInstances #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE RankNTypes #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE TypeFamilies #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# OPTIONS_GHC -fno-warn-orphans #-}</span><span>
+</span><span id="line-6"></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Monad.html"><span class="hs-identifier">Web.Spock.Internal.Monad</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-8"></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Reader</span></span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Trans.Resource</span></span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Pool</span></span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html"><span class="hs-identifier">Web.Spock.Internal.Types</span></a></span><span>
+</span><span id="line-13"></span><span>
+</span><span id="line-14"></span><span id="local-6989586621679139423"><span id="local-6989586621679139425"><span id="local-6989586621679139426"><span id="local-6989586621679139427"><span id="local-6989586621679139428"><span class="annot"><a href="Web.Spock.Internal.Monad.html#webM"><span class="hs-identifier hs-type">webM</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadTrans</span></span><span> </span><span class="annot"><a href="#local-6989586621679139423"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#WebStateM"><span class="hs-identifier hs-type">WebStateM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139425"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139426"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139427"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139428"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679139423"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#WebStateM"><span class="hs-identifier hs-type">WebStateM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139425"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139426"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139427"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679139428"><span class="hs-identifier hs-type">a</span></a></span></span></span></span></span></span><span>
+</span><span id="line-15"></span><span id="webM"><span class="annot"><span class="annottext">webM :: forall (t :: (* -&gt; *) -&gt; * -&gt; *) conn sess st a.
+MonadTrans t =&gt;
+WebStateM conn sess st a -&gt; t (WebStateM conn sess st) a
+</span><a href="Web.Spock.Internal.Monad.html#webM"><span class="hs-identifier hs-var hs-var">webM</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WebStateT conn sess st (ResourceT IO) a
+-&gt; t (WebStateT conn sess st (ResourceT IO)) a
+forall (m :: * -&gt; *) a. Monad m =&gt; m a -&gt; t m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(MonadTrans t, Monad m) =&gt;
+m a -&gt; t m a
+</span><span class="hs-identifier hs-var">lift</span></span><span>
+</span><span id="line-16"></span><span>
+</span><span id="line-17"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679139457"><span id="local-6989586621679139458"><span id="local-6989586621679139459"><span id="local-6989586621679139460"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MonadTrans</span></span><span> </span><span class="annot"><a href="#local-6989586621679139457"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#HasSpock"><span class="hs-identifier hs-type">HasSpock</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679139457"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#WebStateM"><span class="hs-identifier hs-type">WebStateM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139458"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139459"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139460"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-18"></span><span>  </span><span class="hs-keyword">type</span><span> </span><span id="SpockConn"><span class="annot"><a href="Web.Spock.Internal.Types.html#SpockConn"><span class="hs-identifier hs-var">SpockConn</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679139457"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#WebStateM"><span class="hs-identifier hs-type">WebStateM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139458"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139459"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139460"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621679139458"><span class="hs-identifier hs-type">conn</span></a></span><span>
+</span><span id="line-19"></span><span>  </span><span class="hs-keyword">type</span><span> </span><span id="SpockState"><span class="annot"><a href="Web.Spock.Internal.Types.html#SpockState"><span class="hs-identifier hs-var">SpockState</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679139457"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#WebStateM"><span class="hs-identifier hs-type">WebStateM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139458"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139459"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139460"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621679139460"><span class="hs-identifier hs-type">st</span></a></span><span>
+</span><span id="line-20"></span><span>  </span><span class="hs-keyword">type</span><span> </span><span id="SpockSession"><span class="annot"><a href="Web.Spock.Internal.Types.html#SpockSession"><span class="hs-identifier hs-var">SpockSession</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679139457"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#WebStateM"><span class="hs-identifier hs-type">WebStateM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139458"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139459"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139460"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621679139459"><span class="hs-identifier hs-type">sess</span></a></span><span>
+</span><span id="line-21"></span><span>  </span><span id="local-6989586621679139582"><span class="annot"><span class="annottext">runQuery :: forall a.
+(SpockConn (t (WebStateM conn sess st)) -&gt; IO a)
+-&gt; t (WebStateM conn sess st) a
+</span><a href="#local-6989586621679139582"><span class="hs-identifier hs-var hs-var hs-var">runQuery</span></a></span></span><span> </span><span id="local-6989586621679139584"><span class="annot"><span class="annottext">SpockConn (t (WebStateM conn sess st)) -&gt; IO a
+</span><a href="#local-6989586621679139584"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WebStateM conn sess st a -&gt; t (WebStateM conn sess st) a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) conn sess st a.
+MonadTrans t =&gt;
+WebStateM conn sess st a -&gt; t (WebStateM conn sess st) a
+</span><a href="Web.Spock.Internal.Monad.html#webM"><span class="hs-identifier hs-var">webM</span></a></span><span> </span><span class="annot"><span class="annottext">(WebStateM conn sess st a -&gt; t (WebStateM conn sess st) a)
+-&gt; WebStateM conn sess st a -&gt; t (WebStateM conn sess st) a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(conn -&gt; IO a) -&gt; WebStateM conn sess st a
+forall conn a sess st. (conn -&gt; IO a) -&gt; WebStateM conn sess st a
+</span><a href="Web.Spock.Internal.Monad.html#runQueryImpl"><span class="hs-identifier hs-var">runQueryImpl</span></a></span><span> </span><span class="annot"><span class="annottext">conn -&gt; IO a
+SpockConn (t (WebStateM conn sess st)) -&gt; IO a
+</span><a href="#local-6989586621679139584"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-22"></span><span>  </span><span id="local-6989586621679139587"><span class="annot"><span class="annottext">getState :: t (WebStateM conn sess st)
+  (SpockState (t (WebStateM conn sess st)))
+</span><a href="#local-6989586621679139587"><span class="hs-identifier hs-var hs-var hs-var">getState</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WebStateM conn sess st st -&gt; t (WebStateM conn sess st) st
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) conn sess st a.
+MonadTrans t =&gt;
+WebStateM conn sess st a -&gt; t (WebStateM conn sess st) a
+</span><a href="Web.Spock.Internal.Monad.html#webM"><span class="hs-identifier hs-var">webM</span></a></span><span> </span><span class="annot"><span class="annottext">WebStateM conn sess st st
+forall conn sess st. WebStateM conn sess st st
+</span><a href="Web.Spock.Internal.Monad.html#getStateImpl"><span class="hs-identifier hs-var">getStateImpl</span></a></span><span>
+</span><span id="line-23"></span><span>  </span><span id="local-6989586621679139591"><span class="annot"><span class="annottext">getSessMgr :: t (WebStateM conn sess st)
+  (SpockSessionManager
+     (SpockConn (t (WebStateM conn sess st)))
+     (SpockSession (t (WebStateM conn sess st)))
+     (SpockState (t (WebStateM conn sess st))))
+</span><a href="#local-6989586621679139591"><span class="hs-identifier hs-var hs-var hs-var">getSessMgr</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WebStateM conn sess st (SpockSessionManager conn sess st)
+-&gt; t (WebStateM conn sess st) (SpockSessionManager conn sess st)
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) conn sess st a.
+MonadTrans t =&gt;
+WebStateM conn sess st a -&gt; t (WebStateM conn sess st) a
+</span><a href="Web.Spock.Internal.Monad.html#webM"><span class="hs-identifier hs-var">webM</span></a></span><span> </span><span class="annot"><span class="annottext">WebStateM conn sess st (SpockSessionManager conn sess st)
+forall conn sess st.
+WebStateM conn sess st (SpockSessionManager conn sess st)
+</span><a href="Web.Spock.Internal.Monad.html#getSessMgrImpl"><span class="hs-identifier hs-var">getSessMgrImpl</span></a></span><span>
+</span><span id="line-24"></span><span>  </span><span id="local-6989586621679139595"><span class="annot"><span class="annottext">getSpockCfg :: t (WebStateM conn sess st)
+  (SpockCfg
+     (SpockConn (t (WebStateM conn sess st)))
+     (SpockSession (t (WebStateM conn sess st)))
+     (SpockState (t (WebStateM conn sess st))))
+</span><a href="#local-6989586621679139595"><span class="hs-identifier hs-var hs-var hs-var">getSpockCfg</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WebStateM conn sess st (SpockCfg conn sess st)
+-&gt; t (WebStateM conn sess st) (SpockCfg conn sess st)
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) conn sess st a.
+MonadTrans t =&gt;
+WebStateM conn sess st a -&gt; t (WebStateM conn sess st) a
+</span><a href="Web.Spock.Internal.Monad.html#webM"><span class="hs-identifier hs-var">webM</span></a></span><span> </span><span class="annot"><span class="annottext">WebStateM conn sess st (SpockCfg conn sess st)
+forall conn sess st. WebStateM conn sess st (SpockCfg conn sess st)
+</span><a href="Web.Spock.Internal.Monad.html#getSpockCfgImpl"><span class="hs-identifier hs-var">getSpockCfgImpl</span></a></span><span>
+</span><span id="line-25"></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679139482"><span id="local-6989586621679139483"><span id="local-6989586621679139484"><span class="annot"><a href="Web.Spock.Internal.Types.html#HasSpock"><span class="hs-identifier hs-type">HasSpock</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#WebStateM"><span class="hs-identifier hs-type">WebStateM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139482"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139483"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139484"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-27"></span><span>  </span><span class="hs-keyword">type</span><span> </span><span id="SpockConn"><span class="annot"><a href="Web.Spock.Internal.Types.html#SpockConn"><span class="hs-identifier hs-var">SpockConn</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#WebStateM"><span class="hs-identifier hs-type">WebStateM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139482"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139483"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139484"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621679139482"><span class="hs-identifier hs-type">conn</span></a></span><span>
+</span><span id="line-28"></span><span>  </span><span class="hs-keyword">type</span><span> </span><span id="SpockState"><span class="annot"><a href="Web.Spock.Internal.Types.html#SpockState"><span class="hs-identifier hs-var">SpockState</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#WebStateM"><span class="hs-identifier hs-type">WebStateM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139482"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139483"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139484"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621679139484"><span class="hs-identifier hs-type">st</span></a></span><span>
+</span><span id="line-29"></span><span>  </span><span class="hs-keyword">type</span><span> </span><span id="SpockSession"><span class="annot"><a href="Web.Spock.Internal.Types.html#SpockSession"><span class="hs-identifier hs-var">SpockSession</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#WebStateM"><span class="hs-identifier hs-type">WebStateM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139482"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139483"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139484"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621679139483"><span class="hs-identifier hs-type">sess</span></a></span><span>
+</span><span id="line-30"></span><span>  </span><span id="local-6989586621679139603"><span class="annot"><span class="annottext">runQuery :: forall a.
+(SpockConn (WebStateM conn sess st) -&gt; IO a)
+-&gt; WebStateM conn sess st a
+</span><a href="Web.Spock.Internal.Types.html#runQuery"><span class="hs-identifier hs-var hs-var hs-var">runQuery</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(conn -&gt; IO a) -&gt; WebStateM conn sess st a
+(SpockConn (WebStateM conn sess st) -&gt; IO a)
+-&gt; WebStateM conn sess st a
+forall conn a sess st. (conn -&gt; IO a) -&gt; WebStateM conn sess st a
+</span><a href="Web.Spock.Internal.Monad.html#runQueryImpl"><span class="hs-identifier hs-var">runQueryImpl</span></a></span><span>
+</span><span id="line-31"></span><span>  </span><span id="local-6989586621679139604"><span class="annot"><span class="annottext">getState :: WebStateM conn sess st (SpockState (WebStateM conn sess st))
+</span><a href="Web.Spock.Internal.Types.html#getState"><span class="hs-identifier hs-var hs-var hs-var">getState</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WebStateM conn sess st st
+WebStateM conn sess st (SpockState (WebStateM conn sess st))
+forall conn sess st. WebStateM conn sess st st
+</span><a href="Web.Spock.Internal.Monad.html#getStateImpl"><span class="hs-identifier hs-var">getStateImpl</span></a></span><span>
+</span><span id="line-32"></span><span>  </span><span id="local-6989586621679139605"><span class="annot"><span class="annottext">getSessMgr :: WebStateM
+  conn
+  sess
+  st
+  (SpockSessionManager
+     (SpockConn (WebStateM conn sess st))
+     (SpockSession (WebStateM conn sess st))
+     (SpockState (WebStateM conn sess st)))
+</span><a href="Web.Spock.Internal.Types.html#getSessMgr"><span class="hs-identifier hs-var hs-var hs-var">getSessMgr</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WebStateM conn sess st (SpockSessionManager conn sess st)
+WebStateM
+  conn
+  sess
+  st
+  (SpockSessionManager
+     (SpockConn (WebStateM conn sess st))
+     (SpockSession (WebStateM conn sess st))
+     (SpockState (WebStateM conn sess st)))
+forall conn sess st.
+WebStateM conn sess st (SpockSessionManager conn sess st)
+</span><a href="Web.Spock.Internal.Monad.html#getSessMgrImpl"><span class="hs-identifier hs-var">getSessMgrImpl</span></a></span><span>
+</span><span id="line-33"></span><span>  </span><span id="local-6989586621679139606"><span class="annot"><span class="annottext">getSpockCfg :: WebStateM
+  conn
+  sess
+  st
+  (SpockCfg
+     (SpockConn (WebStateM conn sess st))
+     (SpockSession (WebStateM conn sess st))
+     (SpockState (WebStateM conn sess st)))
+</span><a href="Web.Spock.Internal.Types.html#getSpockCfg"><span class="hs-identifier hs-var hs-var hs-var">getSpockCfg</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WebStateM conn sess st (SpockCfg conn sess st)
+WebStateM
+  conn
+  sess
+  st
+  (SpockCfg
+     (SpockConn (WebStateM conn sess st))
+     (SpockSession (WebStateM conn sess st))
+     (SpockState (WebStateM conn sess st)))
+forall conn sess st. WebStateM conn sess st (SpockCfg conn sess st)
+</span><a href="Web.Spock.Internal.Monad.html#getSpockCfgImpl"><span class="hs-identifier hs-var">getSpockCfgImpl</span></a></span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span id="local-6989586621679139476"><span id="local-6989586621679139477"><span id="local-6989586621679139478"><span class="annot"><a href="Web.Spock.Internal.Monad.html#getSpockCfgImpl"><span class="hs-identifier hs-type">getSpockCfgImpl</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#WebStateM"><span class="hs-identifier hs-type">WebStateM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139476"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139477"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139478"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#SpockCfg"><span class="hs-identifier hs-type">SpockCfg</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139476"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139477"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139478"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-36"></span><span id="getSpockCfgImpl"><span class="annot"><span class="annottext">getSpockCfgImpl :: forall conn sess st. WebStateM conn sess st (SpockCfg conn sess st)
+</span><a href="Web.Spock.Internal.Monad.html#getSpockCfgImpl"><span class="hs-identifier hs-var hs-var">getSpockCfgImpl</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(WebState conn sess st -&gt; SpockCfg conn sess st)
+-&gt; WebStateT conn sess st (ResourceT IO) (SpockCfg conn sess st)
+forall r (m :: * -&gt; *) a. MonadReader r m =&gt; (r -&gt; a) -&gt; m a
+</span><span class="hs-identifier hs-var">asks</span></span><span> </span><span class="annot"><span class="annottext">WebState conn sess st -&gt; SpockCfg conn sess st
+forall conn sess st. WebState conn sess st -&gt; SpockCfg conn sess st
+</span><a href="Web.Spock.Internal.Types.html#web_config"><span class="hs-identifier hs-var">web_config</span></a></span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span id="local-6989586621679139466"><span id="local-6989586621679139467"><span id="local-6989586621679139468"><span id="local-6989586621679139469"><span class="annot"><a href="Web.Spock.Internal.Monad.html#runQueryImpl"><span class="hs-identifier hs-type">runQueryImpl</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679139466"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679139467"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#WebStateM"><span class="hs-identifier hs-type">WebStateM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139466"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139468"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139469"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139467"><span class="hs-identifier hs-type">a</span></a></span></span></span></span></span><span>
+</span><span id="line-39"></span><span id="runQueryImpl"><span class="annot"><span class="annottext">runQueryImpl :: forall conn a sess st. (conn -&gt; IO a) -&gt; WebStateM conn sess st a
+</span><a href="Web.Spock.Internal.Monad.html#runQueryImpl"><span class="hs-identifier hs-var hs-var">runQueryImpl</span></a></span></span><span> </span><span id="local-6989586621679139623"><span class="annot"><span class="annottext">conn -&gt; IO a
+</span><a href="#local-6989586621679139623"><span class="hs-identifier hs-var">query</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-40"></span><span>  </span><span class="hs-keyword">do</span><span>
+</span><span id="line-41"></span><span>    </span><span id="local-6989586621679139624"><span class="annot"><a href="#local-6989586621679139624"><span class="hs-identifier hs-var">pool</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(WebState conn sess st -&gt; Pool conn)
+-&gt; WebStateT conn sess st (ResourceT IO) (Pool conn)
+forall r (m :: * -&gt; *) a. MonadReader r m =&gt; (r -&gt; a) -&gt; m a
+</span><span class="hs-identifier hs-var">asks</span></span><span> </span><span class="annot"><span class="annottext">WebState conn sess st -&gt; Pool conn
+forall conn sess st. WebState conn sess st -&gt; Pool conn
+</span><a href="Web.Spock.Internal.Types.html#web_dbConn"><span class="hs-identifier hs-var">web_dbConn</span></a></span><span>
+</span><span id="line-42"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">liftIO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">withResource</span></span><span> </span><span class="annot"><a href="#local-6989586621679139624"><span class="hs-identifier hs-type">pool</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139623"><span class="hs-identifier hs-type">query</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-43"></span><span>
+</span><span id="line-44"></span><span id="local-6989586621679139470"><span id="local-6989586621679139471"><span id="local-6989586621679139472"><span class="annot"><a href="Web.Spock.Internal.Monad.html#getStateImpl"><span class="hs-identifier hs-type">getStateImpl</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#WebStateM"><span class="hs-identifier hs-type">WebStateM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139470"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139471"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139472"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139472"><span class="hs-identifier hs-type">st</span></a></span></span></span></span><span>
+</span><span id="line-45"></span><span id="getStateImpl"><span class="annot"><span class="annottext">getStateImpl :: forall conn sess st. WebStateM conn sess st st
+</span><a href="Web.Spock.Internal.Monad.html#getStateImpl"><span class="hs-identifier hs-var hs-var">getStateImpl</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(WebState conn sess st -&gt; st)
+-&gt; WebStateT conn sess st (ResourceT IO) st
+forall r (m :: * -&gt; *) a. MonadReader r m =&gt; (r -&gt; a) -&gt; m a
+</span><span class="hs-identifier hs-var">asks</span></span><span> </span><span class="annot"><span class="annottext">WebState conn sess st -&gt; st
+forall conn sess st. WebState conn sess st -&gt; st
+</span><a href="Web.Spock.Internal.Types.html#web_state"><span class="hs-identifier hs-var">web_state</span></a></span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span class="hs-comment">-- | Read the heart of Spock. This is useful if you want to construct your own</span><span>
+</span><span id="line-48"></span><span class="hs-comment">-- monads that work with 'runQuery' and 'getState' using 'runSpockIO'</span><span>
+</span><span id="line-49"></span><span id="local-6989586621679139525"><span id="local-6989586621679139526"><span id="local-6989586621679139527"><span id="local-6989586621679139528"><span class="annot"><a href="Web.Spock.Internal.Monad.html#getSpockHeart"><span class="hs-identifier hs-type">getSpockHeart</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadTrans</span></span><span> </span><span class="annot"><a href="#local-6989586621679139525"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679139525"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#WebStateM"><span class="hs-identifier hs-type">WebStateM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139526"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139527"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139528"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#WebState"><span class="hs-identifier hs-type">WebState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139526"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139527"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139528"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span></span></span></span></span><span>
+</span><span id="line-50"></span><span id="getSpockHeart"><span class="annot"><span class="annottext">getSpockHeart :: forall (t :: (* -&gt; *) -&gt; * -&gt; *) conn sess st.
+MonadTrans t =&gt;
+t (WebStateM conn sess st) (WebState conn sess st)
+</span><a href="Web.Spock.Internal.Monad.html#getSpockHeart"><span class="hs-identifier hs-var hs-var">getSpockHeart</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WebStateM conn sess st (WebState conn sess st)
+-&gt; t (WebStateT conn sess st (ResourceT IO))
+     (WebState conn sess st)
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) conn sess st a.
+MonadTrans t =&gt;
+WebStateM conn sess st a -&gt; t (WebStateM conn sess st) a
+</span><a href="Web.Spock.Internal.Monad.html#webM"><span class="hs-identifier hs-var">webM</span></a></span><span> </span><span class="annot"><span class="annottext">WebStateM conn sess st (WebState conn sess st)
+forall r (m :: * -&gt; *). MonadReader r m =&gt; m r
+</span><span class="hs-identifier hs-var">ask</span></span><span>
+</span><span id="line-51"></span><span>
+</span><span id="line-52"></span><span class="hs-comment">-- | Run an action inside of Spocks core monad. This allows</span><span>
+</span><span id="line-53"></span><span class="hs-comment">-- you to use 'runQuery' and 'getState'</span><span>
+</span><span id="line-54"></span><span id="local-6989586621679139535"><span id="local-6989586621679139536"><span id="local-6989586621679139537"><span id="local-6989586621679139538"><span class="annot"><a href="Web.Spock.Internal.Monad.html#runSpockIO"><span class="hs-identifier hs-type">runSpockIO</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#WebState"><span class="hs-identifier hs-type">WebState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139535"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139536"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139537"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#WebStateM"><span class="hs-identifier hs-type">WebStateM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139535"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139536"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139537"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139538"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679139538"><span class="hs-identifier hs-type">a</span></a></span></span></span></span></span><span>
+</span><span id="line-55"></span><span id="runSpockIO"><span class="annot"><span class="annottext">runSpockIO :: forall conn sess st a.
+WebState conn sess st -&gt; WebStateM conn sess st a -&gt; IO a
+</span><a href="Web.Spock.Internal.Monad.html#runSpockIO"><span class="hs-identifier hs-var hs-var">runSpockIO</span></a></span></span><span> </span><span id="local-6989586621679139642"><span class="annot"><span class="annottext">WebState conn sess st
+</span><a href="#local-6989586621679139642"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#WebStateT"><span class="hs-identifier hs-type">WebStateT</span></a></span><span> </span><span id="local-6989586621679139644"><span class="annot"><span class="annottext">ReaderT (WebState conn sess st) (ResourceT IO) a
+</span><a href="#local-6989586621679139644"><span class="hs-identifier hs-var">action</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-56"></span><span>  </span><span class="annot"><span class="annottext">ResourceT IO a -&gt; IO a
+forall (m :: * -&gt; *) a. MonadUnliftIO m =&gt; ResourceT m a -&gt; m a
+</span><span class="hs-identifier hs-var">runResourceT</span></span><span> </span><span class="annot"><span class="annottext">(ResourceT IO a -&gt; IO a) -&gt; ResourceT IO a -&gt; IO a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-57"></span><span>    </span><span class="annot"><span class="annottext">ReaderT (WebState conn sess st) (ResourceT IO) a
+-&gt; WebState conn sess st -&gt; ResourceT IO a
+forall r (m :: * -&gt; *) a. ReaderT r m a -&gt; r -&gt; m a
+</span><span class="hs-identifier hs-var">runReaderT</span></span><span> </span><span class="annot"><span class="annottext">ReaderT (WebState conn sess st) (ResourceT IO) a
+</span><a href="#local-6989586621679139644"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="annot"><span class="annottext">WebState conn sess st
+</span><a href="#local-6989586621679139642"><span class="hs-identifier hs-var">st</span></a></span><span>
+</span><span id="line-58"></span><span>
+</span><span id="line-59"></span><span id="local-6989586621679139473"><span id="local-6989586621679139474"><span id="local-6989586621679139475"><span class="annot"><a href="Web.Spock.Internal.Monad.html#getSessMgrImpl"><span class="hs-identifier hs-type">getSessMgrImpl</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#WebStateM"><span class="hs-identifier hs-type">WebStateM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139473"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139474"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139475"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#SpockSessionManager"><span class="hs-identifier hs-type">SpockSessionManager</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139473"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139474"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139475"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-60"></span><span id="getSessMgrImpl"><span class="annot"><span class="annottext">getSessMgrImpl :: forall conn sess st.
+WebStateM conn sess st (SpockSessionManager conn sess st)
+</span><a href="Web.Spock.Internal.Monad.html#getSessMgrImpl"><span class="hs-identifier hs-var hs-var">getSessMgrImpl</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(WebState conn sess st -&gt; SpockSessionManager conn sess st)
+-&gt; WebStateT
+     conn sess st (ResourceT IO) (SpockSessionManager conn sess st)
+forall r (m :: * -&gt; *) a. MonadReader r m =&gt; (r -&gt; a) -&gt; m a
+</span><span class="hs-identifier hs-var">asks</span></span><span> </span><span class="annot"><span class="annottext">WebState conn sess st -&gt; SpockSessionManager conn sess st
+forall conn sess st.
+WebState conn sess st -&gt; SpockSessionManager conn sess st
+</span><a href="Web.Spock.Internal.Types.html#web_sessionMgr"><span class="hs-identifier hs-var">web_sessionMgr</span></a></span><span>
+</span><span id="line-61"></span><span>
+</span><span id="line-62"></span><span class="hs-comment">-- | Read the connection pool of Spock. This is useful if you want to construct your own</span><span>
+</span><span id="line-63"></span><span class="hs-comment">-- monads that work with 'runQuery' and 'getState' using 'runSpockIO'</span><span>
+</span><span id="line-64"></span><span id="local-6989586621679139556"><span id="local-6989586621679139557"><span id="local-6989586621679139558"><span id="local-6989586621679139559"><span class="annot"><a href="Web.Spock.Internal.Monad.html#getSpockPool"><span class="hs-identifier hs-type">getSpockPool</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadTrans</span></span><span> </span><span class="annot"><a href="#local-6989586621679139556"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679139556"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#WebStateM"><span class="hs-identifier hs-type">WebStateM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139557"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139558"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139559"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Pool</span></span><span> </span><span class="annot"><a href="#local-6989586621679139557"><span class="hs-identifier hs-type">conn</span></a></span><span class="hs-special">)</span></span></span></span></span><span>
+</span><span id="line-65"></span><span id="getSpockPool"><span class="annot"><span class="annottext">getSpockPool :: forall (t :: (* -&gt; *) -&gt; * -&gt; *) conn sess st.
+MonadTrans t =&gt;
+t (WebStateM conn sess st) (Pool conn)
+</span><a href="Web.Spock.Internal.Monad.html#getSpockPool"><span class="hs-identifier hs-var hs-var">getSpockPool</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WebStateM conn sess st (Pool conn)
+-&gt; t (WebStateT conn sess st (ResourceT IO)) (Pool conn)
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) conn sess st a.
+MonadTrans t =&gt;
+WebStateM conn sess st a -&gt; t (WebStateM conn sess st) a
+</span><a href="Web.Spock.Internal.Monad.html#webM"><span class="hs-identifier hs-var">webM</span></a></span><span> </span><span class="annot"><span class="annottext">(WebStateM conn sess st (Pool conn)
+ -&gt; t (WebStateT conn sess st (ResourceT IO)) (Pool conn))
+-&gt; WebStateM conn sess st (Pool conn)
+-&gt; t (WebStateT conn sess st (ResourceT IO)) (Pool conn)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(WebState conn sess st -&gt; Pool conn)
+-&gt; WebStateM conn sess st (Pool conn)
+forall r (m :: * -&gt; *) a. MonadReader r m =&gt; (r -&gt; a) -&gt; m a
+</span><span class="hs-identifier hs-var">asks</span></span><span> </span><span class="annot"><span class="annottext">WebState conn sess st -&gt; Pool conn
+forall conn sess st. WebState conn sess st -&gt; Pool conn
+</span><a href="Web.Spock.Internal.Types.html#web_dbConn"><span class="hs-identifier hs-var">web_dbConn</span></a></span><span>
+</span><span id="line-66"></span></pre></body></html>

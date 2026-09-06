@@ -1,0 +1,56 @@
+cabal-version: 2.4
+name: Spock-session-cookie
+version: 0.1.0.0
+synopsis: Authenticated encrypted client-cookie sessions for Spock
+description: Stateless JSON sessions using XChaCha20-Poly1305, key rotation and server-checked expiry.
+license: BSD-3-Clause
+license-file: LICENSE
+author: Alexander Thiemann
+maintainer: Alexander Thiemann <mail@athiemann.net>
+homepage: https://www.spock.li
+bug-reports: https://github.com/agrafix/Spock/issues
+category: Web
+build-type: Simple
+tested-with: GHC == 9.14.1
+extra-source-files: README.md, test/make-vector.py, test/browser.cjs
+data-files: test/libsodium-vector.json
+
+library
+  hs-source-dirs: src
+  exposed-modules: Web.Spock.Session.Cookie
+  build-depends:
+    base >= 4.12 && < 5,
+    aeson >= 2.0 && < 2.4,
+    base64-bytestring >= 1.2 && < 1.3,
+    bytestring >= 0.10,
+    crypton >= 1.1.4 && < 1.2,
+    entropy >= 0.4.1.11 && < 0.5,
+    ram >= 0.20.1 && < 0.23,
+    Spock >= 0.18 && < 0.19,
+    text >= 1.2
+  default-language: Haskell2010
+  ghc-options: -Wall
+
+executable spock-cookie-example
+  hs-source-dirs: example
+  main-is: Main.hs
+  build-depends:
+    base, base64-bytestring, bytestring, Spock, Spock-session-cookie, text, warp
+  default-language: Haskell2010
+  ghc-options: -Wall -threaded
+
+test-suite cookie-tests
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test
+  main-is: Spec.hs
+  other-modules: Paths_Spock_session_cookie
+  autogen-modules: Paths_Spock_session_cookie
+  build-depends:
+    base, aeson, async, base64-bytestring, bytestring, cookie, hspec, http-types,
+    Spock, Spock-session-cookie, text, time, transformers, vault, wai, wai-extra
+  default-language: Haskell2010
+  ghc-options: -Wall -threaded
+
+source-repository head
+  type: git
+  location: https://github.com/agrafix/Spock

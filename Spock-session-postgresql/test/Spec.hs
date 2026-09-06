@@ -103,7 +103,7 @@ main = do
               si_modifyVault = modifyIORef' vault,
               si_setRawMultiHeader = \_ _ -> pure (),
               si_vaultKey = pure key }
-      withSessionManager (cfg { sc_store = SessionStoreInstance store }) sessionIf $ \manager -> do
+      withSessionManager (cfg { sc_backend = ServerSessions $ defaultServerSessionCfg $ SessionStoreInstance store }) sessionIf $ \manager -> do
         sm_readSession manager `shouldReturn` 0
         sm_writeSession manager 5
         sm_regenerateSessionId manager

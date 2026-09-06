@@ -76,8 +76,9 @@ application mode = do
             "disabled" -> SessionsDisabled
             _ -> sc_sessionMode $ spc_sessionCfg cfg
           sessions = (spc_sessionCfg cfg)
-            { sc_sessionMode = sessionMode, sc_store = SessionStoreInstance store,
-              sc_sessionTTL = 1, sc_housekeepingInterval = 1 }
+            { sc_sessionMode = sessionMode, sc_sessionTTL = 1,
+              sc_backend = ServerSessions $ (defaultServerSessionCfg $ SessionStoreInstance store)
+                { ssc_housekeepingInterval = 1 } }
       app <- Spock.spockAsApp $ Spock.spock (cfg { spc_sessionCfg = sessions }) $ do
         manager <- lift Spock.getSessMgr
         liftIO $ putMVar close $ sm_closeSessionManager manager

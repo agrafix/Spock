@@ -144,8 +144,8 @@ modeAppWith modeOverride = do
   let mode = maybe (sc_sessionMode $ spc_sessionCfg cfg) id modeOverride
       sessions = (spc_sessionCfg cfg)
         { sc_sessionMode = mode,
-          sc_store = SessionStoreInstance store,
-          sc_hooks = SessionHooks (const $ putMVar ready ()) }
+          sc_backend = ServerSessions $ (defaultServerSessionCfg $ SessionStoreInstance store)
+            { ssc_hooks = SessionHooks (const $ putMVar ready ()) } }
   app <- spockAsApp $ spock (cfg { spc_sessionCfg = sessions, spc_logError = const $ pure () }) $ do
     get "empty" $ text "guest"
     get "read" $ readSession >>= text . T.pack . show

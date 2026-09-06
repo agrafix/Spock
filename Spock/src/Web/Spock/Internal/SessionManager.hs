@@ -11,6 +11,7 @@ module Web.Spock.Internal.SessionManager
     SessionId,
     Session (..),
     SessionManager (..),
+    ServerSessionManager (..),
     SessionIf (..),
   )
 where
@@ -19,13 +20,10 @@ import Control.Concurrent
 import Control.Exception
 import Control.Monad
 import Control.Monad.Trans
-import qualified System.Entropy as Entropy
 import qualified Data.ByteString as BS
-import qualified Data.ByteString.Base64 as B64
 import qualified Data.HashMap.Strict as HM
 import Data.IORef
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
 import Data.Time
 import qualified Data.Traversable as T
 import qualified Data.Vault.Lazy as V
@@ -34,13 +32,8 @@ import Web.Spock.Core
 import Web.Spock.Internal.Cookies
 import Web.Spock.Internal.Types
 import Web.Spock.Internal.Util
-
-data SessionIf m = SessionIf
-  { si_queryVault :: forall a. V.Key a -> m (Maybe a),
-    si_modifyVault :: (V.Vault -> V.Vault) -> m (),
-    si_setRawMultiHeader :: MultiHeader -> BS.ByteString -> m (),
-    si_vaultKey :: IO (V.Key SessionId)
-  }
+import Web.Spock.Internal.SessionCommon
+import Web.Spock.Internal.ClientSession (createClientSessionManager)
 
 withSessionManager ::
   MonadIO m => SessionCfg conn sess st -> SessionIf m -> (SessionManager m conn sess st -> IO a) -> IO a
@@ -49,7 +42,12 @@ withSessionManager sessCfg sif =
 
 createSessionManager ::
   MonadIO m => SessionCfg conn sess st -> SessionIf m -> IO (SessionManager m conn sess st)
-createSessionManager cfg originalIf =
+createSessionManager cfg sif = case sc_backend cfg of
+  ServerSessions server -> createServerSessionManager cfg server sif
+  ClientSessions client -> createClientSessionManager cfg client sif
+
+createServerSessionManager :: MonadIO m => SessionCfg conn sess st -> ServerSessionCfg conn sess st -> SessionIf m -> IO (SessionManager m conn sess st)
+createServerSessionManager cfg server originalIf =
   do
     cookieKey <- V.newKey
     -- Share the pending cookie with the response middleware. The last session
@@ -65,23 +63,23 @@ createSessionManager cfg originalIf =
     housekeepThread <-
       if sc_sessionMode cfg == SessionsDisabled
         then pure Nothing
-        else Just <$> forkIO (forever (housekeepSessions cfg))
+        else Just <$> forkIO (forever (housekeepSessions server))
     return
       SessionManager
-        { sm_getSessionId = enabled $ getSessionIdImpl vaultKey cfg sif,
-          sm_getCsrfToken = enabled $ getCsrfTokenImpl vaultKey cfg sif,
+        { sm_getSessionId = enabled $ getSessionIdImpl vaultKey store cfg sif,
+          sm_getCsrfToken = enabled $ getCsrfTokenImpl vaultKey store cfg sif,
           sm_regenerateSessionId = enabled $ regenerateSessionIdImpl vaultKey store cfg sif,
           sm_destroySession = enabled $ destroySessionImpl vaultKey store cfg sif,
-          sm_readSession = enabled $ readSessionImpl vaultKey cfg sif,
+          sm_readSession = enabled $ readSessionImpl vaultKey store cfg sif,
           sm_writeSession = \value -> enabled $ writeSessionImpl vaultKey store cfg sif value,
           sm_modifySession = \f -> enabled $ modifySessionImpl vaultKey store cfg sif f,
-          sm_clearAllSessions = enabled $ clearAllSessionsImpl store,
-          sm_mapSessions = \f -> enabled $ mapAllSessionsImpl store f,
-          sm_middleware = sessionMiddleware cfg vaultKey cookieKey,
+          sm_serverSessions = if sc_sessionMode cfg == SessionsDisabled then Nothing else
+            Just $ ServerSessionManager (mapAllSessionsImpl store) (clearAllSessionsImpl store),
+          sm_middleware = sessionMiddleware cfg store vaultKey cookieKey,
           sm_closeSessionManager = mapM_ killThread housekeepThread
         }
   where
-    store = sc_store cfg
+    store = ssc_store server
     enabled :: MonadIO n => n a -> n a
     enabled action
       | sc_sessionMode cfg == SessionsDisabled = liftIO $ throwIO SessionUseWhenDisabled
@@ -122,23 +120,25 @@ destroySessionImpl vK store cfg sif = do
 getSessionIdImpl ::
   MonadIO m =>
   V.Key SessionId ->
+  SessionStoreInstance (Session conn sess st) ->
   SessionCfg conn sess st ->
   SessionIf m ->
   m SessionId
-getSessionIdImpl vK cfg sif =
+getSessionIdImpl vK store cfg sif =
   do
-    sess <- readSessionBase vK cfg sif
+    sess <- readSessionBase vK store cfg sif
     return $ sess_id sess
 
 getCsrfTokenImpl ::
   (MonadIO m) =>
   V.Key SessionId ->
+  SessionStoreInstance (Session conn sess st) ->
   SessionCfg conn sess st ->
   SessionIf m ->
   m T.Text
-getCsrfTokenImpl vK cfg sif =
+getCsrfTokenImpl vK store cfg sif =
   do
-    sess <- readSessionBase vK cfg sif
+    sess <- readSessionBase vK store cfg sif
     return $ sess_csrfToken sess
 
 modifySessionBase ::
@@ -177,23 +177,25 @@ modifySessionBase vK (SessionStoreInstance sessionRef) cfg sif modFun =
 readSessionBase ::
   MonadIO m =>
   V.Key SessionId ->
+  SessionStoreInstance (Session conn sess st) ->
   SessionCfg conn sess st ->
   SessionIf m ->
   m (Session conn sess st)
-readSessionBase vK cfg sif =
+readSessionBase vK store cfg sif =
   do
     mValue <- si_queryVault sif vK
-    readOrNewSession cfg vK sif mValue
+    readOrNewSession cfg store vK sif mValue
 
 readSessionImpl ::
   MonadIO m =>
   V.Key SessionId ->
+  SessionStoreInstance (Session conn sess st) ->
   SessionCfg conn sess st ->
   SessionIf m ->
   m sess
-readSessionImpl vK cfg sif =
+readSessionImpl vK store cfg sif =
   do
-    base <- readSessionBase vK cfg sif
+    base <- readSessionBase vK store cfg sif
     return (sess_data base)
 
 writeSessionImpl ::
@@ -232,13 +234,14 @@ makeSessionIdCookie cfg sess = generateCookieHeaderString name value settings
 readOrNewSession ::
   MonadIO m =>
   SessionCfg conn sess st ->
+  SessionStoreInstance (Session conn sess st) ->
   V.Key SessionId ->
   SessionIf m ->
   Maybe SessionId ->
   m (Session conn sess st)
-readOrNewSession cfg vK sif mSid =
+readOrNewSession cfg store vK sif mSid =
   do
-    (sess, write) <- loadOrSpanSession cfg mSid
+    (sess, write) <- loadOrSpanSession cfg store mSid
     when write $
       do
         now <- liftIO getCurrentTime
@@ -249,9 +252,10 @@ readOrNewSession cfg vK sif mSid =
 loadOrSpanSession ::
   MonadIO m =>
   SessionCfg conn sess st ->
+  SessionStoreInstance (Session conn sess st) ->
   Maybe SessionId ->
   m (Session conn sess st, Bool)
-loadOrSpanSession cfg mSid =
+loadOrSpanSession cfg sessionRef mSid =
   do
     mSess <-
       liftIO $
@@ -264,20 +268,18 @@ loadOrSpanSession cfg mSid =
               newSessionImpl cfg sessionRef (sc_emptySession cfg)
           return (newSess, True)
       Just s -> return (s, False)
-  where
-    sessionRef = sc_store cfg
-
 sessionMiddleware ::
   SessionCfg conn sess st ->
+  SessionStoreInstance (Session conn sess st) ->
   V.Key SessionId ->
   V.Key (IORef (Maybe BS.ByteString)) ->
   Wai.Middleware
-sessionMiddleware cfg vK cookieKey app req respond
+sessionMiddleware cfg store vK cookieKey app req respond
   | sc_sessionMode cfg == SessionsDisabled = app req respond
   | otherwise = do
       (sid, pendingCookie) <- case sc_sessionMode cfg of
         SessionsAlways -> do
-          (sess, writeCookie) <- loadOrSpanSession cfg cookieId
+          (sess, writeCookie) <- loadOrSpanSession cfg store cookieId
           now <- getCurrentTime
           pure (Just $ sess_id sess, if writeCookie then Just (makeSessionIdCookie cfg sess now) else Nothing)
         _ -> pure (cookieId, Nothing)
@@ -371,9 +373,9 @@ mapAllSessionsImpl (SessionStoreInstance sessionRef) f =
           newData <- f (sess_data sess)
           return $ sess {sess_data = newData}
 
-housekeepSessions :: SessionCfg conn sess st -> IO ()
+housekeepSessions :: ServerSessionCfg conn sess st -> IO ()
 housekeepSessions cfg =
-  case sc_store cfg of
+  case ssc_store cfg of
     SessionStoreInstance store ->
       do
         now <- getCurrentTime
@@ -386,24 +388,9 @@ housekeepSessions cfg =
         let packSessionHm = HM.fromList . map (\v -> (sess_id v, v))
             oldHm = packSessionHm oldStatus
             newHm = packSessionHm newStatus
-        sh_removed (sc_hooks cfg) (HM.map sess_data $ oldHm `HM.difference` newHm)
-        threadDelay (1000 * 1000 * (round $ sc_housekeepingInterval cfg))
+        sh_removed (ssc_hooks cfg) (HM.map sess_data $ oldHm `HM.difference` newHm)
+        threadDelay (1000 * 1000 * (round $ ssc_housekeepingInterval cfg))
 
 createSession :: SessionCfg conn sess st -> sess -> IO (Session conn sess st)
 createSession sessCfg content =
-  do
-    sid <- randomHash (sc_sessionIdEntropy sessCfg)
-    csrfToken <- randomHash 12
-    now <- getCurrentTime
-    let validUntil = addUTCTime (sc_sessionTTL sessCfg) now
-    return (Session sid csrfToken validUntil content)
-
-randomHash :: Int -> IO T.Text
-randomHash len =
-  do
-    by <- Entropy.getEntropy len
-    return $
-      T.replace "=" "" $
-        T.replace "/" "_" $
-          T.replace "+" "-" $
-            T.decodeUtf8 $ B64.encode by
+  getCurrentTime >>= \now -> createSessionAt sessCfg now content

@@ -1,0 +1,3 @@
+import: cabal.project
+
+packages: Spock-session-cookie/*.cabal

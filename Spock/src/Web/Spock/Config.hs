@@ -15,6 +15,12 @@ module Web.Spock.Config
     -- * Sessions
     defaultSessionCfg,
     SessionCfg (..),
+    SessionBackend (..),
+    ServerSessionCfg (..),
+    defaultServerSessionCfg,
+    ClientSessionCfg (..),
+    ClientSessionCodec (..),
+    defaultClientSessionCfg,
     SessionMode (..),
     SessionError (..),
     CookieSettings (..),
@@ -40,6 +46,7 @@ import qualified Data.Text.Encoding as T
 import qualified Data.Text.IO as T
 import Network.HTTP.Types.Status
 import System.IO
+import Data.Time (getCurrentTime)
 import Web.Spock.Action
 import Web.Spock.Core (SlashPolicy (..))
 import qualified Web.Spock.Internal.SessionVault as SV
@@ -67,10 +74,14 @@ defaultSessionCfg emptySession =
           sc_sessionIdEntropy = 64,
           sc_sessionExpandTTL = True,
           sc_emptySession = emptySession,
-          sc_store = store,
-          sc_housekeepingInterval = 60 * 10,
-          sc_hooks = defaultSessionHooks
+          sc_backend = ServerSessions $ defaultServerSessionCfg store
         }
+
+defaultServerSessionCfg :: SessionStoreInstance (Session conn sess st) -> ServerSessionCfg conn sess st
+defaultServerSessionCfg store = ServerSessionCfg store (60 * 10) defaultSessionHooks
+
+defaultClientSessionCfg :: ClientSessionCodec sess -> ClientSessionCfg sess
+defaultClientSessionCfg codec = ClientSessionCfg codec 4096 getCurrentTime
 
 -- | Spock configuration with reasonable defaults such as a basic error page
 -- and 5MB request body limit. IMPORTANT: CSRF Protection is turned off by

@@ -10,7 +10,7 @@ withResource pool initializePostgresqlSessions -- once before starting workers
 store <- newPostgresqlSessionStore
   (defaultPostgresqlSessionCfg { psc_namespace = "my-app" }) pool
 cfg <- defaultBrowserSpockCfg emptySession database initialState
-let sessions = (spc_sessionCfg cfg) { sc_store = SessionStoreInstance store }
+let sessions = (spc_sessionCfg cfg) { sc_backend = ServerSessions $ defaultServerSessionCfg $ SessionStoreInstance store }
 runSpock 8080 $ spock (cfg { spc_sessionCfg = sessions }) routes
 ```
 

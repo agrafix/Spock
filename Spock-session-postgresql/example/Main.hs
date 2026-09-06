@@ -17,7 +17,7 @@ main = bracket createPool destroyAllResources $ \pool -> do
   store <- newPostgresqlSessionStore defaultPostgresqlSessionCfg pool
   cfg <- defaultBrowserSpockCfg (0 :: Int) PCNoDatabase ()
   let sessions = (spc_sessionCfg cfg)
-        { sc_store = SessionStoreInstance store,
+        { sc_backend = ServerSessions $ defaultServerSessionCfg $ SessionStoreInstance store,
           -- This example listens on local HTTP. Use True with HTTPS in production.
           sc_cookieSettings = (sc_cookieSettings $ spc_sessionCfg cfg) { cs_secure = False } }
   runSpock 8080 $ spock (cfg { spc_sessionCfg = sessions }) $ do
