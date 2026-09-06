@@ -1,0 +1,956 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE CPP #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DataKinds #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE ExistentialQuantification #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE GADTs #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE Rank2Types #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE TypeFamilies #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE TypeOperators #-}</span><span>
+</span><span id="line-9"></span><span>
+</span><span id="line-10"></span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html"><span class="hs-identifier">Web.Routing.SafeRouting</span></a></span><span> </span><span class="hs-keyword">where</span><span class="hs-cpp">
+
+#if MIN_VERSION_base(4,11,0)
+</span><span class="hs-cpp">#elif MIN_VERSION_base(4,9,0)
+</span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Data.Semigroup</span><span class="hs-cpp">
+#elif MIN_VERSION_base(4,8,0)
+</span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Data.Monoid</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-operator">&lt;&gt;</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-cpp">
+#else
+</span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Control.Applicative</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-operator">&lt;$&gt;</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Data.Monoid</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">Monoid</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="hs-operator">&lt;&gt;</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-cpp">
+#endif
+</span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.DeepSeq</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">NFData</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.HVect</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">length</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">null</span></span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.HVect</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">HV</span></span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.HashMap.Strict</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">HM</span></span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Maybe</span></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Data.PolyMap.html"><span class="hs-identifier">Data.PolyMap</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">PM</span></span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Typeable</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Typeable</span></span><span class="hs-special">)</span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Web.HttpApiData</span></span><span>
+</span><span id="line-30"></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">data</span><span> </span><span id="RouteHandle"><span class="annot"><a href="Web.Routing.SafeRouting.html#RouteHandle"><span class="hs-identifier hs-var">RouteHandle</span></a></span></span><span> </span><span id="local-6989586621679079328"><span class="annot"><a href="#local-6989586621679079328"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span id="local-6989586621679079329"><span class="annot"><a href="#local-6989586621679079329"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-32"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679079516"><span class="annot"><a href="#local-6989586621679079516"><span class="hs-keyword hs-type">as</span></a></span></span><span class="hs-operator">.</span><span> </span><span id="RouteHandle"><span class="annot"><a href="Web.Routing.SafeRouting.html#RouteHandle"><span class="hs-identifier hs-var">RouteHandle</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathInternal"><span class="hs-identifier hs-type">PathInternal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079516"><span class="hs-keyword hs-type">as</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HVectElim</span></span><span> </span><span class="annot"><a href="#local-6989586621679079516"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079328"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079329"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">newtype</span><span> </span><span id="HVectElim&#x27;"><span class="annot"><a href="Web.Routing.SafeRouting.html#HVectElim%27"><span class="hs-identifier hs-var">HVectElim'</span></a></span></span><span> </span><span id="local-6989586621679079303"><span class="annot"><a href="#local-6989586621679079303"><span class="hs-identifier hs-type">x</span></a></span></span><span> </span><span id="local-6989586621679079304"><span class="annot"><a href="#local-6989586621679079304"><span class="hs-identifier hs-type">ts</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="HVectElim&#x27;"><span class="annot"><a href="Web.Routing.SafeRouting.html#HVectElim%27"><span class="hs-identifier hs-var">HVectElim'</span></a></span></span><span> </span><span class="hs-special">{</span><span id="flipHVectElim"><span class="annot"><span class="annottext">forall x (ts :: [*]). HVectElim' x ts -&gt; HVectElim ts x
+</span><a href="Web.Routing.SafeRouting.html#flipHVectElim"><span class="hs-identifier hs-var hs-var">flipHVectElim</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HVectElim</span></span><span> </span><span class="annot"><a href="#local-6989586621679079304"><span class="hs-identifier hs-type">ts</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079303"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span class="hs-keyword">type</span><span> </span><span id="Registry"><span class="annot"><a href="Web.Routing.SafeRouting.html#Registry"><span class="hs-identifier hs-var">Registry</span></a></span></span><span> </span><span id="local-6989586621679079520"><span class="annot"><a href="#local-6989586621679079520"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span id="local-6989586621679079521"><span class="annot"><a href="#local-6989586621679079521"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-type">PathMap</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079520"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079521"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-special">[</span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079520"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079521"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span id="local-6989586621679079309"><span id="local-6989586621679079310"><span class="annot"><a href="Web.Routing.SafeRouting.html#emptyRegistry"><span class="hs-identifier hs-type">emptyRegistry</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#Registry"><span class="hs-identifier hs-type">Registry</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079309"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079310"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-39"></span><span id="emptyRegistry"><span class="annot"><span class="annottext">emptyRegistry :: forall (m :: * -&gt; *) a. Registry m a
+</span><a href="Web.Routing.SafeRouting.html#emptyRegistry"><span class="hs-identifier hs-var hs-var">emptyRegistry</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PathMap (m a)
+forall x. PathMap x
+</span><a href="Web.Routing.SafeRouting.html#emptyPathMap"><span class="hs-identifier hs-var">emptyPathMap</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span id="local-6989586621679079317"><span id="local-6989586621679079319"><span id="local-6989586621679079320"><span class="annot"><a href="Web.Routing.SafeRouting.html#defRoute"><span class="hs-identifier hs-type">defRoute</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathInternal"><span class="hs-identifier hs-type">PathInternal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079317"><span class="hs-identifier hs-type">xs</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#HVectElim%27"><span class="hs-identifier hs-type">HVectElim'</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079319"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079320"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679079317"><span class="hs-identifier hs-type">xs</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#Registry"><span class="hs-identifier hs-type">Registry</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079319"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079320"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#Registry"><span class="hs-identifier hs-type">Registry</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079319"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079320"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-42"></span><span id="defRoute"><span class="annot"><span class="annottext">defRoute :: forall (xs :: [*]) (m :: * -&gt; *) a.
+PathInternal xs
+-&gt; HVectElim' (m a) xs -&gt; Registry m a -&gt; Registry m a
+</span><a href="Web.Routing.SafeRouting.html#defRoute"><span class="hs-identifier hs-var hs-var">defRoute</span></a></span></span><span> </span><span id="local-6989586621679079525"><span class="annot"><span class="annottext">PathInternal xs
+</span><a href="#local-6989586621679079525"><span class="hs-identifier hs-var">path</span></a></span></span><span> </span><span id="local-6989586621679079526"><span class="annot"><span class="annottext">HVectElim' (m a) xs
+</span><a href="#local-6989586621679079526"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679079527"><span class="annot"><span class="annottext">PathMap (m a)
+</span><a href="#local-6989586621679079527"><span class="hs-identifier hs-var">m</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679079528"><span class="annot"><span class="annottext">[[Text] -&gt; m a]
+</span><a href="#local-6989586621679079528"><span class="hs-identifier hs-var">call</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-43"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="annottext">RouteHandle m a -&gt; PathMap (m a) -&gt; PathMap (m a)
+forall (m :: * -&gt; *) a.
+RouteHandle m a -&gt; PathMap (m a) -&gt; PathMap (m a)
+</span><a href="Web.Routing.SafeRouting.html#insertPathMap"><span class="hs-identifier hs-var">insertPathMap</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PathInternal xs -&gt; HVectElim xs (m a) -&gt; RouteHandle m a
+forall (m :: * -&gt; *) a (as :: [*]).
+PathInternal as -&gt; HVectElim as (m a) -&gt; RouteHandle m a
+</span><a href="Web.Routing.SafeRouting.html#RouteHandle"><span class="hs-identifier hs-var">RouteHandle</span></a></span><span> </span><span class="annot"><span class="annottext">PathInternal xs
+</span><a href="#local-6989586621679079525"><span class="hs-identifier hs-var">path</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HVectElim' (m a) xs -&gt; HVectElim xs (m a)
+forall x (ts :: [*]). HVectElim' x ts -&gt; HVectElim ts x
+</span><a href="Web.Routing.SafeRouting.html#flipHVectElim"><span class="hs-identifier hs-var">flipHVectElim</span></a></span><span> </span><span class="annot"><span class="annottext">HVectElim' (m a) xs
+</span><a href="#local-6989586621679079526"><span class="hs-identifier hs-var">action</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">PathMap (m a)
+</span><a href="#local-6989586621679079527"><span class="hs-identifier hs-var">m</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-44"></span><span>    </span><span class="annot"><span class="annottext">[[Text] -&gt; m a]
+</span><a href="#local-6989586621679079528"><span class="hs-identifier hs-var">call</span></a></span><span>
+</span><span id="line-45"></span><span>  </span><span class="hs-special">)</span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span id="local-6989586621679079330"><span id="local-6989586621679079331"><span class="annot"><a href="Web.Routing.SafeRouting.html#fallbackRoute"><span class="hs-identifier hs-type">fallbackRoute</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079330"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079331"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#Registry"><span class="hs-identifier hs-type">Registry</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079330"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079331"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#Registry"><span class="hs-identifier hs-type">Registry</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079330"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079331"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-48"></span><span id="fallbackRoute"><span class="annot"><span class="annottext">fallbackRoute :: forall (m :: * -&gt; *) a.
+([Text] -&gt; m a) -&gt; Registry m a -&gt; Registry m a
+</span><a href="Web.Routing.SafeRouting.html#fallbackRoute"><span class="hs-identifier hs-var hs-var">fallbackRoute</span></a></span></span><span> </span><span id="local-6989586621679079531"><span class="annot"><span class="annottext">[Text] -&gt; m a
+</span><a href="#local-6989586621679079531"><span class="hs-identifier hs-var">routeDef</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679079532"><span class="annot"><span class="annottext">PathMap (m a)
+</span><a href="#local-6989586621679079532"><span class="hs-identifier hs-var">m</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679079533"><span class="annot"><span class="annottext">[[Text] -&gt; m a]
+</span><a href="#local-6989586621679079533"><span class="hs-identifier hs-var">call</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PathMap (m a)
+</span><a href="#local-6989586621679079532"><span class="hs-identifier hs-var">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[[Text] -&gt; m a]
+</span><a href="#local-6989586621679079533"><span class="hs-identifier hs-var">call</span></a></span><span> </span><span class="annot"><span class="annottext">[[Text] -&gt; m a] -&gt; [[Text] -&gt; m a] -&gt; [[Text] -&gt; m a]
+forall a. [a] -&gt; [a] -&gt; [a]
+</span><span class="hs-operator hs-var">++</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">[Text] -&gt; m a
+</span><a href="#local-6989586621679079531"><span class="hs-identifier hs-var">routeDef</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-49"></span><span>
+</span><span id="line-50"></span><span id="local-6989586621679079335"><span id="local-6989586621679079336"><span class="annot"><a href="Web.Routing.SafeRouting.html#matchRoute"><span class="hs-identifier hs-type">matchRoute</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#Registry"><span class="hs-identifier hs-type">Registry</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079335"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079336"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679079335"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079336"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span></span></span><span>
+</span><span id="line-51"></span><span id="matchRoute"><span class="annot"><span class="annottext">matchRoute :: forall (m :: * -&gt; *) a. Registry m a -&gt; [Text] -&gt; [m a]
+</span><a href="Web.Routing.SafeRouting.html#matchRoute"><span class="hs-identifier hs-var hs-var">matchRoute</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679079537"><span class="annot"><span class="annottext">PathMap (m a)
+</span><a href="#local-6989586621679079537"><span class="hs-identifier hs-var">m</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679079538"><span class="annot"><span class="annottext">[[Text] -&gt; m a]
+</span><a href="#local-6989586621679079538"><span class="hs-identifier hs-var">cAll</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679079539"><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679079539"><span class="hs-identifier hs-var">pathPieces</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-52"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679079540"><span class="annot"><span class="annottext">matches :: [m a]
+</span><a href="#local-6989586621679079540"><span class="hs-identifier hs-var hs-var">matches</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PathMap (m a) -&gt; [Text] -&gt; [m a]
+forall x. PathMap x -&gt; [Text] -&gt; [x]
+</span><a href="Web.Routing.SafeRouting.html#match"><span class="hs-identifier hs-var">match</span></a></span><span> </span><span class="annot"><span class="annottext">PathMap (m a)
+</span><a href="#local-6989586621679079537"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679079539"><span class="hs-identifier hs-var">pathPieces</span></a></span><span>
+</span><span id="line-53"></span><span>      </span><span id="local-6989586621679079542"><span class="annot"><span class="annottext">matches' :: [m a]
+</span><a href="#local-6989586621679079542"><span class="hs-identifier hs-var hs-var">matches'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-54"></span><span>        </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">[m a] -&gt; Bool
+forall a. [a] -&gt; Bool
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Bool
+</span><span class="hs-identifier hs-var">null</span></span><span> </span><span class="annot"><span class="annottext">[m a]
+</span><a href="#local-6989586621679079540"><span class="hs-identifier hs-var">matches</span></a></span><span>
+</span><span id="line-55"></span><span>          </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">[m a]
+</span><a href="#local-6989586621679079540"><span class="hs-identifier hs-var">matches</span></a></span><span> </span><span class="annot"><span class="annottext">[m a] -&gt; [m a] -&gt; [m a]
+forall a. [a] -&gt; [a] -&gt; [a]
+</span><span class="hs-operator hs-var">++</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(([Text] -&gt; m a) -&gt; m a) -&gt; [[Text] -&gt; m a] -&gt; [m a]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">map</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679079544"><span class="annot"><span class="annottext">[Text] -&gt; m a
+</span><a href="#local-6989586621679079544"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; m a
+</span><a href="#local-6989586621679079544"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679079539"><span class="hs-identifier hs-var">pathPieces</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[[Text] -&gt; m a]
+</span><a href="#local-6989586621679079538"><span class="hs-identifier hs-var">cAll</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-56"></span><span>          </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">[m a]
+</span><a href="#local-6989586621679079540"><span class="hs-identifier hs-var">matches</span></a></span><span>
+</span><span id="line-57"></span><span>   </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">[m a]
+</span><a href="#local-6989586621679079542"><span class="hs-identifier hs-var">matches'</span></a></span><span>
+</span><span id="line-58"></span><span>
+</span><span id="line-59"></span><span class="hs-keyword">data</span><span> </span><span id="PathInternal"><span class="annot"><a href="Web.Routing.SafeRouting.html#PathInternal"><span class="hs-identifier hs-var">PathInternal</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679079545"><span class="annot"><a href="#local-6989586621679079545"><span class="hs-keyword hs-type">as</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-operator">*</span></span><span class="hs-special">]</span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-60"></span><span>  </span><span id="PI_Empty"><span class="annot"><a href="Web.Routing.SafeRouting.html#PI_Empty"><span class="hs-identifier hs-var">PI_Empty</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathInternal"><span class="hs-identifier hs-type">PathInternal</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-comment">-- the empty path</span><span>
+</span><span id="line-61"></span><span>  </span><span id="local-6989586621679079499"><span id="PI_StaticCons"><span class="annot"><a href="Web.Routing.SafeRouting.html#PI_StaticCons"><span class="hs-identifier hs-var">PI_StaticCons</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathInternal"><span class="hs-identifier hs-type">PathInternal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079499"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathInternal"><span class="hs-identifier hs-type">PathInternal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079499"><span class="hs-keyword hs-type">as</span></a></span></span><span> </span><span class="hs-comment">-- append a static path piece to path</span><span>
+</span><span id="line-62"></span><span>  </span><span id="local-6989586621679079548"><span id="local-6989586621679079549"><span id="PI_VarCons"><span class="annot"><a href="Web.Routing.SafeRouting.html#PI_VarCons"><span class="hs-identifier hs-var">PI_VarCons</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">FromHttpApiData</span></span><span> </span><span class="annot"><a href="#local-6989586621679079548"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Typeable</span></span><span> </span><span class="annot"><a href="#local-6989586621679079548"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathInternal"><span class="hs-identifier hs-type">PathInternal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079549"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathInternal"><span class="hs-identifier hs-type">PathInternal</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079548"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-glyph">:</span><span> </span><span class="annot"><a href="#local-6989586621679079549"><span class="hs-keyword hs-type">as</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-comment">-- append a param to path</span><span>
+</span><span id="line-63"></span><span>  </span><span id="local-6989586621679079551"><span id="PI_Wildcard"><span class="annot"><a href="Web.Routing.SafeRouting.html#PI_Wildcard"><span class="hs-identifier hs-var">PI_Wildcard</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathInternal"><span class="hs-identifier hs-type">PathInternal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079551"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathInternal"><span class="hs-identifier hs-type">PathInternal</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="hs-special">'</span><span class="hs-glyph">:</span><span> </span><span class="annot"><a href="#local-6989586621679079551"><span class="hs-keyword hs-type">as</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-comment">-- append the rest of the route</span><span>
+</span><span id="line-64"></span><span>
+</span><span id="line-65"></span><span class="hs-keyword">data</span><span> </span><span id="PathMap"><span class="annot"><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-var">PathMap</span></a></span></span><span> </span><span id="local-6989586621679079344"><span class="annot"><a href="#local-6989586621679079344"><span class="hs-identifier hs-type">x</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="PathMap"><span class="annot"><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-var">PathMap</span></a></span></span><span>
+</span><span id="line-66"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="pm_subComponents"><span class="annot"><span class="annottext">forall x. PathMap x -&gt; [[Text] -&gt; x]
+</span><a href="Web.Routing.SafeRouting.html#pm_subComponents"><span class="hs-identifier hs-var hs-var">pm_subComponents</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079344"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">]</span><span class="hs-special">,</span><span>
+</span><span id="line-67"></span><span>    </span><span id="pm_here"><span class="annot"><span class="annottext">forall x. PathMap x -&gt; [x]
+</span><a href="Web.Routing.SafeRouting.html#pm_here"><span class="hs-identifier hs-var hs-var">pm_here</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679079344"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">]</span><span class="hs-special">,</span><span>
+</span><span id="line-68"></span><span>    </span><span id="pm_staticMap"><span class="annot"><span class="annottext">forall x. PathMap x -&gt; HashMap Text (PathMap x)
+</span><a href="Web.Routing.SafeRouting.html#pm_staticMap"><span class="hs-identifier hs-var hs-var">pm_staticMap</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HM.HashMap</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-type">PathMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079344"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-69"></span><span>    </span><span id="pm_polyMap"><span class="annot"><span class="annottext">forall x. PathMap x -&gt; PolyMap FromHttpApiData PathMap x
+</span><a href="Web.Routing.SafeRouting.html#pm_polyMap"><span class="hs-identifier hs-var hs-var">pm_polyMap</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.PolyMap.html#PolyMap"><span class="hs-identifier hs-type">PM.PolyMap</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">FromHttpApiData</span></span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-type">PathMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079344"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-70"></span><span>    </span><span id="pm_wildcards"><span class="annot"><span class="annottext">forall x. PathMap x -&gt; [Text -&gt; x]
+</span><a href="Web.Routing.SafeRouting.html#pm_wildcards"><span class="hs-identifier hs-var hs-var">pm_wildcards</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079344"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-71"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-72"></span><span>
+</span><span id="line-73"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679079561"><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-type">PathMap</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-74"></span><span>  </span><span id="local-6989586621679079577"><span class="annot"><span class="annottext">fmap :: forall a b. (a -&gt; b) -&gt; PathMap a -&gt; PathMap b
+</span><span class="hs-identifier hs-var hs-var hs-var">fmap</span></span></span><span> </span><span id="local-6989586621679079578"><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679079578"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-type">PathMap</span></a></span><span> </span><span id="local-6989586621679079579"><span class="annot"><span class="annottext">[[Text] -&gt; a]
+</span><a href="#local-6989586621679079579"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span id="local-6989586621679079580"><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621679079580"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span id="local-6989586621679079581"><span class="annot"><span class="annottext">HashMap Text (PathMap a)
+</span><a href="#local-6989586621679079581"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679079582"><span class="annot"><span class="annottext">PolyMap FromHttpApiData PathMap a
+</span><a href="#local-6989586621679079582"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span id="local-6989586621679079583"><span class="annot"><span class="annottext">[Text -&gt; a]
+</span><a href="#local-6989586621679079583"><span class="hs-identifier hs-var">w</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-75"></span><span>    </span><span class="annot"><span class="annottext">[[Text] -&gt; b]
+-&gt; [b]
+-&gt; HashMap Text (PathMap b)
+-&gt; PolyMap FromHttpApiData PathMap b
+-&gt; [Text -&gt; b]
+-&gt; PathMap b
+forall x.
+[[Text] -&gt; x]
+-&gt; [x]
+-&gt; HashMap Text (PathMap x)
+-&gt; PolyMap FromHttpApiData PathMap x
+-&gt; [Text -&gt; x]
+-&gt; PathMap x
+</span><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-var">PathMap</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; ([Text] -&gt; a) -&gt; [Text] -&gt; b
+forall a b. (a -&gt; b) -&gt; ([Text] -&gt; a) -&gt; [Text] -&gt; b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679079578"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(([Text] -&gt; a) -&gt; [Text] -&gt; b) -&gt; [[Text] -&gt; a] -&gt; [[Text] -&gt; b]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">[[Text] -&gt; a]
+</span><a href="#local-6989586621679079579"><span class="hs-identifier hs-var">c</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679079578"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; [a] -&gt; [b]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621679079580"><span class="hs-identifier hs-var">h</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; PathMap a -&gt; PathMap b
+forall a b. (a -&gt; b) -&gt; PathMap a -&gt; PathMap b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679079578"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(PathMap a -&gt; PathMap b)
+-&gt; HashMap Text (PathMap a) -&gt; HashMap Text (PathMap b)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">HashMap Text (PathMap a)
+</span><a href="#local-6989586621679079581"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679079578"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(a -&gt; b)
+-&gt; PolyMap FromHttpApiData PathMap a
+-&gt; PolyMap FromHttpApiData PathMap b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">PolyMap FromHttpApiData PathMap a
+</span><a href="#local-6989586621679079582"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; (Text -&gt; a) -&gt; Text -&gt; b
+forall a b. (a -&gt; b) -&gt; (Text -&gt; a) -&gt; Text -&gt; b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679079578"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">((Text -&gt; a) -&gt; Text -&gt; b) -&gt; [Text -&gt; a] -&gt; [Text -&gt; b]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">[Text -&gt; a]
+</span><a href="#local-6989586621679079583"><span class="hs-identifier hs-var">w</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-76"></span><span>
+</span><span id="line-77"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679079370"><span class="annot"><span class="hs-identifier hs-type">NFData</span></span><span> </span><span class="annot"><a href="#local-6989586621679079370"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NFData</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-type">PathMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079370"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-78"></span><span>  </span><span id="local-6989586621679079603"><span class="annot"><span class="annottext">rnf :: PathMap x -&gt; ()
+</span><a href="#local-6989586621679079603"><span class="hs-identifier hs-var hs-var hs-var">rnf</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-type">PathMap</span></a></span><span> </span><span id="local-6989586621679079605"><span class="annot"><span class="annottext">[[Text] -&gt; x]
+</span><a href="#local-6989586621679079605"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span id="local-6989586621679079606"><span class="annot"><span class="annottext">[x]
+</span><a href="#local-6989586621679079606"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span id="local-6989586621679079607"><span class="annot"><span class="annottext">HashMap Text (PathMap x)
+</span><a href="#local-6989586621679079607"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679079608"><span class="annot"><span class="annottext">PolyMap FromHttpApiData PathMap x
+</span><a href="#local-6989586621679079608"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span id="local-6989586621679079609"><span class="annot"><span class="annottext">[Text -&gt; x]
+</span><a href="#local-6989586621679079609"><span class="hs-identifier hs-var">w</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-79"></span><span>    </span><span class="annot"><span class="annottext">[[Text] -&gt; x] -&gt; ()
+forall a. NFData a =&gt; a -&gt; ()
+</span><span class="hs-identifier hs-var">rnf</span></span><span> </span><span class="annot"><span class="annottext">[[Text] -&gt; x]
+</span><a href="#local-6989586621679079605"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="annottext">() -&gt; () -&gt; ()
+forall a b. a -&gt; b -&gt; b
+</span><span class="hs-operator hs-var">`seq`</span></span><span> </span><span class="annot"><span class="annottext">[x] -&gt; ()
+forall a. NFData a =&gt; a -&gt; ()
+</span><span class="hs-identifier hs-var">rnf</span></span><span> </span><span class="annot"><span class="annottext">[x]
+</span><a href="#local-6989586621679079606"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="annot"><span class="annottext">() -&gt; () -&gt; ()
+forall a b. a -&gt; b -&gt; b
+</span><span class="hs-operator hs-var">`seq`</span></span><span> </span><span class="annot"><span class="annottext">HashMap Text (PathMap x) -&gt; ()
+forall a. NFData a =&gt; a -&gt; ()
+</span><span class="hs-identifier hs-var">rnf</span></span><span> </span><span class="annot"><span class="annottext">HashMap Text (PathMap x)
+</span><a href="#local-6989586621679079607"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">() -&gt; () -&gt; ()
+forall a b. a -&gt; b -&gt; b
+</span><span class="hs-operator hs-var">`seq`</span></span><span> </span><span class="annot"><span class="annottext">(forall p. FromHttpApiData p =&gt; PathMap (p -&gt; x) -&gt; ())
+-&gt; PolyMap FromHttpApiData PathMap x -&gt; ()
+forall (c :: * -&gt; Constraint) (f :: * -&gt; *) a.
+(forall p. c p =&gt; f (p -&gt; a) -&gt; ()) -&gt; PolyMap c f a -&gt; ()
+</span><a href="Data.PolyMap.html#rnfHelper"><span class="hs-identifier hs-var">PM.rnfHelper</span></a></span><span> </span><span class="annot"><span class="annottext">PathMap (p -&gt; x) -&gt; ()
+forall a. NFData a =&gt; a -&gt; ()
+forall p. FromHttpApiData p =&gt; PathMap (p -&gt; x) -&gt; ()
+</span><span class="hs-identifier hs-var">rnf</span></span><span> </span><span class="annot"><span class="annottext">PolyMap FromHttpApiData PathMap x
+</span><a href="#local-6989586621679079608"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">() -&gt; () -&gt; ()
+forall a b. a -&gt; b -&gt; b
+</span><span class="hs-operator hs-var">`seq`</span></span><span> </span><span class="annot"><span class="annottext">[Text -&gt; x] -&gt; ()
+forall a. NFData a =&gt; a -&gt; ()
+</span><span class="hs-identifier hs-var">rnf</span></span><span> </span><span class="annot"><span class="annottext">[Text -&gt; x]
+</span><a href="#local-6989586621679079609"><span class="hs-identifier hs-var">w</span></a></span><span>
+</span><span id="line-80"></span><span>
+</span><span id="line-81"></span><span id="local-6989586621679079315"><span class="annot"><a href="Web.Routing.SafeRouting.html#emptyPathMap"><span class="hs-identifier hs-type">emptyPathMap</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-type">PathMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079315"><span class="hs-identifier hs-type">x</span></a></span></span><span>
+</span><span id="line-82"></span><span id="emptyPathMap"><span class="annot"><span class="annottext">emptyPathMap :: forall x. PathMap x
+</span><a href="Web.Routing.SafeRouting.html#emptyPathMap"><span class="hs-identifier hs-var hs-var">emptyPathMap</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[[Text] -&gt; x]
+-&gt; [x]
+-&gt; HashMap Text (PathMap x)
+-&gt; PolyMap FromHttpApiData PathMap x
+-&gt; [Text -&gt; x]
+-&gt; PathMap x
+forall x.
+[[Text] -&gt; x]
+-&gt; [x]
+-&gt; HashMap Text (PathMap x)
+-&gt; PolyMap FromHttpApiData PathMap x
+-&gt; [Text -&gt; x]
+-&gt; PathMap x
+</span><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-var">PathMap</span></a></span><span> </span><span class="annot"><span class="annottext">[[Text] -&gt; x]
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span> </span><span class="annot"><span class="annottext">[x]
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span> </span><span class="annot"><span class="annottext">HashMap Text (PathMap x)
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span> </span><span class="annot"><span class="annottext">PolyMap FromHttpApiData PathMap x
+forall (c :: * -&gt; Constraint) (f :: * -&gt; *) a. PolyMap c f a
+</span><a href="Data.PolyMap.html#empty"><span class="hs-identifier hs-var">PM.empty</span></a></span><span> </span><span class="annot"><span class="annottext">[Text -&gt; x]
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span>
+</span><span id="line-83"></span><span>
+</span><span id="line-84"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679079396"><span id="local-6989586621679079625"><span id="local-6989586621679079629"><span class="annot"><span class="hs-identifier hs-type">Semigroup</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-type">PathMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079396"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-85"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-type">PathMap</span></a></span><span> </span><span id="local-6989586621679079641"><span class="annot"><span class="annottext">[[Text] -&gt; x]
+</span><a href="#local-6989586621679079641"><span class="hs-identifier hs-var">c1</span></a></span></span><span> </span><span id="local-6989586621679079642"><span class="annot"><span class="annottext">[x]
+</span><a href="#local-6989586621679079642"><span class="hs-identifier hs-var">h1</span></a></span></span><span> </span><span id="local-6989586621679079643"><span class="annot"><span class="annottext">HashMap Text (PathMap x)
+</span><a href="#local-6989586621679079643"><span class="hs-identifier hs-var">s1</span></a></span></span><span> </span><span id="local-6989586621679079644"><span class="annot"><span class="annottext">PolyMap FromHttpApiData PathMap x
+</span><a href="#local-6989586621679079644"><span class="hs-identifier hs-var">p1</span></a></span></span><span> </span><span id="local-6989586621679079645"><span class="annot"><span class="annottext">[Text -&gt; x]
+</span><a href="#local-6989586621679079645"><span class="hs-identifier hs-var">w1</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679079646"><span class="annot"><span class="annottext">&lt;&gt; :: PathMap x -&gt; PathMap x -&gt; PathMap x
+</span><span class="hs-operator hs-var hs-var hs-var">&lt;&gt;</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-type">PathMap</span></a></span><span> </span><span id="local-6989586621679079647"><span class="annot"><span class="annottext">[[Text] -&gt; x]
+</span><a href="#local-6989586621679079647"><span class="hs-identifier hs-var">c2</span></a></span></span><span> </span><span id="local-6989586621679079648"><span class="annot"><span class="annottext">[x]
+</span><a href="#local-6989586621679079648"><span class="hs-identifier hs-var">h2</span></a></span></span><span> </span><span id="local-6989586621679079649"><span class="annot"><span class="annottext">HashMap Text (PathMap x)
+</span><a href="#local-6989586621679079649"><span class="hs-identifier hs-var">s2</span></a></span></span><span> </span><span id="local-6989586621679079650"><span class="annot"><span class="annottext">PolyMap FromHttpApiData PathMap x
+</span><a href="#local-6989586621679079650"><span class="hs-identifier hs-var">p2</span></a></span></span><span> </span><span id="local-6989586621679079651"><span class="annot"><span class="annottext">[Text -&gt; x]
+</span><a href="#local-6989586621679079651"><span class="hs-identifier hs-var">w2</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-86"></span><span>    </span><span class="annot"><span class="annottext">[[Text] -&gt; x]
+-&gt; [x]
+-&gt; HashMap Text (PathMap x)
+-&gt; PolyMap FromHttpApiData PathMap x
+-&gt; [Text -&gt; x]
+-&gt; PathMap x
+forall x.
+[[Text] -&gt; x]
+-&gt; [x]
+-&gt; HashMap Text (PathMap x)
+-&gt; PolyMap FromHttpApiData PathMap x
+-&gt; [Text -&gt; x]
+-&gt; PathMap x
+</span><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-var">PathMap</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[[Text] -&gt; x]
+</span><a href="#local-6989586621679079641"><span class="hs-identifier hs-var">c1</span></a></span><span> </span><span class="annot"><span class="annottext">[[Text] -&gt; x] -&gt; [[Text] -&gt; x] -&gt; [[Text] -&gt; x]
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">[[Text] -&gt; x]
+</span><a href="#local-6989586621679079647"><span class="hs-identifier hs-var">c2</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[x]
+</span><a href="#local-6989586621679079642"><span class="hs-identifier hs-var">h1</span></a></span><span> </span><span class="annot"><span class="annottext">[x] -&gt; [x] -&gt; [x]
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">[x]
+</span><a href="#local-6989586621679079648"><span class="hs-identifier hs-var">h2</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(PathMap x -&gt; PathMap x -&gt; PathMap x)
+-&gt; HashMap Text (PathMap x)
+-&gt; HashMap Text (PathMap x)
+-&gt; HashMap Text (PathMap x)
+forall k v.
+Eq k =&gt;
+(v -&gt; v -&gt; v) -&gt; HashMap k v -&gt; HashMap k v -&gt; HashMap k v
+</span><span class="hs-identifier hs-var">HM.unionWith</span></span><span> </span><span class="annot"><span class="annottext">PathMap x -&gt; PathMap x -&gt; PathMap x
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">(&lt;&gt;)</span></span><span> </span><span class="annot"><span class="annottext">HashMap Text (PathMap x)
+</span><a href="#local-6989586621679079643"><span class="hs-identifier hs-var">s1</span></a></span><span> </span><span class="annot"><span class="annottext">HashMap Text (PathMap x)
+</span><a href="#local-6989586621679079649"><span class="hs-identifier hs-var">s2</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(forall p.
+ FromHttpApiData p =&gt;
+ PathMap (p -&gt; x) -&gt; PathMap (p -&gt; x) -&gt; PathMap (p -&gt; x))
+-&gt; PolyMap FromHttpApiData PathMap x
+-&gt; PolyMap FromHttpApiData PathMap x
+-&gt; PolyMap FromHttpApiData PathMap x
+forall (c :: * -&gt; Constraint) (f :: * -&gt; *) a.
+(forall p. c p =&gt; f (p -&gt; a) -&gt; f (p -&gt; a) -&gt; f (p -&gt; a))
+-&gt; PolyMap c f a -&gt; PolyMap c f a -&gt; PolyMap c f a
+</span><a href="Data.PolyMap.html#unionWith"><span class="hs-identifier hs-var">PM.unionWith</span></a></span><span> </span><span class="annot"><span class="annottext">PathMap (p -&gt; x) -&gt; PathMap (p -&gt; x) -&gt; PathMap (p -&gt; x)
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+forall p.
+FromHttpApiData p =&gt;
+PathMap (p -&gt; x) -&gt; PathMap (p -&gt; x) -&gt; PathMap (p -&gt; x)
+</span><span class="hs-operator hs-var">(&lt;&gt;)</span></span><span> </span><span class="annot"><span class="annottext">PolyMap FromHttpApiData PathMap x
+</span><a href="#local-6989586621679079644"><span class="hs-identifier hs-var">p1</span></a></span><span> </span><span class="annot"><span class="annottext">PolyMap FromHttpApiData PathMap x
+</span><a href="#local-6989586621679079650"><span class="hs-identifier hs-var">p2</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Text -&gt; x]
+</span><a href="#local-6989586621679079645"><span class="hs-identifier hs-var">w1</span></a></span><span> </span><span class="annot"><span class="annottext">[Text -&gt; x] -&gt; [Text -&gt; x] -&gt; [Text -&gt; x]
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">[Text -&gt; x]
+</span><a href="#local-6989586621679079651"><span class="hs-identifier hs-var">w2</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-87"></span><span>
+</span><span id="line-88"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679079406"><span id="local-6989586621679079661"><span class="annot"><span class="hs-identifier hs-type">Monoid</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-type">PathMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079406"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-89"></span><span>  </span><span id="local-6989586621679079665"><span class="annot"><span class="annottext">mempty :: PathMap x
+</span><span class="hs-identifier hs-var hs-var hs-var">mempty</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PathMap x
+forall x. PathMap x
+</span><a href="Web.Routing.SafeRouting.html#emptyPathMap"><span class="hs-identifier hs-var">emptyPathMap</span></a></span><span>
+</span><span id="line-90"></span><span>  </span><span id="local-6989586621679079667"><span class="annot"><span class="annottext">mappend :: PathMap x -&gt; PathMap x -&gt; PathMap x
+</span><span class="hs-identifier hs-var hs-var hs-var">mappend</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PathMap x -&gt; PathMap x -&gt; PathMap x
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">(&lt;&gt;)</span></span><span>
+</span><span id="line-91"></span><span>
+</span><span id="line-92"></span><span id="local-6989586621679079407"><span id="local-6989586621679079409"><span id="local-6989586621679079411"><span class="annot"><a href="Web.Routing.SafeRouting.html#updatePathMap"><span class="hs-identifier hs-type">updatePathMap</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-93"></span><span>  </span><span class="hs-special">(</span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679079408"><span class="annot"><a href="#local-6989586621679079408"><span class="hs-identifier hs-type">y</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079407"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079408"><span class="hs-identifier hs-type">y</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-type">PathMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079408"><span class="hs-identifier hs-type">y</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-type">PathMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079408"><span class="hs-identifier hs-type">y</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-94"></span><span>  </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathInternal"><span class="hs-identifier hs-type">PathInternal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079409"><span class="hs-identifier hs-type">ts</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-95"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HVect</span></span><span> </span><span class="annot"><a href="#local-6989586621679079409"><span class="hs-identifier hs-type">ts</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079407"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079411"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-96"></span><span>  </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-type">PathMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079411"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-97"></span><span>  </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-type">PathMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079411"><span class="hs-identifier hs-type">x</span></a></span></span></span></span><span>
+</span><span id="line-98"></span><span id="updatePathMap"><span class="annot"><span class="annottext">updatePathMap :: forall ctx (ts :: [*]) x.
+(forall y. (ctx -&gt; y) -&gt; PathMap y -&gt; PathMap y)
+-&gt; PathInternal ts
+-&gt; (HVect ts -&gt; ctx -&gt; x)
+-&gt; PathMap x
+-&gt; PathMap x
+</span><a href="Web.Routing.SafeRouting.html#updatePathMap"><span class="hs-identifier hs-var hs-var">updatePathMap</span></a></span></span><span> </span><span id="local-6989586621679079671"><span class="annot"><span class="annottext">forall y. (ctx -&gt; y) -&gt; PathMap y -&gt; PathMap y
+</span><a href="#local-6989586621679079671"><span class="hs-identifier hs-var">updateFn</span></a></span></span><span> </span><span id="local-6989586621679079672"><span class="annot"><span class="annottext">PathInternal ts
+</span><a href="#local-6989586621679079672"><span class="hs-identifier hs-var">path</span></a></span></span><span> </span><span id="local-6989586621679079673"><span class="annot"><span class="annottext">HVect ts -&gt; ctx -&gt; x
+</span><a href="#local-6989586621679079673"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span id="local-6989586621679079674"><span class="annot"><span class="annottext">pm :: PathMap x
+</span><a href="#local-6989586621679079674"><span class="hs-identifier hs-var">pm</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-type">PathMap</span></a></span><span> </span><span id="local-6989586621679079675"><span class="annot"><span class="annottext">[[Text] -&gt; x]
+</span><a href="#local-6989586621679079675"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span id="local-6989586621679079676"><span class="annot"><span class="annottext">[x]
+</span><a href="#local-6989586621679079676"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span id="local-6989586621679079677"><span class="annot"><span class="annottext">HashMap Text (PathMap x)
+</span><a href="#local-6989586621679079677"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679079678"><span class="annot"><span class="annottext">PolyMap FromHttpApiData PathMap x
+</span><a href="#local-6989586621679079678"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span id="local-6989586621679079679"><span class="annot"><span class="annottext">[Text -&gt; x]
+</span><a href="#local-6989586621679079679"><span class="hs-identifier hs-var">w</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-99"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">PathInternal ts
+</span><a href="#local-6989586621679079672"><span class="hs-identifier hs-var">path</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-100"></span><span>    </span><span class="annot"><span class="annottext">PathInternal ts
+</span><a href="Web.Routing.SafeRouting.html#PI_Empty"><span class="hs-identifier hs-var">PI_Empty</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(ctx -&gt; x) -&gt; PathMap x -&gt; PathMap x
+forall y. (ctx -&gt; y) -&gt; PathMap y -&gt; PathMap y
+</span><a href="#local-6989586621679079671"><span class="hs-identifier hs-var">updateFn</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HVect ts -&gt; ctx -&gt; x
+</span><a href="#local-6989586621679079673"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="annot"><span class="annottext">HVect ts
+HVect '[]
+</span><span class="hs-identifier hs-var">HNil</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">PathMap x
+</span><a href="#local-6989586621679079674"><span class="hs-identifier hs-var">pm</span></a></span><span>
+</span><span id="line-101"></span><span>    </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PI_StaticCons"><span class="hs-identifier hs-type">PI_StaticCons</span></a></span><span> </span><span id="local-6989586621679079682"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679079682"><span class="hs-identifier hs-var">pathPiece</span></a></span></span><span> </span><span id="local-6989586621679079683"><span class="annot"><span class="annottext">PathInternal ts
+</span><a href="#local-6989586621679079683"><span class="hs-identifier hs-var">path'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-102"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679079684"><span class="annot"><span class="annottext">subPathMap :: PathMap x
+</span><a href="#local-6989586621679079684"><span class="hs-identifier hs-var hs-var">subPathMap</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PathMap x -&gt; Maybe (PathMap x) -&gt; PathMap x
+forall a. a -&gt; Maybe a -&gt; a
+</span><span class="hs-identifier hs-var">fromMaybe</span></span><span> </span><span class="annot"><span class="annottext">PathMap x
+forall x. PathMap x
+</span><a href="Web.Routing.SafeRouting.html#emptyPathMap"><span class="hs-identifier hs-var">emptyPathMap</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; HashMap Text (PathMap x) -&gt; Maybe (PathMap x)
+forall k v. Hashable k =&gt; k -&gt; HashMap k v -&gt; Maybe v
+</span><span class="hs-identifier hs-var">HM.lookup</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679079682"><span class="hs-identifier hs-var">pathPiece</span></a></span><span> </span><span class="annot"><span class="annottext">HashMap Text (PathMap x)
+</span><a href="#local-6989586621679079677"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-103"></span><span>       </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">[[Text] -&gt; x]
+-&gt; [x]
+-&gt; HashMap Text (PathMap x)
+-&gt; PolyMap FromHttpApiData PathMap x
+-&gt; [Text -&gt; x]
+-&gt; PathMap x
+forall x.
+[[Text] -&gt; x]
+-&gt; [x]
+-&gt; HashMap Text (PathMap x)
+-&gt; PolyMap FromHttpApiData PathMap x
+-&gt; [Text -&gt; x]
+-&gt; PathMap x
+</span><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-var">PathMap</span></a></span><span> </span><span class="annot"><span class="annottext">[[Text] -&gt; x]
+</span><a href="#local-6989586621679079675"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="annottext">[x]
+</span><a href="#local-6989586621679079676"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+-&gt; PathMap x
+-&gt; HashMap Text (PathMap x)
+-&gt; HashMap Text (PathMap x)
+forall k v. Hashable k =&gt; k -&gt; v -&gt; HashMap k v -&gt; HashMap k v
+</span><span class="hs-identifier hs-var">HM.insert</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679079682"><span class="hs-identifier hs-var">pathPiece</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(forall y. (ctx -&gt; y) -&gt; PathMap y -&gt; PathMap y)
+-&gt; PathInternal ts
+-&gt; (HVect ts -&gt; ctx -&gt; x)
+-&gt; PathMap x
+-&gt; PathMap x
+forall ctx (ts :: [*]) x.
+(forall y. (ctx -&gt; y) -&gt; PathMap y -&gt; PathMap y)
+-&gt; PathInternal ts
+-&gt; (HVect ts -&gt; ctx -&gt; x)
+-&gt; PathMap x
+-&gt; PathMap x
+</span><a href="Web.Routing.SafeRouting.html#updatePathMap"><span class="hs-identifier hs-var">updatePathMap</span></a></span><span> </span><span class="annot"><span class="annottext">(ctx -&gt; y) -&gt; PathMap y -&gt; PathMap y
+forall y. (ctx -&gt; y) -&gt; PathMap y -&gt; PathMap y
+</span><a href="#local-6989586621679079671"><span class="hs-identifier hs-var">updateFn</span></a></span><span> </span><span class="annot"><span class="annottext">PathInternal ts
+</span><a href="#local-6989586621679079683"><span class="hs-identifier hs-var">path'</span></a></span><span> </span><span class="annot"><span class="annottext">HVect ts -&gt; ctx -&gt; x
+</span><a href="#local-6989586621679079673"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="annot"><span class="annottext">PathMap x
+</span><a href="#local-6989586621679079684"><span class="hs-identifier hs-var">subPathMap</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">HashMap Text (PathMap x)
+</span><a href="#local-6989586621679079677"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">PolyMap FromHttpApiData PathMap x
+</span><a href="#local-6989586621679079678"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">[Text -&gt; x]
+</span><a href="#local-6989586621679079679"><span class="hs-identifier hs-var">w</span></a></span><span>
+</span><span id="line-104"></span><span>    </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PI_VarCons"><span class="hs-identifier hs-type">PI_VarCons</span></a></span><span> </span><span id="local-6989586621679079693"><span class="annot"><span class="annottext">PathInternal as
+</span><a href="#local-6989586621679079693"><span class="hs-identifier hs-var">path'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-105"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679079694"><span class="annot"><span class="annottext">alterFn :: Maybe (PathMap (a -&gt; x)) -&gt; Maybe (PathMap (a -&gt; x))
+</span><a href="#local-6989586621679079694"><span class="hs-identifier hs-var hs-var">alterFn</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-106"></span><span>            </span><span class="annot"><span class="annottext">PathMap (a -&gt; x) -&gt; Maybe (PathMap (a -&gt; x))
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">(PathMap (a -&gt; x) -&gt; Maybe (PathMap (a -&gt; x)))
+-&gt; (Maybe (PathMap (a -&gt; x)) -&gt; PathMap (a -&gt; x))
+-&gt; Maybe (PathMap (a -&gt; x))
+-&gt; Maybe (PathMap (a -&gt; x))
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(forall y. (ctx -&gt; y) -&gt; PathMap y -&gt; PathMap y)
+-&gt; PathInternal as
+-&gt; (HVect as -&gt; ctx -&gt; a -&gt; x)
+-&gt; PathMap (a -&gt; x)
+-&gt; PathMap (a -&gt; x)
+forall ctx (ts :: [*]) x.
+(forall y. (ctx -&gt; y) -&gt; PathMap y -&gt; PathMap y)
+-&gt; PathInternal ts
+-&gt; (HVect ts -&gt; ctx -&gt; x)
+-&gt; PathMap x
+-&gt; PathMap x
+</span><a href="Web.Routing.SafeRouting.html#updatePathMap"><span class="hs-identifier hs-var">updatePathMap</span></a></span><span> </span><span class="annot"><span class="annottext">(ctx -&gt; y) -&gt; PathMap y -&gt; PathMap y
+forall y. (ctx -&gt; y) -&gt; PathMap y -&gt; PathMap y
+</span><a href="#local-6989586621679079671"><span class="hs-identifier hs-var">updateFn</span></a></span><span> </span><span class="annot"><span class="annottext">PathInternal as
+</span><a href="#local-6989586621679079693"><span class="hs-identifier hs-var">path'</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679079696"><span class="annot"><span class="annottext">HVect as
+</span><a href="#local-6989586621679079696"><span class="hs-identifier hs-var">vs</span></a></span></span><span> </span><span id="local-6989586621679079697"><span class="annot"><span class="annottext">ctx
+</span><a href="#local-6989586621679079697"><span class="hs-identifier hs-var">ctx</span></a></span></span><span> </span><span id="local-6989586621679079698"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679079698"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HVect ts -&gt; ctx -&gt; x
+</span><a href="#local-6989586621679079673"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679079698"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; HVect as -&gt; HVect (a : as)
+forall t (ts1 :: [*]). t -&gt; HVect ts1 -&gt; HVect (t : ts1)
+</span><span class="hs-operator hs-var">:&amp;:</span></span><span> </span><span class="annot"><span class="annottext">HVect as
+</span><a href="#local-6989586621679079696"><span class="hs-identifier hs-var">vs</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ctx
+</span><a href="#local-6989586621679079697"><span class="hs-identifier hs-var">ctx</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-107"></span><span>              </span><span class="annot"><span class="annottext">(PathMap (a -&gt; x) -&gt; PathMap (a -&gt; x))
+-&gt; (Maybe (PathMap (a -&gt; x)) -&gt; PathMap (a -&gt; x))
+-&gt; Maybe (PathMap (a -&gt; x))
+-&gt; PathMap (a -&gt; x)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">PathMap (a -&gt; x) -&gt; Maybe (PathMap (a -&gt; x)) -&gt; PathMap (a -&gt; x)
+forall a. a -&gt; Maybe a -&gt; a
+</span><span class="hs-identifier hs-var">fromMaybe</span></span><span> </span><span class="annot"><span class="annottext">PathMap (a -&gt; x)
+forall x. PathMap x
+</span><a href="Web.Routing.SafeRouting.html#emptyPathMap"><span class="hs-identifier hs-var">emptyPathMap</span></a></span><span>
+</span><span id="line-108"></span><span>       </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">[[Text] -&gt; x]
+-&gt; [x]
+-&gt; HashMap Text (PathMap x)
+-&gt; PolyMap FromHttpApiData PathMap x
+-&gt; [Text -&gt; x]
+-&gt; PathMap x
+forall x.
+[[Text] -&gt; x]
+-&gt; [x]
+-&gt; HashMap Text (PathMap x)
+-&gt; PolyMap FromHttpApiData PathMap x
+-&gt; [Text -&gt; x]
+-&gt; PathMap x
+</span><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-var">PathMap</span></a></span><span> </span><span class="annot"><span class="annottext">[[Text] -&gt; x]
+</span><a href="#local-6989586621679079675"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="annottext">[x]
+</span><a href="#local-6989586621679079676"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="annot"><span class="annottext">HashMap Text (PathMap x)
+</span><a href="#local-6989586621679079677"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Maybe (PathMap (a -&gt; x)) -&gt; Maybe (PathMap (a -&gt; x)))
+-&gt; PolyMap FromHttpApiData PathMap x
+-&gt; PolyMap FromHttpApiData PathMap x
+forall p (c :: * -&gt; Constraint) (f :: * -&gt; *) a.
+(Typeable p, c p) =&gt;
+(Maybe (f (p -&gt; a)) -&gt; Maybe (f (p -&gt; a)))
+-&gt; PolyMap c f a -&gt; PolyMap c f a
+</span><a href="Data.PolyMap.html#alter"><span class="hs-identifier hs-var">PM.alter</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (PathMap (a -&gt; x)) -&gt; Maybe (PathMap (a -&gt; x))
+</span><a href="#local-6989586621679079694"><span class="hs-identifier hs-var">alterFn</span></a></span><span> </span><span class="annot"><span class="annottext">PolyMap FromHttpApiData PathMap x
+</span><a href="#local-6989586621679079678"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Text -&gt; x]
+</span><a href="#local-6989586621679079679"><span class="hs-identifier hs-var">w</span></a></span><span>
+</span><span id="line-109"></span><span>    </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PI_Wildcard"><span class="hs-identifier hs-type">PI_Wildcard</span></a></span><span> </span><span class="annot"><span class="annottext">PathInternal as
+</span><a href="Web.Routing.SafeRouting.html#PI_Empty"><span class="hs-identifier hs-var">PI_Empty</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-110"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-type">PathMap</span></a></span><span> </span><span class="annot"><span class="annottext">[[Text] -&gt; Text -&gt; x]
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679079703"><span class="annot"><span class="annottext">Text -&gt; x
+</span><a href="#local-6989586621679079703"><span class="hs-identifier hs-var">action'</span></a></span></span><span> </span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span> </span><span class="annot"><span class="annottext">[Text -&gt; x]
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">HashMap Text (PathMap (Text -&gt; x))
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">PolyMap FromHttpApiData PathMap (Text -&gt; x)
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">[Text -&gt; Text -&gt; x]
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ctx -&gt; Text -&gt; x) -&gt; PathMap (Text -&gt; x) -&gt; PathMap (Text -&gt; x)
+forall y. (ctx -&gt; y) -&gt; PathMap y -&gt; PathMap y
+</span><a href="#local-6989586621679079671"><span class="hs-identifier hs-var">updateFn</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679079704"><span class="annot"><span class="annottext">ctx
+</span><a href="#local-6989586621679079704"><span class="hs-identifier hs-var">ctx</span></a></span></span><span> </span><span id="local-6989586621679079705"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679079705"><span class="hs-identifier hs-var">rest</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HVect ts -&gt; ctx -&gt; x
+</span><a href="#local-6989586621679079673"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679079705"><span class="hs-identifier hs-var">rest</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; HVect '[] -&gt; HVect '[Text]
+forall t (ts1 :: [*]). t -&gt; HVect ts1 -&gt; HVect (t : ts1)
+</span><span class="hs-operator hs-var">:&amp;:</span></span><span> </span><span class="annot"><span class="annottext">HVect '[]
+</span><span class="hs-identifier hs-var">HNil</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ctx
+</span><a href="#local-6989586621679079704"><span class="hs-identifier hs-var">ctx</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">PathMap (Text -&gt; x)
+forall x. PathMap x
+</span><a href="Web.Routing.SafeRouting.html#emptyPathMap"><span class="hs-identifier hs-var">emptyPathMap</span></a></span><span>
+</span><span id="line-111"></span><span>       </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">[[Text] -&gt; x]
+-&gt; [x]
+-&gt; HashMap Text (PathMap x)
+-&gt; PolyMap FromHttpApiData PathMap x
+-&gt; [Text -&gt; x]
+-&gt; PathMap x
+forall x.
+[[Text] -&gt; x]
+-&gt; [x]
+-&gt; HashMap Text (PathMap x)
+-&gt; PolyMap FromHttpApiData PathMap x
+-&gt; [Text -&gt; x]
+-&gt; PathMap x
+</span><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-var">PathMap</span></a></span><span> </span><span class="annot"><span class="annottext">[[Text] -&gt; x]
+</span><a href="#local-6989586621679079675"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="annottext">[x]
+</span><a href="#local-6989586621679079676"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="annot"><span class="annottext">HashMap Text (PathMap x)
+</span><a href="#local-6989586621679079677"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">PolyMap FromHttpApiData PathMap x
+</span><a href="#local-6989586621679079678"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">([Text -&gt; x] -&gt; PathMap x) -&gt; [Text -&gt; x] -&gt; PathMap x
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; x
+</span><a href="#local-6989586621679079703"><span class="hs-identifier hs-var">action'</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; x) -&gt; [Text -&gt; x] -&gt; [Text -&gt; x]
+forall a. a -&gt; [a] -&gt; [a]
+</span><span class="hs-glyph hs-var">:</span></span><span> </span><span class="annot"><span class="annottext">[Text -&gt; x]
+</span><a href="#local-6989586621679079679"><span class="hs-identifier hs-var">w</span></a></span><span>
+</span><span id="line-112"></span><span>    </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PI_Wildcard"><span class="hs-identifier hs-type">PI_Wildcard</span></a></span><span> </span><span class="annot"><span class="annottext">PathInternal as
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; PathMap x
+forall a. HasCallStack =&gt; [Char] -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">[Char]
+</span><span class="hs-string">&quot;Shouldn't happen&quot;</span></span><span>
+</span><span id="line-113"></span><span>
+</span><span id="line-114"></span><span id="local-6989586621679079444"><span id="local-6989586621679079445"><span class="annot"><a href="Web.Routing.SafeRouting.html#insertPathMap%27"><span class="hs-identifier hs-type">insertPathMap'</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathInternal"><span class="hs-identifier hs-type">PathInternal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079444"><span class="hs-identifier hs-type">ts</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HVect</span></span><span> </span><span class="annot"><a href="#local-6989586621679079444"><span class="hs-identifier hs-type">ts</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079445"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-type">PathMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079445"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-type">PathMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079445"><span class="hs-identifier hs-type">x</span></a></span></span></span><span>
+</span><span id="line-115"></span><span id="insertPathMap&#x27;"><span class="annot"><span class="annottext">insertPathMap' :: forall (ts :: [*]) x.
+PathInternal ts -&gt; (HVect ts -&gt; x) -&gt; PathMap x -&gt; PathMap x
+</span><a href="Web.Routing.SafeRouting.html#insertPathMap%27"><span class="hs-identifier hs-var hs-var">insertPathMap'</span></a></span></span><span> </span><span id="local-6989586621679079713"><span class="annot"><span class="annottext">PathInternal ts
+</span><a href="#local-6989586621679079713"><span class="hs-identifier hs-var">path</span></a></span></span><span> </span><span id="local-6989586621679079714"><span class="annot"><span class="annottext">HVect ts -&gt; x
+</span><a href="#local-6989586621679079714"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-116"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679079715"><span class="annot"><span class="annottext">updateHeres :: (() -&gt; x) -&gt; PathMap x -&gt; PathMap x
+</span><a href="#local-6989586621679079715"><span class="hs-identifier hs-var hs-var">updateHeres</span></a></span></span><span> </span><span id="local-6989586621679079716"><span class="annot"><span class="annottext">() -&gt; x
+</span><a href="#local-6989586621679079716"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-type">PathMap</span></a></span><span> </span><span id="local-6989586621679079717"><span class="annot"><span class="annottext">[[Text] -&gt; x]
+</span><a href="#local-6989586621679079717"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span id="local-6989586621679079718"><span class="annot"><span class="annottext">[x]
+</span><a href="#local-6989586621679079718"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span id="local-6989586621679079719"><span class="annot"><span class="annottext">HashMap Text (PathMap x)
+</span><a href="#local-6989586621679079719"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679079720"><span class="annot"><span class="annottext">PolyMap FromHttpApiData PathMap x
+</span><a href="#local-6989586621679079720"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span id="local-6989586621679079721"><span class="annot"><span class="annottext">[Text -&gt; x]
+</span><a href="#local-6989586621679079721"><span class="hs-identifier hs-var">w</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[[Text] -&gt; x]
+-&gt; [x]
+-&gt; HashMap Text (PathMap x)
+-&gt; PolyMap FromHttpApiData PathMap x
+-&gt; [Text -&gt; x]
+-&gt; PathMap x
+forall x.
+[[Text] -&gt; x]
+-&gt; [x]
+-&gt; HashMap Text (PathMap x)
+-&gt; PolyMap FromHttpApiData PathMap x
+-&gt; [Text -&gt; x]
+-&gt; PathMap x
+</span><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-var">PathMap</span></a></span><span> </span><span class="annot"><span class="annottext">[[Text] -&gt; x]
+</span><a href="#local-6989586621679079717"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; x
+</span><a href="#local-6989586621679079716"><span class="hs-identifier hs-var">y</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">x -&gt; [x] -&gt; [x]
+forall a. a -&gt; [a] -&gt; [a]
+</span><span class="hs-glyph hs-var">:</span></span><span> </span><span class="annot"><span class="annottext">[x]
+</span><a href="#local-6989586621679079718"><span class="hs-identifier hs-var">h</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">HashMap Text (PathMap x)
+</span><a href="#local-6989586621679079719"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">PolyMap FromHttpApiData PathMap x
+</span><a href="#local-6989586621679079720"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">[Text -&gt; x]
+</span><a href="#local-6989586621679079721"><span class="hs-identifier hs-var">w</span></a></span><span>
+</span><span id="line-117"></span><span>   </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">(forall y. (() -&gt; y) -&gt; PathMap y -&gt; PathMap y)
+-&gt; PathInternal ts
+-&gt; (HVect ts -&gt; () -&gt; x)
+-&gt; PathMap x
+-&gt; PathMap x
+forall ctx (ts :: [*]) x.
+(forall y. (ctx -&gt; y) -&gt; PathMap y -&gt; PathMap y)
+-&gt; PathInternal ts
+-&gt; (HVect ts -&gt; ctx -&gt; x)
+-&gt; PathMap x
+-&gt; PathMap x
+</span><a href="Web.Routing.SafeRouting.html#updatePathMap"><span class="hs-identifier hs-var">updatePathMap</span></a></span><span> </span><span class="annot"><span class="annottext">(() -&gt; y) -&gt; PathMap y -&gt; PathMap y
+forall y. (() -&gt; y) -&gt; PathMap y -&gt; PathMap y
+</span><a href="#local-6989586621679079715"><span class="hs-identifier hs-var">updateHeres</span></a></span><span> </span><span class="annot"><span class="annottext">PathInternal ts
+</span><a href="#local-6989586621679079713"><span class="hs-identifier hs-var">path</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">x -&gt; () -&gt; x
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">(x -&gt; () -&gt; x) -&gt; (HVect ts -&gt; x) -&gt; HVect ts -&gt; () -&gt; x
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">HVect ts -&gt; x
+</span><a href="#local-6989586621679079714"><span class="hs-identifier hs-var">action</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-118"></span><span>
+</span><span id="line-119"></span><span id="local-6989586621679079452"><span id="local-6989586621679079453"><span class="annot"><a href="Web.Routing.SafeRouting.html#singleton"><span class="hs-identifier hs-type">singleton</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathInternal"><span class="hs-identifier hs-type">PathInternal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079452"><span class="hs-identifier hs-type">ts</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HVectElim</span></span><span> </span><span class="annot"><a href="#local-6989586621679079452"><span class="hs-identifier hs-type">ts</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079453"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-type">PathMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079453"><span class="hs-identifier hs-type">x</span></a></span></span></span><span>
+</span><span id="line-120"></span><span id="singleton"><span class="annot"><span class="annottext">singleton :: forall (ts :: [*]) x.
+PathInternal ts -&gt; HVectElim ts x -&gt; PathMap x
+</span><a href="Web.Routing.SafeRouting.html#singleton"><span class="hs-identifier hs-var hs-var">singleton</span></a></span></span><span> </span><span id="local-6989586621679079725"><span class="annot"><span class="annottext">PathInternal ts
+</span><a href="#local-6989586621679079725"><span class="hs-identifier hs-var">path</span></a></span></span><span> </span><span id="local-6989586621679079726"><span class="annot"><span class="annottext">HVectElim ts x
+</span><a href="#local-6989586621679079726"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PathInternal ts -&gt; (HVect ts -&gt; x) -&gt; PathMap x -&gt; PathMap x
+forall (ts :: [*]) x.
+PathInternal ts -&gt; (HVect ts -&gt; x) -&gt; PathMap x -&gt; PathMap x
+</span><a href="Web.Routing.SafeRouting.html#insertPathMap%27"><span class="hs-identifier hs-var">insertPathMap'</span></a></span><span> </span><span class="annot"><span class="annottext">PathInternal ts
+</span><a href="#local-6989586621679079725"><span class="hs-identifier hs-var">path</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HVectElim ts x -&gt; HVect ts -&gt; x
+forall (ts :: [*]) a. HVectElim ts a -&gt; HVect ts -&gt; a
+</span><span class="hs-identifier hs-var">HV.uncurry</span></span><span> </span><span class="annot"><span class="annottext">HVectElim ts x
+</span><a href="#local-6989586621679079726"><span class="hs-identifier hs-var">action</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">PathMap x
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span>
+</span><span id="line-121"></span><span>
+</span><span id="line-122"></span><span id="local-6989586621679079325"><span id="local-6989586621679079326"><span class="annot"><a href="Web.Routing.SafeRouting.html#insertPathMap"><span class="hs-identifier hs-type">insertPathMap</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#RouteHandle"><span class="hs-identifier hs-type">RouteHandle</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079325"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079326"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-type">PathMap</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079325"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079326"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-type">PathMap</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079325"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079326"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-123"></span><span id="insertPathMap"><span class="annot"><span class="annottext">insertPathMap :: forall (m :: * -&gt; *) a.
+RouteHandle m a -&gt; PathMap (m a) -&gt; PathMap (m a)
+</span><a href="Web.Routing.SafeRouting.html#insertPathMap"><span class="hs-identifier hs-var hs-var">insertPathMap</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.SafeRouting.html#RouteHandle"><span class="hs-identifier hs-type">RouteHandle</span></a></span><span> </span><span id="local-6989586621679079728"><span class="annot"><span class="annottext">PathInternal as
+</span><a href="#local-6989586621679079728"><span class="hs-identifier hs-var">path</span></a></span></span><span> </span><span id="local-6989586621679079729"><span class="annot"><span class="annottext">HVectElim as (m a)
+</span><a href="#local-6989586621679079729"><span class="hs-identifier hs-var">action</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PathInternal as
+-&gt; (HVect as -&gt; m a) -&gt; PathMap (m a) -&gt; PathMap (m a)
+forall (ts :: [*]) x.
+PathInternal ts -&gt; (HVect ts -&gt; x) -&gt; PathMap x -&gt; PathMap x
+</span><a href="Web.Routing.SafeRouting.html#insertPathMap%27"><span class="hs-identifier hs-var">insertPathMap'</span></a></span><span> </span><span class="annot"><span class="annottext">PathInternal as
+</span><a href="#local-6989586621679079728"><span class="hs-identifier hs-var">path</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HVectElim as (m a) -&gt; HVect as -&gt; m a
+forall (ts :: [*]) a. HVectElim ts a -&gt; HVect ts -&gt; a
+</span><span class="hs-identifier hs-var">HV.uncurry</span></span><span> </span><span class="annot"><span class="annottext">HVectElim as (m a)
+</span><a href="#local-6989586621679079729"><span class="hs-identifier hs-var">action</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-124"></span><span>
+</span><span id="line-125"></span><span id="local-6989586621679079461"><span id="local-6989586621679079462"><span class="annot"><a href="Web.Routing.SafeRouting.html#insertSubComponent%27"><span class="hs-identifier hs-type">insertSubComponent'</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathInternal"><span class="hs-identifier hs-type">PathInternal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079461"><span class="hs-identifier hs-type">ts</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HVect</span></span><span> </span><span class="annot"><a href="#local-6989586621679079461"><span class="hs-identifier hs-type">ts</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079462"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-type">PathMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079462"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-type">PathMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079462"><span class="hs-identifier hs-type">x</span></a></span></span></span><span>
+</span><span id="line-126"></span><span id="insertSubComponent&#x27;"><span class="annot"><span class="annottext">insertSubComponent' :: forall (ts :: [*]) x.
+PathInternal ts
+-&gt; (HVect ts -&gt; [Text] -&gt; x) -&gt; PathMap x -&gt; PathMap x
+</span><a href="Web.Routing.SafeRouting.html#insertSubComponent%27"><span class="hs-identifier hs-var hs-var">insertSubComponent'</span></a></span></span><span> </span><span id="local-6989586621679079731"><span class="annot"><span class="annottext">PathInternal ts
+</span><a href="#local-6989586621679079731"><span class="hs-identifier hs-var">path</span></a></span></span><span> </span><span id="local-6989586621679079732"><span class="annot"><span class="annottext">HVect ts -&gt; [Text] -&gt; x
+</span><a href="#local-6989586621679079732"><span class="hs-identifier hs-var">subComponent</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-127"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679079733"><span class="annot"><span class="annottext">updateSubComponents :: ([Text] -&gt; x) -&gt; PathMap x -&gt; PathMap x
+</span><a href="#local-6989586621679079733"><span class="hs-identifier hs-var hs-var">updateSubComponents</span></a></span></span><span> </span><span id="local-6989586621679079734"><span class="annot"><span class="annottext">[Text] -&gt; x
+</span><a href="#local-6989586621679079734"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-type">PathMap</span></a></span><span> </span><span id="local-6989586621679079735"><span class="annot"><span class="annottext">[[Text] -&gt; x]
+</span><a href="#local-6989586621679079735"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span id="local-6989586621679079736"><span class="annot"><span class="annottext">[x]
+</span><a href="#local-6989586621679079736"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span id="local-6989586621679079737"><span class="annot"><span class="annottext">HashMap Text (PathMap x)
+</span><a href="#local-6989586621679079737"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679079738"><span class="annot"><span class="annottext">PolyMap FromHttpApiData PathMap x
+</span><a href="#local-6989586621679079738"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span id="local-6989586621679079739"><span class="annot"><span class="annottext">[Text -&gt; x]
+</span><a href="#local-6989586621679079739"><span class="hs-identifier hs-var">w</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[[Text] -&gt; x]
+-&gt; [x]
+-&gt; HashMap Text (PathMap x)
+-&gt; PolyMap FromHttpApiData PathMap x
+-&gt; [Text -&gt; x]
+-&gt; PathMap x
+forall x.
+[[Text] -&gt; x]
+-&gt; [x]
+-&gt; HashMap Text (PathMap x)
+-&gt; PolyMap FromHttpApiData PathMap x
+-&gt; [Text -&gt; x]
+-&gt; PathMap x
+</span><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-var">PathMap</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Text] -&gt; x
+</span><a href="#local-6989586621679079734"><span class="hs-identifier hs-var">y</span></a></span><span> </span><span class="annot"><span class="annottext">([Text] -&gt; x) -&gt; [[Text] -&gt; x] -&gt; [[Text] -&gt; x]
+forall a. a -&gt; [a] -&gt; [a]
+</span><span class="hs-glyph hs-var">:</span></span><span> </span><span class="annot"><span class="annottext">[[Text] -&gt; x]
+</span><a href="#local-6989586621679079735"><span class="hs-identifier hs-var">c</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[x]
+</span><a href="#local-6989586621679079736"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="annot"><span class="annottext">HashMap Text (PathMap x)
+</span><a href="#local-6989586621679079737"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">PolyMap FromHttpApiData PathMap x
+</span><a href="#local-6989586621679079738"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">[Text -&gt; x]
+</span><a href="#local-6989586621679079739"><span class="hs-identifier hs-var">w</span></a></span><span>
+</span><span id="line-128"></span><span>   </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">(forall y. ([Text] -&gt; y) -&gt; PathMap y -&gt; PathMap y)
+-&gt; PathInternal ts
+-&gt; (HVect ts -&gt; [Text] -&gt; x)
+-&gt; PathMap x
+-&gt; PathMap x
+forall ctx (ts :: [*]) x.
+(forall y. (ctx -&gt; y) -&gt; PathMap y -&gt; PathMap y)
+-&gt; PathInternal ts
+-&gt; (HVect ts -&gt; ctx -&gt; x)
+-&gt; PathMap x
+-&gt; PathMap x
+</span><a href="Web.Routing.SafeRouting.html#updatePathMap"><span class="hs-identifier hs-var">updatePathMap</span></a></span><span> </span><span class="annot"><span class="annottext">([Text] -&gt; y) -&gt; PathMap y -&gt; PathMap y
+forall y. ([Text] -&gt; y) -&gt; PathMap y -&gt; PathMap y
+</span><a href="#local-6989586621679079733"><span class="hs-identifier hs-var">updateSubComponents</span></a></span><span> </span><span class="annot"><span class="annottext">PathInternal ts
+</span><a href="#local-6989586621679079731"><span class="hs-identifier hs-var">path</span></a></span><span> </span><span class="annot"><span class="annottext">HVect ts -&gt; [Text] -&gt; x
+</span><a href="#local-6989586621679079732"><span class="hs-identifier hs-var">subComponent</span></a></span><span>
+</span><span id="line-129"></span><span>
+</span><span id="line-130"></span><span id="local-6989586621679079467"><span id="local-6989586621679079468"><span class="annot"><a href="Web.Routing.SafeRouting.html#insertSubComponent"><span class="hs-identifier hs-type">insertSubComponent</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="annot"><a href="#local-6989586621679079467"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#RouteHandle"><span class="hs-identifier hs-type">RouteHandle</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079467"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679079468"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-type">PathMap</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079467"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079468"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-type">PathMap</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679079467"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079468"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-131"></span><span id="insertSubComponent"><span class="annot"><span class="annottext">insertSubComponent :: forall (m :: * -&gt; *) a.
+Functor m =&gt;
+RouteHandle m ([Text] -&gt; a) -&gt; PathMap (m a) -&gt; PathMap (m a)
+</span><a href="Web.Routing.SafeRouting.html#insertSubComponent"><span class="hs-identifier hs-var hs-var">insertSubComponent</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.SafeRouting.html#RouteHandle"><span class="hs-identifier hs-type">RouteHandle</span></a></span><span> </span><span id="local-6989586621679079744"><span class="annot"><span class="annottext">PathInternal as
+</span><a href="#local-6989586621679079744"><span class="hs-identifier hs-var">path</span></a></span></span><span> </span><span id="local-6989586621679079745"><span class="annot"><span class="annottext">HVectElim as (m ([Text] -&gt; a))
+</span><a href="#local-6989586621679079745"><span class="hs-identifier hs-var">comp</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-132"></span><span>  </span><span class="annot"><span class="annottext">PathInternal as
+-&gt; (HVect as -&gt; [Text] -&gt; m a) -&gt; PathMap (m a) -&gt; PathMap (m a)
+forall (ts :: [*]) x.
+PathInternal ts
+-&gt; (HVect ts -&gt; [Text] -&gt; x) -&gt; PathMap x -&gt; PathMap x
+</span><a href="Web.Routing.SafeRouting.html#insertSubComponent%27"><span class="hs-identifier hs-var">insertSubComponent'</span></a></span><span> </span><span class="annot"><span class="annottext">PathInternal as
+</span><a href="#local-6989586621679079744"><span class="hs-identifier hs-var">path</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(m ([Text] -&gt; a) -&gt; [Text] -&gt; m a)
+-&gt; (HVect as -&gt; m ([Text] -&gt; a)) -&gt; HVect as -&gt; [Text] -&gt; m a
+forall a b. (a -&gt; b) -&gt; (HVect as -&gt; a) -&gt; HVect as -&gt; b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679079746"><span class="annot"><span class="annottext">m ([Text] -&gt; a)
+</span><a href="#local-6989586621679079746"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span id="local-6989586621679079747"><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679079747"><span class="hs-identifier hs-var">ps</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(([Text] -&gt; a) -&gt; a) -&gt; m ([Text] -&gt; a) -&gt; m a
+forall a b. (a -&gt; b) -&gt; m a -&gt; m b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">([Text] -&gt; a) -&gt; [Text] -&gt; a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679079747"><span class="hs-identifier hs-var">ps</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">m ([Text] -&gt; a)
+</span><a href="#local-6989586621679079746"><span class="hs-identifier hs-var">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HVectElim as (m ([Text] -&gt; a)) -&gt; HVect as -&gt; m ([Text] -&gt; a)
+forall (ts :: [*]) a. HVectElim ts a -&gt; HVect ts -&gt; a
+</span><span class="hs-identifier hs-var">HV.uncurry</span></span><span> </span><span class="annot"><span class="annottext">HVectElim as (m ([Text] -&gt; a))
+</span><a href="#local-6989586621679079745"><span class="hs-identifier hs-var">comp</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-133"></span><span>
+</span><span id="line-134"></span><span id="local-6989586621679079339"><span class="annot"><a href="Web.Routing.SafeRouting.html#match"><span class="hs-identifier hs-type">match</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-type">PathMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079339"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679079339"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">]</span></span><span>
+</span><span id="line-135"></span><span id="match"><span class="annot"><span class="annottext">match :: forall x. PathMap x -&gt; [Text] -&gt; [x]
+</span><a href="Web.Routing.SafeRouting.html#match"><span class="hs-identifier hs-var hs-var">match</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathMap"><span class="hs-identifier hs-type">PathMap</span></a></span><span> </span><span id="local-6989586621679079756"><span class="annot"><span class="annottext">[[Text] -&gt; x]
+</span><a href="#local-6989586621679079756"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span id="local-6989586621679079757"><span class="annot"><span class="annottext">[x]
+</span><a href="#local-6989586621679079757"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span id="local-6989586621679079758"><span class="annot"><span class="annottext">HashMap Text (PathMap x)
+</span><a href="#local-6989586621679079758"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679079759"><span class="annot"><span class="annottext">PolyMap FromHttpApiData PathMap x
+</span><a href="#local-6989586621679079759"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span id="local-6989586621679079760"><span class="annot"><span class="annottext">[Text -&gt; x]
+</span><a href="#local-6989586621679079760"><span class="hs-identifier hs-var">w</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679079761"><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679079761"><span class="hs-identifier hs-var">pieces</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-136"></span><span>  </span><span class="annot"><span class="annottext">(([Text] -&gt; x) -&gt; x) -&gt; [[Text] -&gt; x] -&gt; [x]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">map</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">([Text] -&gt; x) -&gt; [Text] -&gt; x
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679079761"><span class="hs-identifier hs-var">pieces</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[[Text] -&gt; x]
+</span><a href="#local-6989586621679079756"><span class="hs-identifier hs-var">c</span></a></span><span>
+</span><span id="line-137"></span><span>    </span><span class="annot"><span class="annottext">[x] -&gt; [x] -&gt; [x]
+forall a. [a] -&gt; [a] -&gt; [a]
+</span><span class="hs-operator hs-var">++</span></span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679079761"><span class="hs-identifier hs-var">pieces</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-138"></span><span>      </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">[x]
+</span><a href="#local-6989586621679079757"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="annot"><span class="annottext">[x] -&gt; [x] -&gt; [x]
+forall a. [a] -&gt; [a] -&gt; [a]
+</span><span class="hs-operator hs-var">++</span></span><span> </span><span class="annot"><span class="annottext">((Text -&gt; x) -&gt; x) -&gt; [Text -&gt; x] -&gt; [x]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Text -&gt; x) -&gt; Text -&gt; x
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;&quot;</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Text -&gt; x]
+</span><a href="#local-6989586621679079760"><span class="hs-identifier hs-var">w</span></a></span><span>
+</span><span id="line-139"></span><span>      </span><span class="hs-special">(</span><span id="local-6989586621679079762"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679079762"><span class="hs-identifier hs-var">pp</span></a></span></span><span> </span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span> </span><span id="local-6989586621679079763"><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679079763"><span class="hs-identifier hs-var">pps</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-140"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679079764"><span class="annot"><span class="annottext">staticMatches :: [x]
+</span><a href="#local-6989586621679079764"><span class="hs-identifier hs-var hs-var">staticMatches</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe (PathMap x) -&gt; [PathMap x]
+forall a. Maybe a -&gt; [a]
+</span><span class="hs-identifier hs-var">maybeToList</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; HashMap Text (PathMap x) -&gt; Maybe (PathMap x)
+forall k v. Hashable k =&gt; k -&gt; HashMap k v -&gt; Maybe v
+</span><span class="hs-identifier hs-var">HM.lookup</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679079762"><span class="hs-identifier hs-var">pp</span></a></span><span> </span><span class="annot"><span class="annottext">HashMap Text (PathMap x)
+</span><a href="#local-6989586621679079758"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[PathMap x] -&gt; (PathMap x -&gt; [x]) -&gt; [x]
+forall a b. [a] -&gt; (a -&gt; [b]) -&gt; [b]
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="annot"><span class="annottext">(PathMap x -&gt; [Text] -&gt; [x]) -&gt; [Text] -&gt; PathMap x -&gt; [x]
+forall a b c. (a -&gt; b -&gt; c) -&gt; b -&gt; a -&gt; c
+</span><span class="hs-identifier hs-var">flip</span></span><span> </span><span class="annot"><span class="annottext">PathMap x -&gt; [Text] -&gt; [x]
+forall x. PathMap x -&gt; [Text] -&gt; [x]
+</span><a href="Web.Routing.SafeRouting.html#match"><span class="hs-identifier hs-var">match</span></a></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679079763"><span class="hs-identifier hs-var">pps</span></a></span><span>
+</span><span id="line-141"></span><span>            </span><span id="local-6989586621679079767"><span class="annot"><span class="annottext">varMatches :: [x]
+</span><a href="#local-6989586621679079767"><span class="hs-identifier hs-var hs-var">varMatches</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-142"></span><span>              </span><span class="annot"><span class="annottext">(forall p. FromHttpApiData p =&gt; Maybe p)
+-&gt; (forall p. FromHttpApiData p =&gt; p -&gt; PathMap (p -&gt; x) -&gt; [x])
+-&gt; PolyMap FromHttpApiData PathMap x
+-&gt; [x]
+forall m (f :: * -&gt; *) (c :: * -&gt; Constraint) a.
+(Monoid m, Functor f) =&gt;
+(forall p. c p =&gt; Maybe p)
+-&gt; (forall p. c p =&gt; p -&gt; f (p -&gt; a) -&gt; m) -&gt; PolyMap c f a -&gt; m
+</span><a href="Data.PolyMap.html#lookupConcat"><span class="hs-identifier hs-var">PM.lookupConcat</span></a></span><span>
+</span><span id="line-143"></span><span>                </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Text -&gt; Maybe p) -&gt; (p -&gt; Maybe p) -&gt; Either Text p -&gt; Maybe p
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe p -&gt; Text -&gt; Maybe p
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">Maybe p
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">p -&gt; Maybe p
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">(Either Text p -&gt; Maybe p) -&gt; Either Text p -&gt; Maybe p
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Either Text p
+forall a. FromHttpApiData a =&gt; Text -&gt; Either Text a
+</span><span class="hs-identifier hs-var">parseUrlPiece</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679079762"><span class="hs-identifier hs-var">pp</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-144"></span><span>                </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679079775"><span class="annot"><span class="annottext">p
+</span><a href="#local-6989586621679079775"><span class="hs-identifier hs-var">piece</span></a></span></span><span> </span><span id="local-6989586621679079776"><span class="annot"><span class="annottext">PathMap (p -&gt; x)
+</span><a href="#local-6989586621679079776"><span class="hs-identifier hs-var">pathMap'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">((p -&gt; x) -&gt; x) -&gt; [p -&gt; x] -&gt; [x]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(p -&gt; x) -&gt; p -&gt; x
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">p
+</span><a href="#local-6989586621679079775"><span class="hs-identifier hs-var">piece</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PathMap (p -&gt; x) -&gt; [Text] -&gt; [p -&gt; x]
+forall x. PathMap x -&gt; [Text] -&gt; [x]
+</span><a href="Web.Routing.SafeRouting.html#match"><span class="hs-identifier hs-var">match</span></a></span><span> </span><span class="annot"><span class="annottext">PathMap (p -&gt; x)
+</span><a href="#local-6989586621679079776"><span class="hs-identifier hs-var">pathMap'</span></a></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679079763"><span class="hs-identifier hs-var">pps</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-145"></span><span>                </span><span class="annot"><span class="annottext">PolyMap FromHttpApiData PathMap x
+</span><a href="#local-6989586621679079759"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-146"></span><span>            </span><span id="local-6989586621679079777"><span class="annot"><span class="annottext">routeRest :: Text
+</span><a href="#local-6989586621679079777"><span class="hs-identifier hs-var hs-var">routeRest</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; Text
+</span><a href="Web.Routing.SafeRouting.html#combineRoutePieces"><span class="hs-identifier hs-var">combineRoutePieces</span></a></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679079761"><span class="hs-identifier hs-var">pieces</span></a></span><span>
+</span><span id="line-147"></span><span>            </span><span id="local-6989586621679079779"><span class="annot"><span class="annottext">wildcardMatches :: [x]
+</span><a href="#local-6989586621679079779"><span class="hs-identifier hs-var hs-var">wildcardMatches</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">((Text -&gt; x) -&gt; x) -&gt; [Text -&gt; x] -&gt; [x]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Text -&gt; x) -&gt; Text -&gt; x
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679079777"><span class="hs-identifier hs-var">routeRest</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Text -&gt; x]
+</span><a href="#local-6989586621679079760"><span class="hs-identifier hs-var">w</span></a></span><span>
+</span><span id="line-148"></span><span>         </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">[x]
+</span><a href="#local-6989586621679079764"><span class="hs-identifier hs-var">staticMatches</span></a></span><span> </span><span class="annot"><span class="annottext">[x] -&gt; [x] -&gt; [x]
+forall a. [a] -&gt; [a] -&gt; [a]
+</span><span class="hs-operator hs-var">++</span></span><span> </span><span class="annot"><span class="annottext">[x]
+</span><a href="#local-6989586621679079767"><span class="hs-identifier hs-var">varMatches</span></a></span><span> </span><span class="annot"><span class="annottext">[x] -&gt; [x] -&gt; [x]
+forall a. [a] -&gt; [a] -&gt; [a]
+</span><span class="hs-operator hs-var">++</span></span><span> </span><span class="annot"><span class="annottext">[x]
+</span><a href="#local-6989586621679079779"><span class="hs-identifier hs-var">wildcardMatches</span></a></span><span>
+</span><span id="line-149"></span><span>
+</span><span id="line-150"></span><span id="local-6989586621679079494"><span id="local-6989586621679079495"><span class="annot"><a href="Web.Routing.SafeRouting.html#%3C%2F%21%3E"><span class="hs-operator hs-type">(&lt;/!&gt;)</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathInternal"><span class="hs-identifier hs-type">PathInternal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079494"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathInternal"><span class="hs-identifier hs-type">PathInternal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079495"><span class="hs-identifier hs-type">bs</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathInternal"><span class="hs-identifier hs-type">PathInternal</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Append</span></span><span> </span><span class="annot"><a href="#local-6989586621679079494"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079495"><span class="hs-identifier hs-type">bs</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-151"></span><span id="&lt;/!&gt;"><span class="annot"><span class="annottext">&lt;/!&gt; :: forall (as :: [*]) (bs :: [*]).
+PathInternal as -&gt; PathInternal bs -&gt; PathInternal (Append as bs)
+</span><a href="Web.Routing.SafeRouting.html#%3C%2F%21%3E"><span class="hs-operator hs-var hs-var">(&lt;/!&gt;)</span></a></span></span><span> </span><span class="annot"><span class="annottext">PathInternal as
+</span><a href="Web.Routing.SafeRouting.html#PI_Empty"><span class="hs-identifier hs-var">PI_Empty</span></a></span><span> </span><span id="local-6989586621679079782"><span class="annot"><span class="annottext">PathInternal bs
+</span><a href="#local-6989586621679079782"><span class="hs-identifier hs-var">xs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PathInternal bs
+PathInternal (Append as bs)
+</span><a href="#local-6989586621679079782"><span class="hs-identifier hs-var">xs</span></a></span><span>
+</span><span id="line-152"></span><span class="annot"><a href="Web.Routing.SafeRouting.html#%3C%2F%21%3E"><span class="hs-operator hs-var">(&lt;/!&gt;)</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.SafeRouting.html#PI_StaticCons"><span class="hs-identifier hs-type">PI_StaticCons</span></a></span><span> </span><span id="local-6989586621679079783"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679079783"><span class="hs-identifier hs-var">pathPiece</span></a></span></span><span> </span><span id="local-6989586621679079784"><span class="annot"><span class="annottext">PathInternal as
+</span><a href="#local-6989586621679079784"><span class="hs-identifier hs-var">xs</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679079785"><span class="annot"><span class="annottext">PathInternal bs
+</span><a href="#local-6989586621679079785"><span class="hs-identifier hs-var">ys</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; PathInternal (Append as bs) -&gt; PathInternal (Append as bs)
+forall (as :: [*]). Text -&gt; PathInternal as -&gt; PathInternal as
+</span><a href="Web.Routing.SafeRouting.html#PI_StaticCons"><span class="hs-identifier hs-var">PI_StaticCons</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679079783"><span class="hs-identifier hs-var">pathPiece</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PathInternal as
+</span><a href="#local-6989586621679079784"><span class="hs-identifier hs-var">xs</span></a></span><span> </span><span class="annot"><span class="annottext">PathInternal as -&gt; PathInternal bs -&gt; PathInternal (Append as bs)
+forall (as :: [*]) (bs :: [*]).
+PathInternal as -&gt; PathInternal bs -&gt; PathInternal (Append as bs)
+</span><a href="Web.Routing.SafeRouting.html#%3C%2F%21%3E"><span class="hs-operator hs-var">&lt;/!&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">PathInternal bs
+</span><a href="#local-6989586621679079785"><span class="hs-identifier hs-var">ys</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-153"></span><span class="annot"><a href="Web.Routing.SafeRouting.html#%3C%2F%21%3E"><span class="hs-operator hs-var">(&lt;/!&gt;)</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.SafeRouting.html#PI_VarCons"><span class="hs-identifier hs-type">PI_VarCons</span></a></span><span> </span><span id="local-6989586621679079791"><span class="annot"><span class="annottext">PathInternal as
+</span><a href="#local-6989586621679079791"><span class="hs-identifier hs-var">xs</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679079792"><span class="annot"><span class="annottext">PathInternal bs
+</span><a href="#local-6989586621679079792"><span class="hs-identifier hs-var">ys</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PathInternal (Append as bs) -&gt; PathInternal (a : Append as bs)
+forall a (as :: [*]).
+(FromHttpApiData a, Typeable a) =&gt;
+PathInternal as -&gt; PathInternal (a : as)
+</span><a href="Web.Routing.SafeRouting.html#PI_VarCons"><span class="hs-identifier hs-var">PI_VarCons</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PathInternal as
+</span><a href="#local-6989586621679079791"><span class="hs-identifier hs-var">xs</span></a></span><span> </span><span class="annot"><span class="annottext">PathInternal as -&gt; PathInternal bs -&gt; PathInternal (Append as bs)
+forall (as :: [*]) (bs :: [*]).
+PathInternal as -&gt; PathInternal bs -&gt; PathInternal (Append as bs)
+</span><a href="Web.Routing.SafeRouting.html#%3C%2F%21%3E"><span class="hs-operator hs-var">&lt;/!&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">PathInternal bs
+</span><a href="#local-6989586621679079792"><span class="hs-identifier hs-var">ys</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-154"></span><span class="annot"><a href="Web.Routing.SafeRouting.html#%3C%2F%21%3E"><span class="hs-operator hs-var">(&lt;/!&gt;)</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Routing.SafeRouting.html#PI_Wildcard"><span class="hs-identifier hs-type">PI_Wildcard</span></a></span><span> </span><span class="annot"><span class="annottext">PathInternal as
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">PathInternal bs
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; PathInternal (Text : Append as bs)
+forall a. HasCallStack =&gt; [Char] -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">[Char]
+</span><span class="hs-string">&quot;Shouldn't happen&quot;</span></span><span>
+</span><span id="line-155"></span><span>
+</span><span id="line-156"></span><span class="annot"><a href="Web.Routing.SafeRouting.html#combineRoutePieces"><span class="hs-identifier hs-type">combineRoutePieces</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span>
+</span><span id="line-157"></span><span id="combineRoutePieces"><span class="annot"><span class="annottext">combineRoutePieces :: [Text] -&gt; Text
+</span><a href="Web.Routing.SafeRouting.html#combineRoutePieces"><span class="hs-identifier hs-var hs-var">combineRoutePieces</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; [Text] -&gt; Text
+</span><span class="hs-identifier hs-var">T.intercalate</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;/&quot;</span></span><span>
+</span><span id="line-158"></span><span>
+</span><span id="line-159"></span><span id="local-6989586621679079505"><span class="annot"><a href="Web.Routing.SafeRouting.html#parse"><span class="hs-identifier hs-type">parse</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PathInternal"><span class="hs-identifier hs-type">PathInternal</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679079505"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HVect</span></span><span> </span><span class="annot"><a href="#local-6989586621679079505"><span class="hs-keyword hs-type">as</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-160"></span><span id="parse"><span class="annot"><span class="annottext">parse :: forall (as :: [*]). PathInternal as -&gt; [Text] -&gt; Maybe (HVect as)
+</span><a href="Web.Routing.SafeRouting.html#parse"><span class="hs-identifier hs-var hs-var">parse</span></a></span></span><span> </span><span class="annot"><span class="annottext">PathInternal as
+</span><a href="Web.Routing.SafeRouting.html#PI_Empty"><span class="hs-identifier hs-var">PI_Empty</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HVect as -&gt; Maybe (HVect as)
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">HVect as
+HVect '[]
+</span><span class="hs-identifier hs-var">HNil</span></span><span>
+</span><span id="line-161"></span><span class="annot"><a href="Web.Routing.SafeRouting.html#parse"><span class="hs-identifier hs-var">parse</span></a></span><span> </span><span class="annot"><span class="annottext">PathInternal as
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe (HVect as)
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-162"></span><span class="annot"><a href="Web.Routing.SafeRouting.html#parse"><span class="hs-identifier hs-var">parse</span></a></span><span> </span><span id="local-6989586621679079800"><span class="annot"><span class="annottext">PathInternal as
+</span><a href="#local-6989586621679079800"><span class="hs-identifier hs-var">path</span></a></span></span><span> </span><span id="local-6989586621679079801"><span class="annot"><span class="annottext">pathComps :: [Text]
+</span><a href="#local-6989586621679079801"><span class="hs-identifier hs-var">pathComps</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span id="local-6989586621679079802"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679079802"><span class="hs-identifier hs-var">pathComp</span></a></span></span><span> </span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span> </span><span id="local-6989586621679079803"><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679079803"><span class="hs-identifier hs-var">xs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-163"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">PathInternal as
+</span><a href="#local-6989586621679079800"><span class="hs-identifier hs-var">path</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-164"></span><span>    </span><span class="annot"><span class="annottext">PathInternal as
+</span><a href="Web.Routing.SafeRouting.html#PI_Empty"><span class="hs-identifier hs-var">PI_Empty</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe (HVect as)
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-165"></span><span>    </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PI_StaticCons"><span class="hs-identifier hs-type">PI_StaticCons</span></a></span><span> </span><span id="local-6989586621679079805"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679079805"><span class="hs-identifier hs-var">pathPiece</span></a></span></span><span> </span><span id="local-6989586621679079806"><span class="annot"><span class="annottext">PathInternal as
+</span><a href="#local-6989586621679079806"><span class="hs-identifier hs-var">pathXs</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-166"></span><span>      </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679079805"><span class="hs-identifier hs-var">pathPiece</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679079802"><span class="hs-identifier hs-var">pathComp</span></a></span><span>
+</span><span id="line-167"></span><span>        </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">PathInternal as -&gt; [Text] -&gt; Maybe (HVect as)
+forall (as :: [*]). PathInternal as -&gt; [Text] -&gt; Maybe (HVect as)
+</span><a href="Web.Routing.SafeRouting.html#parse"><span class="hs-identifier hs-var">parse</span></a></span><span> </span><span class="annot"><span class="annottext">PathInternal as
+</span><a href="#local-6989586621679079806"><span class="hs-identifier hs-var">pathXs</span></a></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679079803"><span class="hs-identifier hs-var">xs</span></a></span><span>
+</span><span id="line-168"></span><span>        </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">Maybe (HVect as)
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-169"></span><span>    </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PI_VarCons"><span class="hs-identifier hs-type">PI_VarCons</span></a></span><span> </span><span id="local-6989586621679079813"><span class="annot"><span class="annottext">PathInternal as
+</span><a href="#local-6989586621679079813"><span class="hs-identifier hs-var">pathXs</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-170"></span><span>      </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Either Text a
+forall a. FromHttpApiData a =&gt; Text -&gt; Either Text a
+</span><span class="hs-identifier hs-var">parseUrlPiece</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679079802"><span class="hs-identifier hs-var">pathComp</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-171"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Left</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe (HVect as)
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-172"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Right</span></span><span> </span><span id="local-6989586621679079814"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679079814"><span class="hs-identifier hs-var">val</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-173"></span><span>          </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679079815"><span class="annot"><span class="annottext">finish :: Maybe (HVect as)
+</span><a href="#local-6989586621679079815"><span class="hs-identifier hs-var hs-var">finish</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PathInternal as -&gt; [Text] -&gt; Maybe (HVect as)
+forall (as :: [*]). PathInternal as -&gt; [Text] -&gt; Maybe (HVect as)
+</span><a href="Web.Routing.SafeRouting.html#parse"><span class="hs-identifier hs-var">parse</span></a></span><span> </span><span class="annot"><span class="annottext">PathInternal as
+</span><a href="#local-6989586621679079813"><span class="hs-identifier hs-var">pathXs</span></a></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679079803"><span class="hs-identifier hs-var">xs</span></a></span><span>
+</span><span id="line-174"></span><span>           </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">(HVect as -&gt; HVect as) -&gt; Maybe (HVect as) -&gt; Maybe (HVect as)
+forall a b. (a -&gt; b) -&gt; Maybe a -&gt; Maybe b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679079816"><span class="annot"><span class="annottext">HVect as
+</span><a href="#local-6989586621679079816"><span class="hs-identifier hs-var">parsedXs</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679079814"><span class="hs-identifier hs-var">val</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; HVect as -&gt; HVect (a : as)
+forall t (ts1 :: [*]). t -&gt; HVect ts1 -&gt; HVect (t : ts1)
+</span><span class="hs-operator hs-var">:&amp;:</span></span><span> </span><span class="annot"><span class="annottext">HVect as
+</span><a href="#local-6989586621679079816"><span class="hs-identifier hs-var">parsedXs</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe (HVect as)
+</span><a href="#local-6989586621679079815"><span class="hs-identifier hs-var">finish</span></a></span><span>
+</span><span id="line-175"></span><span>    </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PI_Wildcard"><span class="hs-identifier hs-type">PI_Wildcard</span></a></span><span> </span><span class="annot"><span class="annottext">PathInternal as
+</span><a href="Web.Routing.SafeRouting.html#PI_Empty"><span class="hs-identifier hs-var">PI_Empty</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-176"></span><span>      </span><span class="annot"><span class="annottext">HVect as -&gt; Maybe (HVect as)
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">(HVect as -&gt; Maybe (HVect as)) -&gt; HVect as -&gt; Maybe (HVect as)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; Text
+</span><a href="Web.Routing.SafeRouting.html#combineRoutePieces"><span class="hs-identifier hs-var">combineRoutePieces</span></a></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679079801"><span class="hs-identifier hs-var">pathComps</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; HVect '[] -&gt; HVect '[Text]
+forall t (ts1 :: [*]). t -&gt; HVect ts1 -&gt; HVect (t : ts1)
+</span><span class="hs-operator hs-var">:&amp;:</span></span><span> </span><span class="annot"><span class="annottext">HVect '[]
+</span><span class="hs-identifier hs-var">HNil</span></span><span>
+</span><span id="line-177"></span><span>    </span><span class="annot"><a href="Web.Routing.SafeRouting.html#PI_Wildcard"><span class="hs-identifier hs-type">PI_Wildcard</span></a></span><span> </span><span class="annot"><span class="annottext">PathInternal as
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-178"></span><span>      </span><span class="annot"><span class="annottext">[Char] -&gt; Maybe (HVect as)
+forall a. HasCallStack =&gt; [Char] -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">[Char]
+</span><span class="hs-string">&quot;Shouldn't happen&quot;</span></span><span>
+</span><span id="line-179"></span></pre></body></html>

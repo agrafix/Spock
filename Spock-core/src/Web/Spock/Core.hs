@@ -155,7 +155,7 @@ wireRouteImpl m path action =
 allStdMethods :: [SpockMethod]
 allStdMethods = MethodStandard <$> [minBound .. maxBound]
 
--- | Run a Spock application. Basically just a wrapper around 'Warp.run'.
+-- | Run a Spock application using @run@ from "Network.Wai.Handler.Warp".
 runSpock :: Warp.Port -> IO Wai.Middleware -> IO ()
 runSpock port mw =
   do

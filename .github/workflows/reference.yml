@@ -1,0 +1,45 @@
+name: API reference
+
+on:
+  push:
+    paths: ['**/*.hs', '**/*.cabal', 'cabal.project*', 'docs/**', 'scripts/*reference.py', '.github/workflows/reference.yml']
+  pull_request:
+    paths: ['**/*.hs', '**/*.cabal', 'cabal.project*', 'docs/**', 'scripts/*reference.py', '.github/workflows/reference.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  reference:
+    runs-on: ubuntu-latest
+    env:
+      BUNDLE_GEMFILE: ${{ github.workspace }}/docs/Gemfile
+    steps:
+      - uses: actions/checkout@v7
+      - uses: haskell-actions/setup@v2
+        id: haskell
+        with:
+          ghc-version: '9.14.1'
+          cabal-version: '3.18.1.0'
+      - uses: actions/cache@v6
+        with:
+          path: ${{ steps.haskell.outputs.cabal-store }}
+          key: reference-${{ runner.os }}-${{ steps.haskell.outputs.ghc-version }}-${{ hashFiles('**/*.cabal', 'scripts/build-reference.py') }}
+          restore-keys: reference-${{ runner.os }}-${{ steps.haskell.outputs.ghc-version }}-
+      - run: sudo apt-get update && sudo apt-get install -y libpq-dev
+      - name: Build and check current Haddocks
+        run: python3 scripts/build-reference.py --output "$RUNNER_TEMP/reference"
+      - name: Check published reference
+        run: python3 scripts/check-reference.py docs/reference --current
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '4.0'
+          bundler-cache: true
+      - name: Build website and check its reference
+        run: |
+          bundle exec jekyll build --source docs --destination docs/_site
+          python3 scripts/check-reference.py docs/_site/reference
+      - uses: actions/upload-artifact@v7
+        with:
+          name: api-reference
+          path: ${{ runner.temp }}/reference

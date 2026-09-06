@@ -1,0 +1,786 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE DataKinds #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DoAndIfThenElse #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE FlexibleContexts #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE GADTs #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE RankNTypes #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-8"></span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- | Build an application with typed routes, sessions, and a database pool.</span><span>
+</span><span id="line-10"></span><span class="hs-comment">--</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- = Reading requests and sending responses</span><span>
+</span><span id="line-12"></span><span class="hs-comment">--</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- Request and response helpers are reexported from &quot;Web.Spock.Action&quot; in the</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- @Spock-core@ package. Follow that module link for the complete action API:</span><span>
+</span><span id="line-15"></span><span class="hs-comment">--</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- * 'param' and 'param'': parse query or form parameters. Values captured by</span><span>
+</span><span id="line-17"></span><span class="hs-comment">--   'var' in a route are passed directly to its handler instead.</span><span>
+</span><span id="line-18"></span><span class="hs-comment">-- * 'paramsGet', 'paramsPost', and 'params': list request parameters.</span><span>
+</span><span id="line-19"></span><span class="hs-comment">-- * 'jsonBody', 'jsonBody'', and 'body': read JSON or raw request bytes.</span><span>
+</span><span id="line-20"></span><span class="hs-comment">-- * 'header', 'rawHeader', and 'cookies': inspect request metadata.</span><span>
+</span><span id="line-21"></span><span class="hs-comment">-- * 'filesMulti': read uploaded files, including repeated upload fields.</span><span>
+</span><span id="line-22"></span><span class="hs-comment">-- * 'setStatus' and 'setHeader': prepare response metadata before sending it.</span><span>
+</span><span id="line-23"></span><span class="hs-comment">-- * 'text', 'html', 'json', 'file', and 'lazyBytes': send a response and finish</span><span>
+</span><span id="line-24"></span><span class="hs-comment">--   the current action.</span><span>
+</span><span id="line-25"></span><span class="hs-comment">--</span><span>
+</span><span id="line-26"></span><span class="hs-comment">-- The &lt;https://www.spock.li/reference/ API reference&gt; links the current</span><span>
+</span><span id="line-27"></span><span class="hs-comment">-- versions of Spock, Spock-core, the typed API packages, and session adapters.</span><span>
+</span><span id="line-28"></span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Web.Spock.html"><span class="hs-identifier">Web.Spock</span></a></span><span>
+</span><span id="line-29"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-comment">-- * Launching Spock</span></span><span>
+</span><span id="line-30"></span><span>    </span><span class="annot"><span class="hs-identifier">runSpock</span></span><span class="hs-special">,</span><span>
+</span><span id="line-31"></span><span>    </span><span class="annot"><span class="hs-identifier">runSpockNoBanner</span></span><span class="hs-special">,</span><span>
+</span><span id="line-32"></span><span>    </span><span class="annot"><span class="hs-identifier">spockAsApp</span></span><span class="hs-special">,</span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Spock's route definition monad</span></span><span>
+</span><span id="line-35"></span><span>    </span><span class="annot"><a href="Web.Spock.html#spock"><span class="hs-identifier">spock</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-36"></span><span>    </span><span class="annot"><a href="Web.Spock.html#SpockM"><span class="hs-identifier">SpockM</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-37"></span><span>    </span><span class="annot"><a href="Web.Spock.html#SpockCtxM"><span class="hs-identifier">SpockCtxM</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Defining routes</span></span><span>
+</span><span id="line-40"></span><span>    </span><span class="annot"><span class="hs-identifier">Path</span></span><span class="hs-special">,</span><span>
+</span><span id="line-41"></span><span>    </span><span class="annot"><span class="hs-identifier">root</span></span><span class="hs-special">,</span><span>
+</span><span id="line-42"></span><span>    </span><span class="annot"><span class="hs-identifier">Var</span></span><span class="hs-special">,</span><span>
+</span><span id="line-43"></span><span>    </span><span class="annot"><span class="hs-identifier">AltVar</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-44"></span><span>    </span><span class="annot"><span class="hs-identifier">var</span></span><span class="hs-special">,</span><span>
+</span><span id="line-45"></span><span>    </span><span class="annot"><span class="hs-identifier">static</span></span><span class="hs-special">,</span><span>
+</span><span id="line-46"></span><span>    </span><span class="annot"><span class="hs-operator">(&lt;//&gt;)</span></span><span class="hs-special">,</span><span>
+</span><span id="line-47"></span><span>    </span><span class="annot"><span class="hs-identifier">wildcard</span></span><span class="hs-special">,</span><span>
+</span><span id="line-48"></span><span>
+</span><span id="line-49"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Rendering routes</span></span><span>
+</span><span id="line-50"></span><span>    </span><span class="annot"><span class="hs-identifier">renderRoute</span></span><span class="hs-special">,</span><span>
+</span><span id="line-51"></span><span>
+</span><span id="line-52"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Hooking routes</span></span><span>
+</span><span id="line-53"></span><span>    </span><span class="annot"><span class="hs-identifier">prehook</span></span><span class="hs-special">,</span><span>
+</span><span id="line-54"></span><span>    </span><span class="annot"><a href="Web.Spock.html#RouteSpec"><span class="hs-identifier">RouteSpec</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-55"></span><span>    </span><span class="annot"><a href="Web.Spock.html#get"><span class="hs-identifier">get</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-56"></span><span>    </span><span class="annot"><a href="Web.Spock.html#post"><span class="hs-identifier">post</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-57"></span><span>    </span><span class="annot"><a href="Web.Spock.html#getpost"><span class="hs-identifier">getpost</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-58"></span><span>    </span><span class="annot"><a href="Web.Spock.html#head"><span class="hs-identifier">head</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-59"></span><span>    </span><span class="annot"><a href="Web.Spock.html#put"><span class="hs-identifier">put</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-60"></span><span>    </span><span class="annot"><a href="Web.Spock.html#delete"><span class="hs-identifier">delete</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-61"></span><span>    </span><span class="annot"><a href="Web.Spock.html#patch"><span class="hs-identifier">patch</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-62"></span><span>    </span><span class="annot"><a href="Web.Spock.html#hookRoute"><span class="hs-identifier">hookRoute</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-63"></span><span>    </span><span class="annot"><a href="Web.Spock.html#hookRouteCustom"><span class="hs-identifier">hookRouteCustom</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-64"></span><span>    </span><span class="annot"><a href="Web.Spock.html#hookAny"><span class="hs-identifier">hookAny</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-65"></span><span>    </span><span class="annot"><a href="Web.Spock.html#hookAnyCustom"><span class="hs-identifier">hookAnyCustom</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-66"></span><span>    </span><span class="annot"><a href="Web.Spock.html#hookRouteAll"><span class="hs-identifier">hookRouteAll</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-67"></span><span>    </span><span class="annot"><a href="Web.Spock.html#hookAnyAll"><span class="hs-identifier">hookAnyAll</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-68"></span><span>    </span><span class="annot"><span class="hs-identifier">C.StdMethod</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-69"></span><span>
+</span><span id="line-70"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Adding Wai.Middleware</span></span><span>
+</span><span id="line-71"></span><span>    </span><span class="annot"><span class="hs-identifier">middleware</span></span><span class="hs-special">,</span><span>
+</span><span id="line-72"></span><span>
+</span><span id="line-73"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Actions</span></span><span>
+</span><span id="line-74"></span><span>    </span><span class="annot"><a href="Web.Spock.Internal.Types.html#SpockAction"><span class="hs-identifier">SpockAction</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-75"></span><span>    </span><span class="annot"><a href="Web.Spock.Internal.Types.html#SpockActionCtx"><span class="hs-identifier">SpockActionCtx</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-76"></span><span>    </span><span class="hs-keyword">module</span><span> </span><span class="annot"><span class="hs-identifier">Web.Spock.Action</span></span><span class="hs-special">,</span><span>
+</span><span id="line-77"></span><span>    </span><span class="annot"><a href="Web.Spock.Internal.Types.html#HasSpock"><span class="hs-identifier">HasSpock</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-78"></span><span>    </span><span class="annot"><a href="Web.Spock.Internal.Types.html#SessionManager"><span class="hs-identifier">SessionManager</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-79"></span><span>    </span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Web.Spock.SessionActions.html"><span class="hs-identifier">Web.Spock.SessionActions</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-80"></span><span>    </span><span class="annot"><a href="Web.Spock.html#getCsrfToken"><span class="hs-identifier">getCsrfToken</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-81"></span><span>    </span><span class="annot"><a href="Web.Spock.html#getClientCsrfToken"><span class="hs-identifier">getClientCsrfToken</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-82"></span><span>    </span><span class="annot"><a href="Web.Spock.html#csrfCheck"><span class="hs-identifier">csrfCheck</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-83"></span><span>
+</span><span id="line-84"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Accessing internals</span></span><span>
+</span><span id="line-85"></span><span>    </span><span class="annot"><a href="Web.Spock.Internal.Types.html#WebStateM"><span class="hs-identifier">WebStateM</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-86"></span><span>    </span><span class="annot"><a href="Web.Spock.Internal.Types.html#WebStateT"><span class="hs-identifier">WebStateT</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-87"></span><span>    </span><span class="annot"><a href="Web.Spock.Internal.Types.html#WebState"><span class="hs-identifier">WebState</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-88"></span><span>    </span><span class="annot"><a href="Web.Spock.Internal.Monad.html#getSpockHeart"><span class="hs-identifier">getSpockHeart</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-89"></span><span>    </span><span class="annot"><a href="Web.Spock.Internal.Monad.html#runSpockIO"><span class="hs-identifier">runSpockIO</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-90"></span><span>    </span><span class="annot"><a href="Web.Spock.Internal.Monad.html#getSpockPool"><span class="hs-identifier">getSpockPool</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-91"></span><span>  </span><span class="hs-special">)</span><span>
+</span><span id="line-92"></span><span class="hs-keyword">where</span><span>
+</span><span id="line-93"></span><span>
+</span><span id="line-94"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Applicative</span></span><span>
+</span><span id="line-95"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Exception</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">throwIO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-96"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">when</span></span><span class="hs-special">)</span><span>
+</span><span id="line-97"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Reader</span></span><span>
+</span><span id="line-98"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Trans.Resource</span></span><span>
+</span><span id="line-99"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.HVect</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">HV</span></span><span>
+</span><span id="line-100"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Pool</span></span><span>
+</span><span id="line-101"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-102"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Vault.Lazy</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">V</span></span><span>
+</span><span id="line-103"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Network.HTTP.Types.Status</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">status403</span></span><span class="hs-special">)</span><span>
+</span><span id="line-104"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Network.Wai</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Wai</span></span><span>
+</span><span id="line-105"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Web.Spock.Action</span></span><span>
+</span><span id="line-106"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Web.Spock.Core</span></span><span> </span><span class="hs-keyword">hiding</span><span>
+</span><span id="line-107"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-identifier">delete</span></span><span class="hs-special">,</span><span>
+</span><span id="line-108"></span><span>    </span><span class="annot"><span class="hs-identifier">get</span></span><span class="hs-special">,</span><span>
+</span><span id="line-109"></span><span>    </span><span class="annot"><span class="hs-identifier">getpost</span></span><span class="hs-special">,</span><span>
+</span><span id="line-110"></span><span>    </span><span class="annot"><span class="hs-identifier">head</span></span><span class="hs-special">,</span><span>
+</span><span id="line-111"></span><span>    </span><span class="annot"><span class="hs-identifier">hookAny</span></span><span class="hs-special">,</span><span>
+</span><span id="line-112"></span><span>    </span><span class="annot"><span class="hs-identifier">hookAny'</span></span><span class="hs-special">,</span><span>
+</span><span id="line-113"></span><span>    </span><span class="annot"><span class="hs-identifier">hookAnyAll</span></span><span class="hs-special">,</span><span>
+</span><span id="line-114"></span><span>    </span><span class="annot"><span class="hs-identifier">hookAnyCustom</span></span><span class="hs-special">,</span><span>
+</span><span id="line-115"></span><span>    </span><span class="annot"><span class="hs-identifier">hookRoute</span></span><span class="hs-special">,</span><span>
+</span><span id="line-116"></span><span>    </span><span class="annot"><span class="hs-identifier">hookRoute'</span></span><span class="hs-special">,</span><span>
+</span><span id="line-117"></span><span>    </span><span class="annot"><span class="hs-identifier">hookRouteAll</span></span><span class="hs-special">,</span><span>
+</span><span id="line-118"></span><span>    </span><span class="annot"><span class="hs-identifier">hookRouteCustom</span></span><span class="hs-special">,</span><span>
+</span><span id="line-119"></span><span>    </span><span class="annot"><span class="hs-identifier">patch</span></span><span class="hs-special">,</span><span>
+</span><span id="line-120"></span><span>    </span><span class="annot"><span class="hs-identifier">post</span></span><span class="hs-special">,</span><span>
+</span><span id="line-121"></span><span>    </span><span class="annot"><span class="hs-identifier">put</span></span><span class="hs-special">,</span><span>
+</span><span id="line-122"></span><span>  </span><span class="hs-special">)</span><span>
+</span><span id="line-123"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Web.Spock.Core</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">C</span></span><span>
+</span><span id="line-124"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Monad.html"><span class="hs-identifier">Web.Spock.Internal.Monad</span></a></span><span>
+</span><span id="line-125"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Web.Spock.Internal.SessionManager.html"><span class="hs-identifier">Web.Spock.Internal.SessionManager</span></a></span><span>
+</span><span id="line-126"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html"><span class="hs-identifier">Web.Spock.Internal.Types</span></a></span><span>
+</span><span id="line-127"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Web.Spock.Routing</span></span><span>
+</span><span id="line-128"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Web.Spock.SessionActions.html"><span class="hs-identifier">Web.Spock.SessionActions</span></a></span><span>
+</span><span id="line-129"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">head</span></span><span class="hs-special">)</span><span>
+</span><span id="line-130"></span><span>
+</span><span id="line-131"></span><span class="hs-keyword">type</span><span> </span><span id="SpockM"><span class="annot"><a href="Web.Spock.html#SpockM"><span class="hs-identifier hs-var">SpockM</span></a></span></span><span> </span><span id="local-6989586621679138945"><span class="annot"><a href="#local-6989586621679138945"><span class="hs-identifier hs-type">conn</span></a></span></span><span> </span><span id="local-6989586621679138946"><span class="annot"><a href="#local-6989586621679138946"><span class="hs-identifier hs-type">sess</span></a></span></span><span> </span><span id="local-6989586621679138947"><span class="annot"><a href="#local-6989586621679138947"><span class="hs-identifier hs-type">st</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Web.Spock.html#SpockCtxM"><span class="hs-identifier hs-type">SpockCtxM</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679138945"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138946"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138947"><span class="hs-identifier hs-type">st</span></a></span><span>
+</span><span id="line-132"></span><span>
+</span><span id="line-133"></span><span class="hs-keyword">type</span><span> </span><span id="SpockCtxM"><span class="annot"><a href="Web.Spock.html#SpockCtxM"><span class="hs-identifier hs-var">SpockCtxM</span></a></span></span><span> </span><span id="local-6989586621679138948"><span class="annot"><a href="#local-6989586621679138948"><span class="hs-identifier hs-type">ctx</span></a></span></span><span> </span><span id="local-6989586621679138949"><span class="annot"><a href="#local-6989586621679138949"><span class="hs-identifier hs-type">conn</span></a></span></span><span> </span><span id="local-6989586621679138950"><span class="annot"><a href="#local-6989586621679138950"><span class="hs-identifier hs-type">sess</span></a></span></span><span> </span><span id="local-6989586621679138951"><span class="annot"><a href="#local-6989586621679138951"><span class="hs-identifier hs-type">st</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SpockCtxT</span></span><span> </span><span class="annot"><a href="#local-6989586621679138948"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#WebStateM"><span class="hs-identifier hs-type">WebStateM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138949"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138950"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138951"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-134"></span><span>
+</span><span id="line-135"></span><span class="hs-comment">-- | Create a spock application using a given db storageLayer and an initial state.</span><span>
+</span><span id="line-136"></span><span class="hs-comment">-- Spock works with database libraries that already implement connection pooling and</span><span>
+</span><span id="line-137"></span><span class="hs-comment">-- with those that don't come with it out of the box. For more see the 'PoolOrConn' type.</span><span>
+</span><span id="line-138"></span><span class="hs-comment">-- Use @runSpock@ to run the app or @spockAsApp@ to create a @Wai.Application@</span><span>
+</span><span id="line-139"></span><span class="annot"><a href="Web.Spock.html#spock"><span class="hs-identifier hs-type">spock</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679138459"><span class="annot"><a href="#local-6989586621679138459"><span class="hs-identifier hs-type">conn</span></a></span></span><span> </span><span id="local-6989586621679138460"><span class="annot"><a href="#local-6989586621679138460"><span class="hs-identifier hs-type">sess</span></a></span></span><span> </span><span id="local-6989586621679138461"><span class="annot"><a href="#local-6989586621679138461"><span class="hs-identifier hs-type">st</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#SpockCfg"><span class="hs-identifier hs-type">SpockCfg</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138459"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138460"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138461"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Spock.html#SpockM"><span class="hs-identifier hs-type">SpockM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138459"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138460"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138461"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Wai.Middleware</span></span><span>
+</span><span id="line-140"></span><span id="spock"><span class="annot"><span class="annottext">spock :: forall conn sess st.
+SpockCfg conn sess st -&gt; SpockM conn sess st () -&gt; IO Middleware
+</span><a href="Web.Spock.html#spock"><span class="hs-identifier hs-var hs-var">spock</span></a></span></span><span> </span><span id="local-6989586621679138998"><span class="annot"><span class="annottext">SpockCfg conn sess st
+</span><a href="#local-6989586621679138998"><span class="hs-identifier hs-var">spockCfg</span></a></span></span><span> </span><span id="local-6989586621679138999"><span class="annot"><span class="annottext">SpockM conn sess st ()
+</span><a href="#local-6989586621679138999"><span class="hs-identifier hs-var">spockAppl</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-141"></span><span>  </span><span class="hs-keyword">do</span><span>
+</span><span id="line-142"></span><span>    </span><span class="annot"><span class="annottext">Bool -&gt; IO () -&gt; IO ()
+forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
+</span><span class="hs-identifier hs-var">when</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SessionCfg conn sess st -&gt; SessionMode
+forall conn a st. SessionCfg conn a st -&gt; SessionMode
+</span><a href="Web.Spock.Internal.Types.html#sc_sessionMode"><span class="hs-identifier hs-var">sc_sessionMode</span></a></span><span> </span><span class="annot"><span class="annottext">SessionCfg conn sess st
+</span><a href="#local-6989586621679139001"><span class="hs-identifier hs-var">sessionCfg</span></a></span><span> </span><span class="annot"><span class="annottext">SessionMode -&gt; SessionMode -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">SessionMode
+</span><a href="Web.Spock.Internal.Types.html#SessionsDisabled"><span class="hs-identifier hs-var">SessionsDisabled</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">SpockCfg conn sess st -&gt; Bool
+forall conn sess st. SpockCfg conn sess st -&gt; Bool
+</span><a href="Web.Spock.Internal.Types.html#spc_csrfProtection"><span class="hs-identifier hs-var">spc_csrfProtection</span></a></span><span> </span><span class="annot"><span class="annottext">SpockCfg conn sess st
+</span><a href="#local-6989586621679138998"><span class="hs-identifier hs-var">spockCfg</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-143"></span><span>      </span><span class="annot"><span class="annottext">SessionError -&gt; IO ()
+forall e a. (HasCallStack, Exception e) =&gt; e -&gt; IO a
+</span><span class="hs-identifier hs-var">throwIO</span></span><span> </span><span class="annot"><span class="annottext">SessionError
+</span><a href="Web.Spock.Internal.Types.html#CsrfRequiresSessions"><span class="hs-identifier hs-var">CsrfRequiresSessions</span></a></span><span>
+</span><span id="line-144"></span><span>    </span><span id="local-6989586621679139006"><span class="annot"><a href="#local-6989586621679139006"><span class="hs-identifier hs-var">connectionPool</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span>
+</span><span id="line-145"></span><span>      </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">PoolOrConn conn
+</span><a href="#local-6989586621679139007"><span class="hs-identifier hs-var">poolOrConn</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-146"></span><span>        </span><span class="annot"><span class="annottext">PoolOrConn conn
+</span><a href="Web.Spock.Internal.Types.html#PCNoDatabase"><span class="hs-identifier hs-var">PCNoDatabase</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-147"></span><span>          </span><span class="annot"><span class="annottext">PoolConfig () -&gt; IO (Pool ())
+forall a. PoolConfig a -&gt; IO (Pool a)
+</span><span class="hs-identifier hs-var">newPool</span></span><span> </span><span class="annot"><span class="annottext">(PoolConfig () -&gt; IO (Pool ())) -&gt; PoolConfig () -&gt; IO (Pool ())
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Maybe Int -&gt; PoolConfig () -&gt; PoolConfig ()
+forall a. Maybe Int -&gt; PoolConfig a -&gt; PoolConfig a
+</span><span class="hs-identifier hs-var">setNumStripes</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Maybe Int
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">5</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(PoolConfig () -&gt; PoolConfig ()) -&gt; PoolConfig () -&gt; PoolConfig ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">IO () -&gt; (() -&gt; IO ()) -&gt; Double -&gt; Int -&gt; PoolConfig ()
+forall a. IO a -&gt; (a -&gt; IO ()) -&gt; Double -&gt; Int -&gt; PoolConfig a
+</span><span class="hs-identifier hs-var">defaultPoolConfig</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; IO ()
+forall a. a -&gt; IO a
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IO () -&gt; () -&gt; IO ()
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; () -&gt; IO ()) -&gt; IO () -&gt; () -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">() -&gt; IO ()
+forall a. a -&gt; IO a
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">60</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">25</span></span><span>
+</span><span id="line-148"></span><span>        </span><span class="annot"><a href="Web.Spock.Internal.Types.html#PCPool"><span class="hs-identifier hs-type">PCPool</span></a></span><span> </span><span id="local-6989586621679139018"><span class="annot"><span class="annottext">Pool conn
+</span><a href="#local-6989586621679139018"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-149"></span><span>          </span><span class="annot"><span class="annottext">Pool conn -&gt; IO (Pool conn)
+forall a. a -&gt; IO a
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">Pool conn
+</span><a href="#local-6989586621679139018"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-150"></span><span>        </span><span class="annot"><a href="Web.Spock.Internal.Types.html#PCConn"><span class="hs-identifier hs-type">PCConn</span></a></span><span> </span><span id="local-6989586621679139020"><span class="annot"><span class="annottext">ConnBuilder conn
+</span><a href="#local-6989586621679139020"><span class="hs-identifier hs-var">cb</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-151"></span><span>          </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679139021"><span class="annot"><span class="annottext">pc :: PoolCfg
+</span><a href="#local-6989586621679139021"><span class="hs-identifier hs-var hs-var">pc</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ConnBuilder conn -&gt; PoolCfg
+forall a. ConnBuilder a -&gt; PoolCfg
+</span><a href="Web.Spock.Internal.Types.html#cb_poolConfiguration"><span class="hs-identifier hs-var">cb_poolConfiguration</span></a></span><span> </span><span class="annot"><span class="annottext">ConnBuilder conn
+</span><a href="#local-6989586621679139020"><span class="hs-identifier hs-var">cb</span></a></span><span>
+</span><span id="line-152"></span><span>           </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">PoolConfig conn -&gt; IO (Pool conn)
+forall a. PoolConfig a -&gt; IO (Pool a)
+</span><span class="hs-identifier hs-var">newPool</span></span><span> </span><span class="annot"><span class="annottext">(PoolConfig conn -&gt; IO (Pool conn))
+-&gt; PoolConfig conn -&gt; IO (Pool conn)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-153"></span><span>                </span><span class="annot"><span class="annottext">Maybe Int -&gt; PoolConfig conn -&gt; PoolConfig conn
+forall a. Maybe Int -&gt; PoolConfig a -&gt; PoolConfig a
+</span><span class="hs-identifier hs-var">setNumStripes</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Maybe Int
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">(Int -&gt; Maybe Int) -&gt; Int -&gt; Maybe Int
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">PoolCfg -&gt; Int
+</span><a href="Web.Spock.Internal.Types.html#pc_stripes"><span class="hs-identifier hs-var">pc_stripes</span></a></span><span> </span><span class="annot"><span class="annottext">PoolCfg
+</span><a href="#local-6989586621679139021"><span class="hs-identifier hs-var">pc</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(PoolConfig conn -&gt; PoolConfig conn)
+-&gt; PoolConfig conn -&gt; PoolConfig conn
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-154"></span><span>                  </span><span class="annot"><span class="annottext">IO conn -&gt; (conn -&gt; IO ()) -&gt; Double -&gt; Int -&gt; PoolConfig conn
+forall a. IO a -&gt; (a -&gt; IO ()) -&gt; Double -&gt; Int -&gt; PoolConfig a
+</span><span class="hs-identifier hs-var">defaultPoolConfig</span></span><span>
+</span><span id="line-155"></span><span>                    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ConnBuilder conn -&gt; IO conn
+forall a. ConnBuilder a -&gt; IO a
+</span><a href="Web.Spock.Internal.Types.html#cb_createConn"><span class="hs-identifier hs-var">cb_createConn</span></a></span><span> </span><span class="annot"><span class="annottext">ConnBuilder conn
+</span><a href="#local-6989586621679139020"><span class="hs-identifier hs-var">cb</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-156"></span><span>                    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ConnBuilder conn -&gt; conn -&gt; IO ()
+forall a. ConnBuilder a -&gt; a -&gt; IO ()
+</span><a href="Web.Spock.Internal.Types.html#cb_destroyConn"><span class="hs-identifier hs-var">cb_destroyConn</span></a></span><span> </span><span class="annot"><span class="annottext">ConnBuilder conn
+</span><a href="#local-6989586621679139020"><span class="hs-identifier hs-var">cb</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-157"></span><span>                    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NominalDiffTime -&gt; Double
+forall a b. (Real a, Fractional b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">realToFrac</span></span><span> </span><span class="annot"><span class="annottext">(NominalDiffTime -&gt; Double) -&gt; NominalDiffTime -&gt; Double
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">PoolCfg -&gt; NominalDiffTime
+</span><a href="Web.Spock.Internal.Types.html#pc_keepOpenTime"><span class="hs-identifier hs-var">pc_keepOpenTime</span></a></span><span> </span><span class="annot"><span class="annottext">PoolCfg
+</span><a href="#local-6989586621679139021"><span class="hs-identifier hs-var">pc</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-158"></span><span>                    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PoolCfg -&gt; Int
+</span><a href="Web.Spock.Internal.Types.html#pc_stripes"><span class="hs-identifier hs-var">pc_stripes</span></a></span><span> </span><span class="annot"><span class="annottext">PoolCfg
+</span><a href="#local-6989586621679139021"><span class="hs-identifier hs-var">pc</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">*</span></span><span> </span><span class="annot"><span class="annottext">PoolCfg -&gt; Int
+</span><a href="Web.Spock.Internal.Types.html#pc_resPerStripe"><span class="hs-identifier hs-var">pc_resPerStripe</span></a></span><span> </span><span class="annot"><span class="annottext">PoolCfg
+</span><a href="#local-6989586621679139021"><span class="hs-identifier hs-var">pc</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-159"></span><span>    </span><span id="local-6989586621679139029"><span class="annot"><a href="#local-6989586621679139029"><span class="hs-identifier hs-var">internalState</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span>
+</span><span id="line-160"></span><span>      </span><span class="annot"><a href="Web.Spock.Internal.Types.html#WebState"><span class="hs-identifier hs-type">WebState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139006"><span class="hs-identifier hs-type">connectionPool</span></a></span><span>
+</span><span id="line-161"></span><span>        </span><span class="annot"><span class="hs-operator hs-type">&lt;$&gt;</span></span><span> </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Web.Spock.Internal.SessionManager.html#createSessionManager"><span class="hs-identifier hs-type">createSessionManager</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139001"><span class="hs-identifier hs-type">sessionCfg</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span>
+</span><span id="line-162"></span><span>                </span><span class="annot"><a href="Web.Spock.Internal.SessionManager.html#SessionIf"><span class="hs-identifier hs-type">SessionIf</span></a></span><span>
+</span><span id="line-163"></span><span>                  </span><span class="hs-special">{</span><span> </span><span class="annot"><a href="Web.Spock.Internal.SessionManager.html#si_queryVault"><span class="hs-identifier hs-var">si_queryVault</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">queryVault</span></span><span class="hs-special">,</span><span>
+</span><span id="line-164"></span><span>                    </span><span class="annot"><a href="Web.Spock.Internal.SessionManager.html#si_modifyVault"><span class="hs-identifier hs-var">si_modifyVault</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">modifyVault</span></span><span class="hs-special">,</span><span>
+</span><span id="line-165"></span><span>                    </span><span class="annot"><a href="Web.Spock.Internal.SessionManager.html#si_setRawMultiHeader"><span class="hs-identifier hs-var">si_setRawMultiHeader</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">setRawMultiHeader</span></span><span class="hs-special">,</span><span>
+</span><span id="line-166"></span><span>                    </span><span class="annot"><a href="Web.Spock.Internal.SessionManager.html#si_vaultKey"><span class="hs-identifier hs-var">si_vaultKey</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">V.newKey</span></span><span>
+</span><span id="line-167"></span><span>                  </span><span class="hs-special">}</span><span>
+</span><span id="line-168"></span><span>            </span><span class="hs-special">)</span><span>
+</span><span id="line-169"></span><span>        </span><span class="annot"><span class="hs-operator hs-type">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">pure</span></span><span> </span><span class="annot"><a href="#local-6989586621679139043"><span class="hs-identifier hs-type">initialState</span></a></span><span>
+</span><span id="line-170"></span><span>        </span><span class="annot"><span class="hs-operator hs-type">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">pure</span></span><span> </span><span class="annot"><a href="#local-6989586621679138998"><span class="hs-identifier hs-type">spockCfg</span></a></span><span>
+</span><span id="line-171"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679139044"><span class="annot"><a href="#local-6989586621679139044"><span class="hs-identifier hs-var hs-var">coreConfig</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-172"></span><span>          </span><span class="annot"><span class="annottext">SpockConfig
+</span><span class="hs-identifier hs-var">defaultSpockConfig</span></span><span>
+</span><span id="line-173"></span><span>            </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="hs-identifier hs-var">sc_maxRequestSize</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#spc_maxRequestSize"><span class="hs-identifier hs-var">spc_maxRequestSize</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138998"><span class="hs-identifier hs-type">spockCfg</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-174"></span><span>              </span><span class="annot"><span class="hs-identifier hs-var">sc_errorHandler</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#spc_errorHandler"><span class="hs-identifier hs-var">spc_errorHandler</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138998"><span class="hs-identifier hs-type">spockCfg</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-175"></span><span>              </span><span class="annot"><span class="hs-identifier hs-var">sc_logError</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#spc_logError"><span class="hs-identifier hs-var">spc_logError</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138998"><span class="hs-identifier hs-type">spockCfg</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-176"></span><span>              </span><span class="annot"><span class="hs-identifier hs-var">sc_logging</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#spc_logging"><span class="hs-identifier hs-var">spc_logging</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138998"><span class="hs-identifier hs-type">spockCfg</span></a></span><span>
+</span><span id="line-177"></span><span>            </span><span class="hs-special">}</span><span>
+</span><span id="line-178"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">spockConfigT</span></span><span> </span><span class="annot"><a href="#local-6989586621679139044"><span class="hs-identifier hs-type">coreConfig</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679139057"><span class="annot"><span class="annottext">WebStateM conn sess st a
+</span><a href="#local-6989586621679139057"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ResourceT IO a -&gt; IO a
+forall (m :: * -&gt; *) a. MonadUnliftIO m =&gt; ResourceT m a -&gt; m a
+</span><span class="hs-identifier hs-var">runResourceT</span></span><span> </span><span class="annot"><span class="annottext">(ResourceT IO a -&gt; IO a) -&gt; ResourceT IO a -&gt; IO a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ReaderT (WebState conn sess st) (ResourceT IO) a
+-&gt; WebState conn sess st -&gt; ResourceT IO a
+forall r (m :: * -&gt; *) a. ReaderT r m a -&gt; r -&gt; m a
+</span><span class="hs-identifier hs-var">runReaderT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">WebStateM conn sess st a
+-&gt; ReaderT (WebState conn sess st) (ResourceT IO) a
+forall conn sess st (m :: * -&gt; *) a.
+WebStateT conn sess st m a -&gt; ReaderT (WebState conn sess st) m a
+</span><a href="Web.Spock.Internal.Types.html#runWebStateT"><span class="hs-identifier hs-var">runWebStateT</span></a></span><span> </span><span class="annot"><span class="annottext">WebStateM conn sess st a
+</span><a href="#local-6989586621679139057"><span class="hs-identifier hs-var">m</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">WebState conn sess st
+</span><a href="#local-6989586621679139029"><span class="hs-identifier hs-var">internalState</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span>
+</span><span id="line-179"></span><span>      </span><span class="hs-keyword">do</span><span>
+</span><span id="line-180"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">middleware</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#sm_middleware"><span class="hs-identifier hs-var">sm_middleware</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#web_sessionMgr"><span class="hs-identifier hs-var">web_sessionMgr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139029"><span class="hs-identifier hs-type">internalState</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-181"></span><span>        </span><span class="annot"><a href="#local-6989586621679138999"><span class="hs-identifier hs-type">spockAppl</span></a></span><span>
+</span><span id="line-182"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-183"></span><span>    </span><span id="local-6989586621679139001"><span class="annot"><span class="annottext">sessionCfg :: SessionCfg conn sess st
+</span><a href="#local-6989586621679139001"><span class="hs-identifier hs-var hs-var">sessionCfg</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SpockCfg conn sess st -&gt; SessionCfg conn sess st
+forall conn sess st.
+SpockCfg conn sess st -&gt; SessionCfg conn sess st
+</span><a href="Web.Spock.Internal.Types.html#spc_sessionCfg"><span class="hs-identifier hs-var">spc_sessionCfg</span></a></span><span> </span><span class="annot"><span class="annottext">SpockCfg conn sess st
+</span><a href="#local-6989586621679138998"><span class="hs-identifier hs-var">spockCfg</span></a></span><span>
+</span><span id="line-184"></span><span>    </span><span id="local-6989586621679139007"><span class="annot"><span class="annottext">poolOrConn :: PoolOrConn conn
+</span><a href="#local-6989586621679139007"><span class="hs-identifier hs-var hs-var">poolOrConn</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SpockCfg conn sess st -&gt; PoolOrConn conn
+forall conn sess st. SpockCfg conn sess st -&gt; PoolOrConn conn
+</span><a href="Web.Spock.Internal.Types.html#spc_database"><span class="hs-identifier hs-var">spc_database</span></a></span><span> </span><span class="annot"><span class="annottext">SpockCfg conn sess st
+</span><a href="#local-6989586621679138998"><span class="hs-identifier hs-var">spockCfg</span></a></span><span>
+</span><span id="line-185"></span><span>    </span><span id="local-6989586621679139043"><span class="annot"><span class="annottext">initialState :: st
+</span><a href="#local-6989586621679139043"><span class="hs-identifier hs-var hs-var">initialState</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SpockCfg conn sess st -&gt; st
+forall conn sess st. SpockCfg conn sess st -&gt; st
+</span><a href="Web.Spock.Internal.Types.html#spc_initialState"><span class="hs-identifier hs-var">spc_initialState</span></a></span><span> </span><span class="annot"><span class="annottext">SpockCfg conn sess st
+</span><a href="#local-6989586621679138998"><span class="hs-identifier hs-var">spockCfg</span></a></span><span>
+</span><span id="line-186"></span><span>
+</span><span id="line-187"></span><span class="hs-comment">-- | Get the CSRF token for the current user. This token must be sent on all non</span><span>
+</span><span id="line-188"></span><span class="hs-comment">-- GET requests via a post parameter or HTTP-Header if 'spc_csrfProtection' is turned on.</span><span>
+</span><span id="line-189"></span><span class="hs-comment">-- See configuration 'SpockCfg' documentation for more information</span><span>
+</span><span id="line-190"></span><span id="local-6989586621679138614"><span id="local-6989586621679138615"><span id="local-6989586621679138616"><span id="local-6989586621679138617"><span class="annot"><a href="Web.Spock.html#getCsrfToken"><span class="hs-identifier hs-type">getCsrfToken</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#SpockActionCtx"><span class="hs-identifier hs-type">SpockActionCtx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138614"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138615"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138616"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138617"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span></span></span></span></span><span>
+</span><span id="line-191"></span><span id="getCsrfToken"><span class="annot"><span class="annottext">getCsrfToken :: forall ctx conn sess st. SpockActionCtx ctx conn sess st SessionId
+</span><a href="Web.Spock.html#getCsrfToken"><span class="hs-identifier hs-var hs-var">getCsrfToken</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">()
+-&gt; ActionCtxT () (WebStateM conn sess st) SessionId
+-&gt; ActionCtxT ctx (WebStateM conn sess st) SessionId
+forall (m :: * -&gt; *) ctx' a ctx.
+MonadIO m =&gt;
+ctx' -&gt; ActionCtxT ctx' m a -&gt; ActionCtxT ctx m a
+</span><span class="hs-identifier hs-var">runInContext</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(ActionCtxT () (WebStateM conn sess st) SessionId
+ -&gt; ActionCtxT ctx (WebStateM conn sess st) SessionId)
+-&gt; ActionCtxT () (WebStateM conn sess st) SessionId
+-&gt; ActionCtxT ctx (WebStateM conn sess st) SessionId
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">SessionManager
+  (ActionCtxT () (WebStateM conn sess st)) conn sess st
+-&gt; ActionCtxT () (WebStateM conn sess st) SessionId
+forall (m :: * -&gt; *) conn sess st.
+SessionManager m conn sess st -&gt; m SessionId
+</span><a href="Web.Spock.Internal.Types.html#sm_getCsrfToken"><span class="hs-identifier hs-var">sm_getCsrfToken</span></a></span><span> </span><span class="annot"><span class="annottext">(SessionManager
+   (ActionCtxT () (WebStateM conn sess st)) conn sess st
+ -&gt; ActionCtxT () (WebStateM conn sess st) SessionId)
+-&gt; ActionCtxT
+     ()
+     (WebStateM conn sess st)
+     (SessionManager
+        (ActionCtxT () (WebStateM conn sess st)) conn sess st)
+-&gt; ActionCtxT () (WebStateM conn sess st) SessionId
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; m b) -&gt; m a -&gt; m b
+</span><span class="hs-operator hs-var">=&lt;&lt;</span></span><span> </span><span class="annot"><span class="annottext">ActionCtxT
+  ()
+  (WebStateM conn sess st)
+  (SessionManager
+     (ActionCtxT () (WebStateM conn sess st)) conn sess st)
+ActionCtxT
+  ()
+  (WebStateM conn sess st)
+  (SpockSessionManager
+     (SpockConn (ActionCtxT () (WebStateM conn sess st)))
+     (SpockSession (ActionCtxT () (WebStateM conn sess st)))
+     (SpockState (ActionCtxT () (WebStateM conn sess st))))
+forall (m :: * -&gt; *).
+HasSpock m =&gt;
+m (SpockSessionManager
+     (SpockConn m) (SpockSession m) (SpockState m))
+</span><a href="Web.Spock.Internal.Types.html#getSessMgr"><span class="hs-identifier hs-var">getSessMgr</span></a></span><span>
+</span><span id="line-192"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Web.Spock.html#getCsrfToken"><span class="hs-pragma hs-type">getCsrfToken</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-193"></span><span>
+</span><span id="line-194"></span><span class="hs-comment">-- | Get the CSRF token sent by the client. You should not need to call this</span><span>
+</span><span id="line-195"></span><span class="hs-comment">-- manually if 'spc_csrfProtection' is turned on.</span><span>
+</span><span id="line-196"></span><span id="local-6989586621679138646"><span id="local-6989586621679138647"><span id="local-6989586621679138648"><span id="local-6989586621679138649"><span class="annot"><a href="Web.Spock.html#getClientCsrfToken"><span class="hs-identifier hs-type">getClientCsrfToken</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#SpockActionCtx"><span class="hs-identifier hs-type">SpockActionCtx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138646"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138647"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138648"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138649"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">)</span></span></span></span></span><span>
+</span><span id="line-197"></span><span id="getClientCsrfToken"><span class="annot"><span class="annottext">getClientCsrfToken :: forall ctx conn sess st.
+SpockActionCtx ctx conn sess st (Maybe SessionId)
+</span><a href="Web.Spock.html#getClientCsrfToken"><span class="hs-identifier hs-var hs-var">getClientCsrfToken</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-198"></span><span>  </span><span class="hs-keyword">do</span><span>
+</span><span id="line-199"></span><span>    </span><span id="local-6989586621679139102"><span class="annot"><a href="#local-6989586621679139102"><span class="hs-identifier hs-var">cfg</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ActionCtxT ctx (WebStateM conn sess st) (SpockCfg conn sess st)
+ActionCtxT
+  ctx
+  (WebStateM conn sess st)
+  (SpockCfg
+     (SpockConn (ActionCtxT ctx (WebStateM conn sess st)))
+     (SpockSession (ActionCtxT ctx (WebStateM conn sess st)))
+     (SpockState (ActionCtxT ctx (WebStateM conn sess st))))
+forall (m :: * -&gt; *).
+HasSpock m =&gt;
+m (SpockCfg (SpockConn m) (SpockSession m) (SpockState m))
+</span><a href="Web.Spock.Internal.Types.html#getSpockCfg"><span class="hs-identifier hs-var">getSpockCfg</span></a></span><span>
+</span><span id="line-200"></span><span>    </span><span id="local-6989586621679139104"><span class="annot"><a href="#local-6989586621679139104"><span class="hs-identifier hs-var">mHeader</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="hs-identifier hs-type">header</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#spc_csrfHeaderName"><span class="hs-identifier hs-var">spc_csrfHeaderName</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139102"><span class="hs-identifier hs-type">cfg</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-201"></span><span>    </span><span id="local-6989586621679139106"><span class="annot"><a href="#local-6989586621679139106"><span class="hs-identifier hs-var">mParam</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="hs-identifier hs-type">param</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#spc_csrfPostName"><span class="hs-identifier hs-var">spc_csrfPostName</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139102"><span class="hs-identifier hs-type">cfg</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-202"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679139104"><span class="hs-identifier hs-type">mHeader</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">&lt;|&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621679139106"><span class="hs-identifier hs-type">mParam</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-203"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Web.Spock.html#getClientCsrfToken"><span class="hs-pragma hs-type">getClientCsrfToken</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-204"></span><span>
+</span><span id="line-205"></span><span class="hs-comment">-- | Check that the client sent a valid CSRF token. You should not need to call this</span><span>
+</span><span id="line-206"></span><span class="hs-comment">-- manually in non GET requests if 'spc_csrfProtection' is turned on.</span><span>
+</span><span id="line-207"></span><span id="local-6989586621679138668"><span id="local-6989586621679138669"><span id="local-6989586621679138670"><span id="local-6989586621679138671"><span class="annot"><a href="Web.Spock.html#csrfCheck"><span class="hs-identifier hs-type">csrfCheck</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#SpockActionCtx"><span class="hs-identifier hs-type">SpockActionCtx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138668"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138669"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138670"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138671"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span></span></span><span>
+</span><span id="line-208"></span><span id="csrfCheck"><span class="annot"><span class="annottext">csrfCheck :: forall ctx conn sess st. SpockActionCtx ctx conn sess st ()
+</span><a href="Web.Spock.html#csrfCheck"><span class="hs-identifier hs-var hs-var">csrfCheck</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-209"></span><span>  </span><span class="hs-keyword">do</span><span>
+</span><span id="line-210"></span><span>    </span><span id="local-6989586621679139117"><span class="annot"><a href="#local-6989586621679139117"><span class="hs-identifier hs-var">csrf</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">SpockActionCtx ctx conn sess st SessionId
+forall ctx conn sess st. SpockActionCtx ctx conn sess st SessionId
+</span><a href="Web.Spock.html#getCsrfToken"><span class="hs-identifier hs-var">getCsrfToken</span></a></span><span>
+</span><span id="line-211"></span><span>    </span><span id="local-6989586621679139118"><span class="annot"><a href="#local-6989586621679139118"><span class="hs-identifier hs-var">clientCsrf</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><a href="Web.Spock.html#getClientCsrfToken"><span class="hs-identifier hs-type">getClientCsrfToken</span></a></span><span>
+</span><span id="line-212"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="annot"><a href="#local-6989586621679139118"><span class="hs-identifier hs-type">clientCsrf</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-213"></span><span>      </span><span class="annot"><span class="annottext">Maybe SessionId
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ActionCtxT ctx (WebStateM conn sess st) ()
+forall {ctx} {b}. ActionCtxT ctx (WebStateM conn sess st) b
+</span><a href="#local-6989586621679139119"><span class="hs-identifier hs-var">abort</span></a></span><span>
+</span><span id="line-214"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679139120"><span class="annot"><span class="annottext">SessionId
+</span><a href="#local-6989586621679139120"><span class="hs-identifier hs-var">csrfVal</span></a></span></span><span>
+</span><span id="line-215"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">SessionId
+</span><a href="#local-6989586621679139120"><span class="hs-identifier hs-var">csrfVal</span></a></span><span> </span><span class="annot"><span class="annottext">SessionId -&gt; SessionId -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">SessionId
+</span><a href="#local-6989586621679139117"><span class="hs-identifier hs-var">csrf</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">() -&gt; ActionCtxT ctx (WebStateM conn sess st) ()
+forall a. a -&gt; ActionCtxT ctx (WebStateM conn sess st) a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-216"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ActionCtxT ctx (WebStateM conn sess st) ()
+forall {ctx} {b}. ActionCtxT ctx (WebStateM conn sess st) b
+</span><a href="#local-6989586621679139119"><span class="hs-identifier hs-var">abort</span></a></span><span>
+</span><span id="line-217"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-218"></span><span>    </span><span id="local-6989586621679139119"><span class="annot"><span class="annottext">abort :: ActionCtxT ctx (WebStateM conn sess st) b
+</span><a href="#local-6989586621679139119"><span class="hs-identifier hs-var hs-var">abort</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-219"></span><span>      </span><span class="hs-keyword">do</span><span>
+</span><span id="line-220"></span><span>        </span><span class="annot"><span class="annottext">Status -&gt; ActionCtxT ctx (WebStateM conn sess st) ()
+forall (m :: * -&gt; *) ctx.
+MonadIO m =&gt;
+Status -&gt; ActionCtxT ctx m ()
+</span><span class="hs-identifier hs-var">setStatus</span></span><span> </span><span class="annot"><span class="annottext">Status
+</span><span class="hs-identifier hs-var">status403</span></span><span>
+</span><span id="line-221"></span><span>        </span><span class="annot"><span class="annottext">SessionId -&gt; ActionCtxT ctx (WebStateM conn sess st) b
+forall (m :: * -&gt; *) ctx a.
+MonadIO m =&gt;
+SessionId -&gt; ActionCtxT ctx m a
+</span><span class="hs-identifier hs-var">text</span></span><span> </span><span class="annot"><span class="annottext">SessionId
+</span><span class="hs-string">&quot;Broken/Missing CSRF Token&quot;</span></span><span>
+</span><span id="line-222"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Web.Spock.html#csrfCheck"><span class="hs-pragma hs-type">csrfCheck</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-223"></span><span>
+</span><span id="line-224"></span><span class="hs-keyword">type</span><span> </span><span id="RouteMonad"><span class="annot"><a href="Web.Spock.html#RouteMonad"><span class="hs-identifier hs-var">RouteMonad</span></a></span></span><span> </span><span id="local-6989586621679139142"><span class="annot"><a href="#local-6989586621679139142"><span class="hs-identifier hs-type">t</span></a></span></span><span> </span><span id="local-6989586621679139143"><span class="annot"><a href="#local-6989586621679139143"><span class="hs-identifier hs-type">ctx</span></a></span></span><span> </span><span id="local-6989586621679139144"><span class="annot"><a href="#local-6989586621679139144"><span class="hs-identifier hs-type">conn</span></a></span></span><span> </span><span id="local-6989586621679139145"><span class="annot"><a href="#local-6989586621679139145"><span class="hs-identifier hs-type">sess</span></a></span></span><span> </span><span id="local-6989586621679139146"><span class="annot"><a href="#local-6989586621679139146"><span class="hs-identifier hs-type">st</span></a></span></span><span> </span><span id="local-6989586621679139147"><span class="annot"><a href="#local-6989586621679139147"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-225"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679139142"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139143"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#WebStateM"><span class="hs-identifier hs-type">WebStateM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139144"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139145"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139146"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">RouteM</span></span><span> </span><span class="annot"><a href="#local-6989586621679139142"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679139142"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139143"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#WebStateM"><span class="hs-identifier hs-type">WebStateM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139144"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139145"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139146"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679139147"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-226"></span><span>
+</span><span id="line-227"></span><span class="hs-keyword">type</span><span> </span><span id="RouteSpec"><span class="annot"><a href="Web.Spock.html#RouteSpec"><span class="hs-identifier hs-var">RouteSpec</span></a></span></span><span> </span><span id="local-6989586621679139148"><span class="annot"><a href="#local-6989586621679139148"><span class="hs-identifier hs-type">t</span></a></span></span><span> </span><span id="local-6989586621679139149"><span class="annot"><a href="#local-6989586621679139149"><span class="hs-identifier hs-type">xs</span></a></span></span><span> </span><span id="local-6989586621679139150"><span class="annot"><a href="#local-6989586621679139150"><span class="hs-identifier hs-type">ps</span></a></span></span><span> </span><span id="local-6989586621679139151"><span class="annot"><a href="#local-6989586621679139151"><span class="hs-identifier hs-type">ctx</span></a></span></span><span> </span><span id="local-6989586621679139152"><span class="annot"><a href="#local-6989586621679139152"><span class="hs-identifier hs-type">conn</span></a></span></span><span> </span><span id="local-6989586621679139153"><span class="annot"><a href="#local-6989586621679139153"><span class="hs-identifier hs-type">sess</span></a></span></span><span> </span><span id="local-6989586621679139154"><span class="annot"><a href="#local-6989586621679139154"><span class="hs-identifier hs-type">st</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-228"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Path</span></span><span> </span><span class="annot"><a href="#local-6989586621679139149"><span class="hs-identifier hs-type">xs</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139150"><span class="hs-identifier hs-type">ps</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HV.HVectElim</span></span><span> </span><span class="annot"><a href="#local-6989586621679139149"><span class="hs-identifier hs-type">xs</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#SpockActionCtx"><span class="hs-identifier hs-type">SpockActionCtx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139151"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139152"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139153"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139154"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Spock.html#RouteMonad"><span class="hs-identifier hs-type">RouteMonad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139148"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139151"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139152"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139153"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139154"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-229"></span><span>
+</span><span id="line-230"></span><span class="annot"><span class="hs-comment">-- | Specify an action that will be run when a standard HTTP verb and the given route match</span></span><span>
+</span><span id="line-231"></span><span id="local-6989586621679138695"><span id="local-6989586621679138698"><span id="local-6989586621679138699"><span id="local-6989586621679138700"><span id="local-6989586621679138701"><span id="local-6989586621679138702"><span id="local-6989586621679138703"><span class="annot"><a href="Web.Spock.html#hookRoute"><span class="hs-identifier hs-type">hookRoute</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HV.HasRep</span></span><span> </span><span class="annot"><a href="#local-6989586621679138695"><span class="hs-identifier hs-type">xs</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">StdMethod</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Spock.html#RouteSpec"><span class="hs-identifier hs-type">RouteSpec</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138698"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138695"><span class="hs-identifier hs-type">xs</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138699"><span class="hs-identifier hs-type">ps</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138700"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138701"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138702"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138703"><span class="hs-identifier hs-type">st</span></a></span></span></span></span></span></span></span></span><span>
+</span><span id="line-232"></span><span id="hookRoute"><span class="annot"><span class="annottext">hookRoute :: forall (xs :: [*]) (t :: * -&gt; (* -&gt; *) -&gt; * -&gt; *) (ps :: PathState)
+       ctx conn sess st.
+HasRep xs =&gt;
+StdMethod -&gt; RouteSpec t xs ps ctx conn sess st
+</span><a href="Web.Spock.html#hookRoute"><span class="hs-identifier hs-var hs-var">hookRoute</span></a></span></span><span> </span><span id="local-6989586621679139161"><span class="annot"><span class="annottext">StdMethod
+</span><a href="#local-6989586621679139161"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SpockMethod -&gt; RouteSpec t xs ps ctx conn sess st
+forall (t :: * -&gt; (* -&gt; *) -&gt; * -&gt; *) (xs :: [*]) (ps :: PathState)
+       ctx conn sess st.
+HasRep xs =&gt;
+SpockMethod -&gt; RouteSpec t xs ps ctx conn sess st
+</span><a href="Web.Spock.html#hookRoute%27"><span class="hs-identifier hs-var">hookRoute'</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HttpMethod -&gt; SpockMethod
+</span><span class="hs-identifier hs-var">MethodStandard</span></span><span> </span><span class="annot"><span class="annottext">(HttpMethod -&gt; SpockMethod)
+-&gt; (StdMethod -&gt; HttpMethod) -&gt; StdMethod -&gt; SpockMethod
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">StdMethod -&gt; HttpMethod
+</span><span class="hs-identifier hs-var">HttpMethod</span></span><span> </span><span class="annot"><span class="annottext">(StdMethod -&gt; SpockMethod) -&gt; StdMethod -&gt; SpockMethod
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">StdMethod
+</span><a href="#local-6989586621679139161"><span class="hs-identifier hs-var">m</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-233"></span><span>
+</span><span id="line-234"></span><span class="annot"><span class="hs-comment">-- | Specify an action that will be run regardless of the HTTP verb</span></span><span>
+</span><span id="line-235"></span><span id="local-6989586621679138726"><span id="local-6989586621679138727"><span id="local-6989586621679138728"><span id="local-6989586621679138729"><span id="local-6989586621679138730"><span id="local-6989586621679138731"><span id="local-6989586621679138732"><span class="annot"><a href="Web.Spock.html#hookRouteAll"><span class="hs-identifier hs-type">hookRouteAll</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HV.HasRep</span></span><span> </span><span class="annot"><a href="#local-6989586621679138726"><span class="hs-identifier hs-type">xs</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Web.Spock.html#RouteSpec"><span class="hs-identifier hs-type">RouteSpec</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138727"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138726"><span class="hs-identifier hs-type">xs</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138728"><span class="hs-identifier hs-type">ps</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138729"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138730"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138731"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138732"><span class="hs-identifier hs-type">st</span></a></span></span></span></span></span></span></span></span><span>
+</span><span id="line-236"></span><span id="hookRouteAll"><span class="annot"><span class="annottext">hookRouteAll :: forall (xs :: [*]) (t :: * -&gt; (* -&gt; *) -&gt; * -&gt; *) (ps :: PathState)
+       ctx conn sess st.
+HasRep xs =&gt;
+RouteSpec t xs ps ctx conn sess st
+</span><a href="Web.Spock.html#hookRouteAll"><span class="hs-identifier hs-var hs-var">hookRouteAll</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SpockMethod -&gt; RouteSpec t xs ps ctx conn sess st
+forall (t :: * -&gt; (* -&gt; *) -&gt; * -&gt; *) (xs :: [*]) (ps :: PathState)
+       ctx conn sess st.
+HasRep xs =&gt;
+SpockMethod -&gt; RouteSpec t xs ps ctx conn sess st
+</span><a href="Web.Spock.html#hookRoute%27"><span class="hs-identifier hs-var">hookRoute'</span></a></span><span> </span><span class="annot"><span class="annottext">SpockMethod
+</span><span class="hs-identifier hs-var">MethodAny</span></span><span>
+</span><span id="line-237"></span><span>
+</span><span id="line-238"></span><span class="annot"><span class="hs-comment">-- | Specify an action that will be run when the HTTP verb 'GET' and the given route match</span></span><span>
+</span><span id="line-239"></span><span id="local-6989586621679139174"><span id="local-6989586621679139175"><span id="local-6989586621679139176"><span id="local-6989586621679139177"><span id="local-6989586621679139178"><span id="local-6989586621679139179"><span id="local-6989586621679139180"><span class="annot"><a href="Web.Spock.html#get"><span class="hs-identifier hs-type">get</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HV.HasRep</span></span><span> </span><span class="annot"><a href="#local-6989586621679139174"><span class="hs-identifier hs-type">xs</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Web.Spock.html#RouteSpec"><span class="hs-identifier hs-type">RouteSpec</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139175"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139174"><span class="hs-identifier hs-type">xs</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139176"><span class="hs-identifier hs-type">ps</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139177"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139178"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139179"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139180"><span class="hs-identifier hs-type">st</span></a></span></span></span></span></span></span></span></span><span>
+</span><span id="line-240"></span><span id="get"><span class="annot"><span class="annottext">get :: forall (xs :: [*]) (t :: * -&gt; (* -&gt; *) -&gt; * -&gt; *) (ps :: PathState)
+       ctx conn sess st.
+HasRep xs =&gt;
+RouteSpec t xs ps ctx conn sess st
+</span><a href="Web.Spock.html#get"><span class="hs-identifier hs-var hs-var">get</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">StdMethod -&gt; RouteSpec t xs ps ctx conn sess st
+forall (xs :: [*]) (t :: * -&gt; (* -&gt; *) -&gt; * -&gt; *) (ps :: PathState)
+       ctx conn sess st.
+HasRep xs =&gt;
+StdMethod -&gt; RouteSpec t xs ps ctx conn sess st
+</span><a href="Web.Spock.html#hookRoute"><span class="hs-identifier hs-var">hookRoute</span></a></span><span> </span><span class="annot"><span class="annottext">StdMethod
+</span><span class="hs-identifier hs-var">GET</span></span><span>
+</span><span id="line-241"></span><span>
+</span><span id="line-242"></span><span class="annot"><span class="hs-comment">-- | Specify an action that will be run when the HTTP verb 'POST' and the given route match</span></span><span>
+</span><span id="line-243"></span><span id="local-6989586621679139188"><span id="local-6989586621679139189"><span id="local-6989586621679139190"><span id="local-6989586621679139191"><span id="local-6989586621679139192"><span id="local-6989586621679139193"><span id="local-6989586621679139194"><span class="annot"><a href="Web.Spock.html#post"><span class="hs-identifier hs-type">post</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HV.HasRep</span></span><span> </span><span class="annot"><a href="#local-6989586621679139188"><span class="hs-identifier hs-type">xs</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Web.Spock.html#RouteSpec"><span class="hs-identifier hs-type">RouteSpec</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139189"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139188"><span class="hs-identifier hs-type">xs</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139190"><span class="hs-identifier hs-type">ps</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139191"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139192"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139193"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139194"><span class="hs-identifier hs-type">st</span></a></span></span></span></span></span></span></span></span><span>
+</span><span id="line-244"></span><span id="post"><span class="annot"><span class="annottext">post :: forall (xs :: [*]) (t :: * -&gt; (* -&gt; *) -&gt; * -&gt; *) (ps :: PathState)
+       ctx conn sess st.
+HasRep xs =&gt;
+RouteSpec t xs ps ctx conn sess st
+</span><a href="Web.Spock.html#post"><span class="hs-identifier hs-var hs-var">post</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">StdMethod -&gt; RouteSpec t xs ps ctx conn sess st
+forall (xs :: [*]) (t :: * -&gt; (* -&gt; *) -&gt; * -&gt; *) (ps :: PathState)
+       ctx conn sess st.
+HasRep xs =&gt;
+StdMethod -&gt; RouteSpec t xs ps ctx conn sess st
+</span><a href="Web.Spock.html#hookRoute"><span class="hs-identifier hs-var">hookRoute</span></a></span><span> </span><span class="annot"><span class="annottext">StdMethod
+</span><span class="hs-identifier hs-var">POST</span></span><span>
+</span><span id="line-245"></span><span>
+</span><span id="line-246"></span><span class="annot"><span class="hs-comment">-- | Specify an action that will be run when the HTTP verb 'GET'/'POST' and the given route match</span></span><span>
+</span><span id="line-247"></span><span id="local-6989586621679139201"><span id="local-6989586621679139202"><span id="local-6989586621679139203"><span id="local-6989586621679139204"><span id="local-6989586621679139205"><span id="local-6989586621679139206"><span id="local-6989586621679139207"><span class="annot"><a href="Web.Spock.html#getpost"><span class="hs-identifier hs-type">getpost</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HV.HasRep</span></span><span> </span><span class="annot"><a href="#local-6989586621679139201"><span class="hs-identifier hs-type">xs</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Web.Spock.html#RouteSpec"><span class="hs-identifier hs-type">RouteSpec</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139202"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139201"><span class="hs-identifier hs-type">xs</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139203"><span class="hs-identifier hs-type">ps</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139204"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139205"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139206"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139207"><span class="hs-identifier hs-type">st</span></a></span></span></span></span></span></span></span></span><span>
+</span><span id="line-248"></span><span id="getpost"><span class="annot"><span class="annottext">getpost :: forall (xs :: [*]) (t :: * -&gt; (* -&gt; *) -&gt; * -&gt; *) (ps :: PathState)
+       ctx conn sess st.
+HasRep xs =&gt;
+RouteSpec t xs ps ctx conn sess st
+</span><a href="Web.Spock.html#getpost"><span class="hs-identifier hs-var hs-var">getpost</span></a></span></span><span> </span><span id="local-6989586621679139218"><span class="annot"><span class="annottext">Path xs ps
+</span><a href="#local-6989586621679139218"><span class="hs-identifier hs-var">r</span></a></span></span><span> </span><span id="local-6989586621679139219"><span class="annot"><span class="annottext">HVectElim xs (SpockActionCtx ctx conn sess st ())
+</span><a href="#local-6989586621679139219"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">StdMethod -&gt; RouteSpec t xs ps ctx conn sess st
+forall (xs :: [*]) (t :: * -&gt; (* -&gt; *) -&gt; * -&gt; *) (ps :: PathState)
+       ctx conn sess st.
+HasRep xs =&gt;
+StdMethod -&gt; RouteSpec t xs ps ctx conn sess st
+</span><a href="Web.Spock.html#hookRoute"><span class="hs-identifier hs-var">hookRoute</span></a></span><span> </span><span class="annot"><span class="annottext">StdMethod
+</span><span class="hs-identifier hs-var">POST</span></span><span> </span><span class="annot"><span class="annottext">Path xs ps
+</span><a href="#local-6989586621679139218"><span class="hs-identifier hs-var">r</span></a></span><span> </span><span class="annot"><span class="annottext">HVectElim xs (SpockActionCtx ctx conn sess st ())
+</span><a href="#local-6989586621679139219"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">t ctx (WebStateM conn sess st) ()
+-&gt; t ctx (WebStateM conn sess st) ()
+-&gt; t ctx (WebStateM conn sess st) ()
+forall a b.
+t ctx (WebStateM conn sess st) a
+-&gt; t ctx (WebStateM conn sess st) b
+-&gt; t ctx (WebStateM conn sess st) b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">StdMethod -&gt; RouteSpec t xs ps ctx conn sess st
+forall (xs :: [*]) (t :: * -&gt; (* -&gt; *) -&gt; * -&gt; *) (ps :: PathState)
+       ctx conn sess st.
+HasRep xs =&gt;
+StdMethod -&gt; RouteSpec t xs ps ctx conn sess st
+</span><a href="Web.Spock.html#hookRoute"><span class="hs-identifier hs-var">hookRoute</span></a></span><span> </span><span class="annot"><span class="annottext">StdMethod
+</span><span class="hs-identifier hs-var">GET</span></span><span> </span><span class="annot"><span class="annottext">Path xs ps
+</span><a href="#local-6989586621679139218"><span class="hs-identifier hs-var">r</span></a></span><span> </span><span class="annot"><span class="annottext">HVectElim xs (SpockActionCtx ctx conn sess st ())
+</span><a href="#local-6989586621679139219"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-249"></span><span>
+</span><span id="line-250"></span><span class="annot"><span class="hs-comment">-- | Specify an action that will be run when the HTTP verb 'HEAD' and the given route match</span></span><span>
+</span><span id="line-251"></span><span id="local-6989586621679139221"><span id="local-6989586621679139222"><span id="local-6989586621679139223"><span id="local-6989586621679139224"><span id="local-6989586621679139225"><span id="local-6989586621679139226"><span id="local-6989586621679139227"><span class="annot"><a href="Web.Spock.html#head"><span class="hs-identifier hs-type">head</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HV.HasRep</span></span><span> </span><span class="annot"><a href="#local-6989586621679139221"><span class="hs-identifier hs-type">xs</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Web.Spock.html#RouteSpec"><span class="hs-identifier hs-type">RouteSpec</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139222"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139221"><span class="hs-identifier hs-type">xs</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139223"><span class="hs-identifier hs-type">ps</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139224"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139225"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139226"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139227"><span class="hs-identifier hs-type">st</span></a></span></span></span></span></span></span></span></span><span>
+</span><span id="line-252"></span><span id="head"><span class="annot"><span class="annottext">head :: forall (xs :: [*]) (t :: * -&gt; (* -&gt; *) -&gt; * -&gt; *) (ps :: PathState)
+       ctx conn sess st.
+HasRep xs =&gt;
+RouteSpec t xs ps ctx conn sess st
+</span><a href="Web.Spock.html#head"><span class="hs-identifier hs-var hs-var">head</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">StdMethod -&gt; RouteSpec t xs ps ctx conn sess st
+forall (xs :: [*]) (t :: * -&gt; (* -&gt; *) -&gt; * -&gt; *) (ps :: PathState)
+       ctx conn sess st.
+HasRep xs =&gt;
+StdMethod -&gt; RouteSpec t xs ps ctx conn sess st
+</span><a href="Web.Spock.html#hookRoute"><span class="hs-identifier hs-var">hookRoute</span></a></span><span> </span><span class="annot"><span class="annottext">StdMethod
+</span><span class="hs-identifier hs-var">HEAD</span></span><span>
+</span><span id="line-253"></span><span>
+</span><span id="line-254"></span><span class="annot"><span class="hs-comment">-- | Specify an action that will be run when the HTTP verb 'PUT' and the given route match</span></span><span>
+</span><span id="line-255"></span><span id="local-6989586621679139235"><span id="local-6989586621679139236"><span id="local-6989586621679139237"><span id="local-6989586621679139238"><span id="local-6989586621679139239"><span id="local-6989586621679139240"><span id="local-6989586621679139241"><span class="annot"><a href="Web.Spock.html#put"><span class="hs-identifier hs-type">put</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HV.HasRep</span></span><span> </span><span class="annot"><a href="#local-6989586621679139235"><span class="hs-identifier hs-type">xs</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Web.Spock.html#RouteSpec"><span class="hs-identifier hs-type">RouteSpec</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139236"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139235"><span class="hs-identifier hs-type">xs</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139237"><span class="hs-identifier hs-type">ps</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139238"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139239"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139240"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139241"><span class="hs-identifier hs-type">st</span></a></span></span></span></span></span></span></span></span><span>
+</span><span id="line-256"></span><span id="put"><span class="annot"><span class="annottext">put :: forall (xs :: [*]) (t :: * -&gt; (* -&gt; *) -&gt; * -&gt; *) (ps :: PathState)
+       ctx conn sess st.
+HasRep xs =&gt;
+RouteSpec t xs ps ctx conn sess st
+</span><a href="Web.Spock.html#put"><span class="hs-identifier hs-var hs-var">put</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">StdMethod -&gt; RouteSpec t xs ps ctx conn sess st
+forall (xs :: [*]) (t :: * -&gt; (* -&gt; *) -&gt; * -&gt; *) (ps :: PathState)
+       ctx conn sess st.
+HasRep xs =&gt;
+StdMethod -&gt; RouteSpec t xs ps ctx conn sess st
+</span><a href="Web.Spock.html#hookRoute"><span class="hs-identifier hs-var">hookRoute</span></a></span><span> </span><span class="annot"><span class="annottext">StdMethod
+</span><span class="hs-identifier hs-var">PUT</span></span><span>
+</span><span id="line-257"></span><span>
+</span><span id="line-258"></span><span class="annot"><span class="hs-comment">-- | Specify an action that will be run when the HTTP verb 'DELETE' and the given route match</span></span><span>
+</span><span id="line-259"></span><span id="local-6989586621679139249"><span id="local-6989586621679139250"><span id="local-6989586621679139251"><span id="local-6989586621679139252"><span id="local-6989586621679139253"><span id="local-6989586621679139254"><span id="local-6989586621679139255"><span class="annot"><a href="Web.Spock.html#delete"><span class="hs-identifier hs-type">delete</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HV.HasRep</span></span><span> </span><span class="annot"><a href="#local-6989586621679139249"><span class="hs-identifier hs-type">xs</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Web.Spock.html#RouteSpec"><span class="hs-identifier hs-type">RouteSpec</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139250"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139249"><span class="hs-identifier hs-type">xs</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139251"><span class="hs-identifier hs-type">ps</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139252"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139253"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139254"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139255"><span class="hs-identifier hs-type">st</span></a></span></span></span></span></span></span></span></span><span>
+</span><span id="line-260"></span><span id="delete"><span class="annot"><span class="annottext">delete :: forall (xs :: [*]) (t :: * -&gt; (* -&gt; *) -&gt; * -&gt; *) (ps :: PathState)
+       ctx conn sess st.
+HasRep xs =&gt;
+RouteSpec t xs ps ctx conn sess st
+</span><a href="Web.Spock.html#delete"><span class="hs-identifier hs-var hs-var">delete</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">StdMethod -&gt; RouteSpec t xs ps ctx conn sess st
+forall (xs :: [*]) (t :: * -&gt; (* -&gt; *) -&gt; * -&gt; *) (ps :: PathState)
+       ctx conn sess st.
+HasRep xs =&gt;
+StdMethod -&gt; RouteSpec t xs ps ctx conn sess st
+</span><a href="Web.Spock.html#hookRoute"><span class="hs-identifier hs-var">hookRoute</span></a></span><span> </span><span class="annot"><span class="annottext">StdMethod
+</span><span class="hs-identifier hs-var">DELETE</span></span><span>
+</span><span id="line-261"></span><span>
+</span><span id="line-262"></span><span class="annot"><span class="hs-comment">-- | Specify an action that will be run when the HTTP verb 'PATCH' and the given route match</span></span><span>
+</span><span id="line-263"></span><span id="local-6989586621679139263"><span id="local-6989586621679139264"><span id="local-6989586621679139265"><span id="local-6989586621679139266"><span id="local-6989586621679139267"><span id="local-6989586621679139268"><span id="local-6989586621679139269"><span class="annot"><a href="Web.Spock.html#patch"><span class="hs-identifier hs-type">patch</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HV.HasRep</span></span><span> </span><span class="annot"><a href="#local-6989586621679139263"><span class="hs-identifier hs-type">xs</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Web.Spock.html#RouteSpec"><span class="hs-identifier hs-type">RouteSpec</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139264"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139263"><span class="hs-identifier hs-type">xs</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139265"><span class="hs-identifier hs-type">ps</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139266"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139267"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139268"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139269"><span class="hs-identifier hs-type">st</span></a></span></span></span></span></span></span></span></span><span>
+</span><span id="line-264"></span><span id="patch"><span class="annot"><span class="annottext">patch :: forall (xs :: [*]) (t :: * -&gt; (* -&gt; *) -&gt; * -&gt; *) (ps :: PathState)
+       ctx conn sess st.
+HasRep xs =&gt;
+RouteSpec t xs ps ctx conn sess st
+</span><a href="Web.Spock.html#patch"><span class="hs-identifier hs-var hs-var">patch</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">StdMethod -&gt; RouteSpec t xs ps ctx conn sess st
+forall (xs :: [*]) (t :: * -&gt; (* -&gt; *) -&gt; * -&gt; *) (ps :: PathState)
+       ctx conn sess st.
+HasRep xs =&gt;
+StdMethod -&gt; RouteSpec t xs ps ctx conn sess st
+</span><a href="Web.Spock.html#hookRoute"><span class="hs-identifier hs-var">hookRoute</span></a></span><span> </span><span class="annot"><span class="annottext">StdMethod
+</span><span class="hs-identifier hs-var">PATCH</span></span><span>
+</span><span id="line-265"></span><span>
+</span><span id="line-266"></span><span class="annot"><span class="hs-comment">-- | Specify an action that will be run when a custom HTTP verb and the given route match</span></span><span>
+</span><span id="line-267"></span><span id="local-6989586621679138791"><span id="local-6989586621679138792"><span id="local-6989586621679138793"><span id="local-6989586621679138794"><span id="local-6989586621679138795"><span id="local-6989586621679138796"><span id="local-6989586621679138797"><span class="annot"><a href="Web.Spock.html#hookRouteCustom"><span class="hs-identifier hs-type">hookRouteCustom</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HV.HasRep</span></span><span> </span><span class="annot"><a href="#local-6989586621679138791"><span class="hs-identifier hs-type">xs</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Spock.html#RouteSpec"><span class="hs-identifier hs-type">RouteSpec</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138792"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138791"><span class="hs-identifier hs-type">xs</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138793"><span class="hs-identifier hs-type">ps</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138794"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138795"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138796"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138797"><span class="hs-identifier hs-type">st</span></a></span></span></span></span></span></span></span></span><span>
+</span><span id="line-268"></span><span id="hookRouteCustom"><span class="annot"><span class="annottext">hookRouteCustom :: forall (xs :: [*]) (t :: * -&gt; (* -&gt; *) -&gt; * -&gt; *) (ps :: PathState)
+       ctx conn sess st.
+HasRep xs =&gt;
+SessionId -&gt; RouteSpec t xs ps ctx conn sess st
+</span><a href="Web.Spock.html#hookRouteCustom"><span class="hs-identifier hs-var hs-var">hookRouteCustom</span></a></span></span><span> </span><span id="local-6989586621679139282"><span class="annot"><span class="annottext">SessionId
+</span><a href="#local-6989586621679139282"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SpockMethod -&gt; RouteSpec t xs ps ctx conn sess st
+forall (t :: * -&gt; (* -&gt; *) -&gt; * -&gt; *) (xs :: [*]) (ps :: PathState)
+       ctx conn sess st.
+HasRep xs =&gt;
+SpockMethod -&gt; RouteSpec t xs ps ctx conn sess st
+</span><a href="Web.Spock.html#hookRoute%27"><span class="hs-identifier hs-var">hookRoute'</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SessionId -&gt; SpockMethod
+</span><span class="hs-identifier hs-var">MethodCustom</span></span><span> </span><span class="annot"><span class="annottext">SessionId
+</span><a href="#local-6989586621679139282"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-269"></span><span>
+</span><span id="line-270"></span><span class="hs-comment">-- | Specify an action that will be run when a standard HTTP verb matches but no defined route matches.</span><span>
+</span><span id="line-271"></span><span class="hs-comment">-- The full path is passed as an argument</span><span>
+</span><span id="line-272"></span><span id="local-6989586621679138805"><span id="local-6989586621679138806"><span id="local-6989586621679138807"><span id="local-6989586621679138808"><span id="local-6989586621679138809"><span class="annot"><a href="Web.Spock.html#hookAny"><span class="hs-identifier hs-type">hookAny</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">StdMethod</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#SpockActionCtx"><span class="hs-identifier hs-type">SpockActionCtx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138805"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138806"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138807"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138808"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Spock.html#RouteMonad"><span class="hs-identifier hs-type">RouteMonad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138809"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138805"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138806"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138807"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138808"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span></span></span></span><span>
+</span><span id="line-273"></span><span id="hookAny"><span class="annot"><span class="annottext">hookAny :: forall ctx conn sess st (t :: * -&gt; (* -&gt; *) -&gt; * -&gt; *).
+StdMethod
+-&gt; ([SessionId] -&gt; SpockActionCtx ctx conn sess st ())
+-&gt; RouteMonad t ctx conn sess st ()
+</span><a href="Web.Spock.html#hookAny"><span class="hs-identifier hs-var hs-var">hookAny</span></a></span></span><span> </span><span id="local-6989586621679139288"><span class="annot"><span class="annottext">StdMethod
+</span><a href="#local-6989586621679139288"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SpockMethod
+-&gt; ([SessionId] -&gt; SpockActionCtx ctx conn sess st ())
+-&gt; RouteMonad t ctx conn sess st ()
+forall ctx conn sess st (t :: * -&gt; (* -&gt; *) -&gt; * -&gt; *).
+SpockMethod
+-&gt; ([SessionId] -&gt; SpockActionCtx ctx conn sess st ())
+-&gt; RouteMonad t ctx conn sess st ()
+</span><a href="Web.Spock.html#hookAny%27"><span class="hs-identifier hs-var">hookAny'</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HttpMethod -&gt; SpockMethod
+</span><span class="hs-identifier hs-var">MethodStandard</span></span><span> </span><span class="annot"><span class="annottext">(HttpMethod -&gt; SpockMethod)
+-&gt; (StdMethod -&gt; HttpMethod) -&gt; StdMethod -&gt; SpockMethod
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">StdMethod -&gt; HttpMethod
+</span><span class="hs-identifier hs-var">HttpMethod</span></span><span> </span><span class="annot"><span class="annottext">(StdMethod -&gt; SpockMethod) -&gt; StdMethod -&gt; SpockMethod
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">StdMethod
+</span><a href="#local-6989586621679139288"><span class="hs-identifier hs-var">m</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-274"></span><span>
+</span><span id="line-275"></span><span class="hs-comment">-- | Specify an action that will be run regardless of the HTTP verb and no defined route matches.</span><span>
+</span><span id="line-276"></span><span class="hs-comment">-- The full path is passed as an argument</span><span>
+</span><span id="line-277"></span><span id="local-6989586621679138821"><span id="local-6989586621679138822"><span id="local-6989586621679138823"><span id="local-6989586621679138824"><span id="local-6989586621679138825"><span class="annot"><a href="Web.Spock.html#hookAnyAll"><span class="hs-identifier hs-type">hookAnyAll</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#SpockActionCtx"><span class="hs-identifier hs-type">SpockActionCtx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138821"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138822"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138823"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138824"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Spock.html#RouteMonad"><span class="hs-identifier hs-type">RouteMonad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138825"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138821"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138822"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138823"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138824"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span></span></span></span><span>
+</span><span id="line-278"></span><span id="hookAnyAll"><span class="annot"><span class="annottext">hookAnyAll :: forall ctx conn sess st (t :: * -&gt; (* -&gt; *) -&gt; * -&gt; *).
+([SessionId] -&gt; SpockActionCtx ctx conn sess st ())
+-&gt; RouteMonad t ctx conn sess st ()
+</span><a href="Web.Spock.html#hookAnyAll"><span class="hs-identifier hs-var hs-var">hookAnyAll</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SpockMethod
+-&gt; ([SessionId] -&gt; SpockActionCtx ctx conn sess st ())
+-&gt; RouteMonad t ctx conn sess st ()
+forall ctx conn sess st (t :: * -&gt; (* -&gt; *) -&gt; * -&gt; *).
+SpockMethod
+-&gt; ([SessionId] -&gt; SpockActionCtx ctx conn sess st ())
+-&gt; RouteMonad t ctx conn sess st ()
+</span><a href="Web.Spock.html#hookAny%27"><span class="hs-identifier hs-var">hookAny'</span></a></span><span> </span><span class="annot"><span class="annottext">SpockMethod
+</span><span class="hs-identifier hs-var">MethodAny</span></span><span>
+</span><span id="line-279"></span><span>
+</span><span id="line-280"></span><span class="hs-comment">-- | Specify an action that will be run when a custom HTTP verb matches but no defined route matches.</span><span>
+</span><span id="line-281"></span><span class="hs-comment">-- The full path is passed as an argument</span><span>
+</span><span id="line-282"></span><span id="local-6989586621679138831"><span id="local-6989586621679138832"><span id="local-6989586621679138833"><span id="local-6989586621679138834"><span id="local-6989586621679138835"><span class="annot"><a href="Web.Spock.html#hookAnyCustom"><span class="hs-identifier hs-type">hookAnyCustom</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#SpockActionCtx"><span class="hs-identifier hs-type">SpockActionCtx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138831"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138832"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138833"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138834"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Spock.html#RouteMonad"><span class="hs-identifier hs-type">RouteMonad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138835"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138831"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138832"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138833"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138834"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span></span></span></span><span>
+</span><span id="line-283"></span><span id="hookAnyCustom"><span class="annot"><span class="annottext">hookAnyCustom :: forall ctx conn sess st (t :: * -&gt; (* -&gt; *) -&gt; * -&gt; *).
+SessionId
+-&gt; ([SessionId] -&gt; SpockActionCtx ctx conn sess st ())
+-&gt; RouteMonad t ctx conn sess st ()
+</span><a href="Web.Spock.html#hookAnyCustom"><span class="hs-identifier hs-var hs-var">hookAnyCustom</span></a></span></span><span> </span><span id="local-6989586621679139298"><span class="annot"><span class="annottext">SessionId
+</span><a href="#local-6989586621679139298"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SpockMethod
+-&gt; ([SessionId] -&gt; SpockActionCtx ctx conn sess st ())
+-&gt; RouteMonad t ctx conn sess st ()
+forall ctx conn sess st (t :: * -&gt; (* -&gt; *) -&gt; * -&gt; *).
+SpockMethod
+-&gt; ([SessionId] -&gt; SpockActionCtx ctx conn sess st ())
+-&gt; RouteMonad t ctx conn sess st ()
+</span><a href="Web.Spock.html#hookAny%27"><span class="hs-identifier hs-var">hookAny'</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SessionId -&gt; SpockMethod
+</span><span class="hs-identifier hs-var">MethodCustom</span></span><span> </span><span class="annot"><span class="annottext">SessionId
+</span><a href="#local-6989586621679139298"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-284"></span><span>
+</span><span id="line-285"></span><span class="hs-comment">-- | Specify an action that will be run when a HTTP verb matches but no defined route matches.</span><span>
+</span><span id="line-286"></span><span class="hs-comment">-- The full path is passed as an argument</span><span>
+</span><span id="line-287"></span><span id="local-6989586621679138816"><span id="local-6989586621679138817"><span id="local-6989586621679138818"><span id="local-6989586621679138819"><span id="local-6989586621679138820"><span class="annot"><a href="Web.Spock.html#hookAny%27"><span class="hs-identifier hs-type">hookAny'</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SpockMethod</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#SpockActionCtx"><span class="hs-identifier hs-type">SpockActionCtx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138816"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138817"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138818"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138819"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Spock.html#RouteMonad"><span class="hs-identifier hs-type">RouteMonad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138820"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138816"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138817"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138818"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138819"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span></span></span></span><span>
+</span><span id="line-288"></span><span id="hookAny&#x27;"><span class="annot"><span class="annottext">hookAny' :: forall ctx conn sess st (t :: * -&gt; (* -&gt; *) -&gt; * -&gt; *).
+SpockMethod
+-&gt; ([SessionId] -&gt; SpockActionCtx ctx conn sess st ())
+-&gt; RouteMonad t ctx conn sess st ()
+</span><a href="Web.Spock.html#hookAny%27"><span class="hs-identifier hs-var hs-var">hookAny'</span></a></span></span><span> </span><span id="local-6989586621679139306"><span class="annot"><span class="annottext">SpockMethod
+</span><a href="#local-6989586621679139306"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span id="local-6989586621679139307"><span class="annot"><span class="annottext">[SessionId] -&gt; SpockActionCtx ctx conn sess st ()
+</span><a href="#local-6989586621679139307"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-289"></span><span>  </span><span class="annot"><span class="annottext">SpockMethod
+-&gt; ([SessionId] -&gt; SpockActionCtx ctx conn sess st ())
+-&gt; t ctx (WebStateM conn sess st) ()
+forall (t :: * -&gt; (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) ctx.
+(RouteM t, Monad m) =&gt;
+SpockMethod -&gt; ([SessionId] -&gt; ActionCtxT ctx m ()) -&gt; t ctx m ()
+</span><span class="hs-identifier hs-var">C.hookAny'</span></span><span> </span><span class="annot"><span class="annottext">SpockMethod
+</span><a href="#local-6989586621679139306"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="annot"><span class="annottext">(([SessionId] -&gt; SpockActionCtx ctx conn sess st ())
+ -&gt; t ctx (WebStateM conn sess st) ())
+-&gt; ([SessionId] -&gt; SpockActionCtx ctx conn sess st ())
+-&gt; t ctx (WebStateM conn sess st) ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679139308"><span class="annot"><span class="annottext">[SessionId]
+</span><a href="#local-6989586621679139308"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">SpockActionCtx ctx conn sess st ()
+forall ctx conn sess st. SpockActionCtx ctx conn sess st ()
+</span><a href="Web.Spock.html#csrfCheckIfEnabled"><span class="hs-identifier hs-var">csrfCheckIfEnabled</span></a></span><span> </span><span class="annot"><span class="annottext">SpockActionCtx ctx conn sess st ()
+-&gt; SpockActionCtx ctx conn sess st ()
+-&gt; SpockActionCtx ctx conn sess st ()
+forall a b.
+ActionCtxT ctx (WebStateM conn sess st) a
+-&gt; ActionCtxT ctx (WebStateM conn sess st) b
+-&gt; ActionCtxT ctx (WebStateM conn sess st) b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">[SessionId] -&gt; SpockActionCtx ctx conn sess st ()
+</span><a href="#local-6989586621679139307"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="annot"><span class="annottext">[SessionId]
+</span><a href="#local-6989586621679139308"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-290"></span><span>
+</span><span id="line-291"></span><span class="annot"><span class="hs-comment">-- | Specify an action that will be run when a HTTP verb and the given route match</span></span><span>
+</span><span id="line-292"></span><span class="annot"><a href="Web.Spock.html#hookRoute%27"><span class="hs-identifier hs-type">hookRoute'</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-293"></span><span>  </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679138716"><span class="annot"><a href="#local-6989586621679138716"><span class="hs-identifier hs-type">t</span></a></span></span><span> </span><span id="local-6989586621679138715"><span class="annot"><a href="#local-6989586621679138715"><span class="hs-identifier hs-type">xs</span></a></span></span><span> </span><span id="local-6989586621679138717"><span class="annot"><a href="#local-6989586621679138717"><span class="hs-identifier hs-type">ps</span></a></span></span><span> </span><span id="local-6989586621679138718"><span class="annot"><a href="#local-6989586621679138718"><span class="hs-identifier hs-type">ctx</span></a></span></span><span> </span><span id="local-6989586621679138719"><span class="annot"><a href="#local-6989586621679138719"><span class="hs-identifier hs-type">conn</span></a></span></span><span> </span><span id="local-6989586621679138720"><span class="annot"><a href="#local-6989586621679138720"><span class="hs-identifier hs-type">sess</span></a></span></span><span> </span><span id="local-6989586621679138721"><span class="annot"><a href="#local-6989586621679138721"><span class="hs-identifier hs-type">st</span></a></span></span><span class="hs-operator">.</span><span>
+</span><span id="line-294"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HV.HasRep</span></span><span> </span><span class="annot"><a href="#local-6989586621679138715"><span class="hs-identifier hs-type">xs</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-295"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">SpockMethod</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-296"></span><span>  </span><span class="annot"><a href="Web.Spock.html#RouteSpec"><span class="hs-identifier hs-type">RouteSpec</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138716"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138715"><span class="hs-identifier hs-type">xs</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138717"><span class="hs-identifier hs-type">ps</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138718"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138719"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138720"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138721"><span class="hs-identifier hs-type">st</span></a></span><span>
+</span><span id="line-297"></span><span id="hookRoute&#x27;"><span class="annot"><span class="annottext">hookRoute' :: forall (t :: * -&gt; (* -&gt; *) -&gt; * -&gt; *) (xs :: [*]) (ps :: PathState)
+       ctx conn sess st.
+HasRep xs =&gt;
+SpockMethod -&gt; RouteSpec t xs ps ctx conn sess st
+</span><a href="Web.Spock.html#hookRoute%27"><span class="hs-identifier hs-var hs-var">hookRoute'</span></a></span></span><span> </span><span id="local-6989586621679139321"><span class="annot"><span class="annottext">SpockMethod
+</span><a href="#local-6989586621679139321"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span id="local-6989586621679139322"><span class="annot"><span class="annottext">Path xs ps
+</span><a href="#local-6989586621679139322"><span class="hs-identifier hs-var">path</span></a></span></span><span> </span><span id="local-6989586621679139323"><span class="annot"><span class="annottext">HVectElim xs (SpockActionCtx ctx conn sess st ())
+</span><a href="#local-6989586621679139323"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-298"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span class="annot"><a href="#local-6989586621679139324"><span class="hs-identifier hs-type">checkedAction</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HV.HVect</span></span><span> </span><span class="annot"><a href="#local-6989586621679138715"><span class="hs-identifier hs-type">xs</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#SpockActionCtx"><span class="hs-identifier hs-type">SpockActionCtx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138718"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138719"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138720"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679138721"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-299"></span><span>      </span><span id="local-6989586621679139324"><span class="annot"><span class="annottext">checkedAction :: HVect xs -&gt; SpockActionCtx ctx conn sess st ()
+</span><a href="#local-6989586621679139324"><span class="hs-identifier hs-var hs-var">checkedAction</span></a></span></span><span> </span><span id="local-6989586621679139325"><span class="annot"><span class="annottext">HVect xs
+</span><a href="#local-6989586621679139325"><span class="hs-identifier hs-var">args</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SpockActionCtx ctx conn sess st ()
+forall ctx conn sess st. SpockActionCtx ctx conn sess st ()
+</span><a href="Web.Spock.html#csrfCheckIfEnabled"><span class="hs-identifier hs-var">csrfCheckIfEnabled</span></a></span><span> </span><span class="annot"><span class="annottext">SpockActionCtx ctx conn sess st ()
+-&gt; SpockActionCtx ctx conn sess st ()
+-&gt; SpockActionCtx ctx conn sess st ()
+forall a b.
+ActionCtxT ctx (WebStateM conn sess st) a
+-&gt; ActionCtxT ctx (WebStateM conn sess st) b
+-&gt; ActionCtxT ctx (WebStateM conn sess st) b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">HVectElim xs (SpockActionCtx ctx conn sess st ())
+-&gt; HVect xs -&gt; SpockActionCtx ctx conn sess st ()
+forall (ts :: [*]) a. HVectElim ts a -&gt; HVect ts -&gt; a
+</span><span class="hs-identifier hs-var">HV.uncurry</span></span><span> </span><span class="annot"><span class="annottext">HVectElim xs (SpockActionCtx ctx conn sess st ())
+</span><a href="#local-6989586621679139323"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="annot"><span class="annottext">HVect xs
+</span><a href="#local-6989586621679139325"><span class="hs-identifier hs-var">args</span></a></span><span>
+</span><span id="line-300"></span><span>   </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">SpockMethod
+-&gt; Path xs ps
+-&gt; HVectElim xs (SpockActionCtx ctx conn sess st ())
+-&gt; t ctx (WebStateM conn sess st) ()
+forall (xs :: [*]) (t :: * -&gt; (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *)
+       (ps :: PathState) ctx.
+(HasRep xs, RouteM t, Monad m) =&gt;
+SpockMethod
+-&gt; Path xs ps -&gt; HVectElim xs (ActionCtxT ctx m ()) -&gt; t ctx m ()
+</span><span class="hs-identifier hs-var">C.hookRoute'</span></span><span> </span><span class="annot"><span class="annottext">SpockMethod
+</span><a href="#local-6989586621679139321"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="annot"><span class="annottext">Path xs ps
+</span><a href="#local-6989586621679139322"><span class="hs-identifier hs-var">path</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(HVect xs -&gt; SpockActionCtx ctx conn sess st ())
+-&gt; HVectElim xs (SpockActionCtx ctx conn sess st ())
+forall (ts :: [*]) a.
+HasRep ts =&gt;
+(HVect ts -&gt; a) -&gt; HVectElim ts a
+</span><span class="hs-identifier hs-var">HV.curry</span></span><span> </span><span class="annot"><span class="annottext">HVect xs -&gt; SpockActionCtx ctx conn sess st ()
+</span><a href="#local-6989586621679139324"><span class="hs-identifier hs-var">checkedAction</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-301"></span><span>
+</span><span id="line-302"></span><span id="local-6989586621679139328"><span id="local-6989586621679139329"><span id="local-6989586621679139330"><span id="local-6989586621679139331"><span class="annot"><a href="Web.Spock.html#csrfCheckIfEnabled"><span class="hs-identifier hs-type">csrfCheckIfEnabled</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#SpockActionCtx"><span class="hs-identifier hs-type">SpockActionCtx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139328"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139329"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139330"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139331"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span></span></span><span>
+</span><span id="line-303"></span><span id="csrfCheckIfEnabled"><span class="annot"><span class="annottext">csrfCheckIfEnabled :: forall ctx conn sess st. SpockActionCtx ctx conn sess st ()
+</span><a href="Web.Spock.html#csrfCheckIfEnabled"><span class="hs-identifier hs-var hs-var">csrfCheckIfEnabled</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-304"></span><span>  </span><span class="hs-keyword">do</span><span>
+</span><span id="line-305"></span><span>    </span><span id="local-6989586621679139344"><span class="annot"><a href="#local-6989586621679139344"><span class="hs-identifier hs-var">method</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ActionCtxT ctx (WebStateM conn sess st) SpockMethod
+forall (m :: * -&gt; *) ctx. MonadIO m =&gt; ActionCtxT ctx m SpockMethod
+</span><span class="hs-identifier hs-var">reqMethod</span></span><span>
+</span><span id="line-306"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">when</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.html#shouldCheckCsrf"><span class="hs-identifier hs-type">shouldCheckCsrf</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139344"><span class="hs-identifier hs-type">method</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span>
+</span><span id="line-307"></span><span>      </span><span class="hs-keyword">do</span><span>
+</span><span id="line-308"></span><span>        </span><span id="local-6989586621679139347"><span class="annot"><a href="#local-6989586621679139347"><span class="hs-identifier hs-var">cfg</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Types.html#getSpockCfg"><span class="hs-identifier hs-type">getSpockCfg</span></a></span><span>
+</span><span id="line-309"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">when</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Types.html#spc_csrfProtection"><span class="hs-identifier hs-var">spc_csrfProtection</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679139347"><span class="hs-identifier hs-type">cfg</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="Web.Spock.html#csrfCheck"><span class="hs-identifier hs-type">csrfCheck</span></a></span><span>
+</span><span id="line-310"></span><span>
+</span><span id="line-311"></span><span class="hs-comment">-- Check the request method, including when the route accepts every method.</span><span>
+</span><span id="line-312"></span><span class="annot"><a href="Web.Spock.html#shouldCheckCsrf"><span class="hs-identifier hs-type">shouldCheckCsrf</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SpockMethod</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-313"></span><span id="shouldCheckCsrf"><span class="annot"><span class="annottext">shouldCheckCsrf :: SpockMethod -&gt; Bool
+</span><a href="Web.Spock.html#shouldCheckCsrf"><span class="hs-identifier hs-var hs-var">shouldCheckCsrf</span></a></span></span><span> </span><span id="local-6989586621679139348"><span class="annot"><span class="annottext">SpockMethod
+</span><a href="#local-6989586621679139348"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-314"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">SpockMethod
+</span><a href="#local-6989586621679139348"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-315"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">MethodStandard</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HttpMethod</span></span><span> </span><span class="annot"><span class="annottext">StdMethod
+</span><span class="hs-identifier hs-var">GET</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span>
+</span><span id="line-316"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">MethodStandard</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HttpMethod</span></span><span> </span><span class="annot"><span class="annottext">StdMethod
+</span><span class="hs-identifier hs-var">HEAD</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span>
+</span><span id="line-317"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">MethodStandard</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HttpMethod</span></span><span> </span><span class="annot"><span class="annottext">StdMethod
+</span><span class="hs-identifier hs-var">OPTIONS</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span>
+</span><span id="line-318"></span><span>    </span><span class="annot"><span class="annottext">SpockMethod
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span>
+</span><span id="line-319"></span></pre></body></html>

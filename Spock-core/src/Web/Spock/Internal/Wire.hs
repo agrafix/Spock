@@ -78,7 +78,7 @@ instance Hashable HttpMethod where
 data SpockMethod
   = -- | Standard HTTP Verbs from 'StdMethod'
     MethodStandard !HttpMethod
-  | -- | Custom HTTP Verbs using 'T.Text'
+  | -- | Custom HTTP verbs represented as @Text@.
     MethodCustom !T.Text
   | -- | Match any HTTP verb
     MethodAny

@@ -4,7 +4,10 @@ Spock
 [![Build Status](https://travis-ci.org/agrafix/Spock.svg)](https://travis-ci.org/agrafix/Spock)
 [![Hackage](https://img.shields.io/hackage/v/Spock.svg)](http://hackage.haskell.org/package/Spock)
 
-Documentation: [Spock 0.12.0.0](https://spockdocs.s3.eu-central-1.amazonaws.com/Spock-0.12.0.0/Web-Spock.html)
+Documentation: [current API reference](https://www.spock.li/reference/).
+Request parsing and response helpers such as `param`, `jsonBody`, `body`, and
+`setHeader` are documented in **Web.Spock.Action** (from the Spock-core package)
+and reexported by Web.Spock.
 
 ## Intro
 

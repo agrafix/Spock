@@ -91,5 +91,5 @@ and tests cover Unicode and escaped request data. Reserve raw/pre-escaped HTML
 operations for markup you control; do not concatenate user input into markup.
 
 For JSON, use `json`; for plain text, use `text`. Both set the corresponding
-content type. See the [request and response actions](https://hackage.haskell.org/package/Spock-core/docs/Web-Spock-Action.html)
+content type. See the [API reference]({{ '/reference/' | relative_url }}) and its **Web.Spock.Action** module
 for headers, files, streaming, and other response helpers.

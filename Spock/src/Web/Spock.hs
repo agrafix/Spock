@@ -6,6 +6,25 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
+-- | Build an application with typed routes, sessions, and a database pool.
+--
+-- = Reading requests and sending responses
+--
+-- Request and response helpers are reexported from "Web.Spock.Action" in the
+-- @Spock-core@ package. Follow that module link for the complete action API:
+--
+-- * 'param' and 'param'': parse query or form parameters. Values captured by
+--   'var' in a route are passed directly to its handler instead.
+-- * 'paramsGet', 'paramsPost', and 'params': list request parameters.
+-- * 'jsonBody', 'jsonBody'', and 'body': read JSON or raw request bytes.
+-- * 'header', 'rawHeader', and 'cookies': inspect request metadata.
+-- * 'filesMulti': read uploaded files, including repeated upload fields.
+-- * 'setStatus' and 'setHeader': prepare response metadata before sending it.
+-- * 'text', 'html', 'json', 'file', and 'lazyBytes': send a response and finish
+--   the current action.
+--
+-- The <https://www.spock.li/reference/ API reference> links the current
+-- versions of Spock, Spock-core, the typed API packages, and session adapters.
 module Web.Spock
   ( -- * Launching Spock
     runSpock,

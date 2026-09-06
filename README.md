@@ -49,6 +49,7 @@ The existing `files` function continues to return the last file for each field.
 ## Important Links
 
 * [Tutorial](https://www.spock.li/tutorial/)
+* [API reference: routes, request actions, sessions, and typed APIs](https://www.spock.li/reference/)
 * [REST API Tutorial](https://www.spock.li/tutorials/rest-api)
 * [Type-safe routing in Spock](https://www.spock.li/2015/04/19/type-safe_routing.html)
 * [Taking Authentication to the next Level](https://www.spock.li/2015/08/23/taking_authentication_to_the_next_level.html)

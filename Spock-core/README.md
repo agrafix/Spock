@@ -9,7 +9,9 @@ Spock-core
 Hackage: [Spock-core](http://hackage.haskell.org/package/Spock-core)
 Stackage: [Spock-core](https://www.stackage.org/package/Spock-core)
 
-Documentation: [Spock-core 0.12.0.0](https://spockdocs.s3.eu-central-1.amazonaws.com/Spock-core-0.12.0.0/Web-Spock-Core.html)
+Documentation: [current API reference](https://www.spock.li/reference/).
+Start with **Web.Spock.Core** for application setup and **Web.Spock.Action**
+for parameters, JSON, request bodies, headers, uploads, and responses.
 
 `Spock-core` is the "low level" platform powering [Spock](https://www.stackage.org/package/Spock). You can use it standalone if you
 do not need the framework to provide you features like session management, database pooling, csrf protection and more.

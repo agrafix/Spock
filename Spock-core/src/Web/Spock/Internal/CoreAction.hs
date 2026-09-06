@@ -271,14 +271,14 @@ redirect :: MonadIO m => T.Text -> ActionCtxT ctx m a
 redirect = throwError . ActionRedirect
 {-# INLINE redirect #-}
 
--- | Respond to the request by running an 'Wai.Application'. This is
+-- | Respond to the request by running a WAI application. This is
 -- usefull in combination with wildcard routes. This can not be used
 -- in combination with other request consuming combinators
 -- like 'jsonBody', 'body', 'paramsPost', ...
 respondApp :: Monad m => Wai.Application -> ActionCtxT ctx m a
 respondApp = throwError . ActionApplication . return
 
--- | Respond to the request by running a 'Wai.Middleware'. This is
+-- | Respond to the request by running WAI middleware. This is
 -- usefull in combination with wildcard routes. This can not be used
 -- in combination with other request consuming combinators
 -- like 'jsonBody', 'body', 'paramsPost', ...
@@ -309,7 +309,7 @@ queryVault k =
     liftIO $ vi_lookupKey vaultIf k
 {-# INLINE queryVault #-}
 
--- | Use a custom 'Wai.Response' generator as response body.
+-- | Use a custom WAI response generator as response body.
 response :: MonadIO m => (Status -> ResponseHeaders -> Wai.Response) -> ActionCtxT ctx m a
 response val =
   do
@@ -361,7 +361,7 @@ json val =
     lazyBytes $ A.encode val
 {-# INLINE json #-}
 
--- | Use a 'Wai.StreamingBody' to generate a response.
+-- | Use a WAI streaming body to generate a response.
 stream :: MonadIO m => Wai.StreamingBody -> ActionCtxT ctx m a
 stream val =
   response $ \status headers -> Wai.responseStream status headers val
@@ -393,7 +393,7 @@ requireBasicAuth realmTitle authFun cont =
         text $ "Authentication required. " <> fromMaybe "" mMore
 
 -- | "Lower level" basic authentification handeling. Does not set any headers that will promt
--- browser users, only looks for an "Authorization" header in the request and breaks it into
+-- browser users, only looks for an @Authorization@ header in the request and breaks it into
 -- username and passwort component if present
 withBasicAuthData :: MonadIO m => (Maybe (T.Text, T.Text) -> ActionCtxT ctx m a) -> ActionCtxT ctx m a
 withBasicAuthData handler =
