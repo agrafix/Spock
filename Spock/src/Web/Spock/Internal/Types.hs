@@ -91,7 +91,7 @@ data PoolOrConn a where
 
 -- | Configuration for the session manager
 data SessionCfg conn a st = SessionCfg
-  { -- | When to load or create a session. Defaults to 'SessionsAlways'.
+  { -- | When to load or create a session. Defaults to 'SessionsOnDemand'.
     sc_sessionMode :: SessionMode,
     -- | name of the client side cookie
     sc_cookieName :: T.Text,

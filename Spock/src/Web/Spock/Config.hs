@@ -58,7 +58,7 @@ defaultSessionCfg emptySession =
     store <- SV.newStmSessionStore
     return
       SessionCfg
-        { sc_sessionMode = SessionsAlways,
+        { sc_sessionMode = SessionsOnDemand,
           sc_cookieName = "spockcookie",
           sc_cookieSettings = defaultCookieSettings {cs_EOL = CookieValidForever, cs_HTTPOnly = True},
           sc_sessionTTL = 3600,

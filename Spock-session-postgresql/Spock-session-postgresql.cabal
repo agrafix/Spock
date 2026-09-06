@@ -1,6 +1,6 @@
 cabal-version: 2.4
 name: Spock-session-postgresql
-version: 0.1.0.0
+version: 0.1.0.1
 synopsis: Persistent PostgreSQL sessions for Spock
 description: Namespaced JSON sessions with serializable transactions and conflict retries.
 license: BSD-3-Clause
@@ -24,7 +24,7 @@ library
     mtl >= 2.2,
     postgresql-simple >= 0.7 && < 0.8,
     resource-pool >= 0.4 && < 0.6,
-    Spock >= 0.15 && < 0.16,
+    Spock >= 0.15 && < 0.17,
     text >= 1.2,
     time >= 1.9
   default-language: Haskell2010

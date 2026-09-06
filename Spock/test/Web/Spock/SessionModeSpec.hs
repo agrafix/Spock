@@ -5,7 +5,7 @@ module Web.Spock.SessionModeSpec (spec) where
 
 import Control.Concurrent.MVar
 import Control.Concurrent.STM
-import Control.Monad (unless)
+import Control.Monad (replicateM_, unless)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text as T
@@ -22,9 +22,18 @@ import Web.Spock.TestUtils
 
 spec :: Spec
 spec = describe "Session modes" $ do
-  it "keeps eager allocation as the default" $ do
+  it "does not retain sessions for cookie-less visitors who never use them" $ do
+    (app, store) <- modeAppWith Nothing
+    replicateM_ 1000 $ do
+      response <- request app "/empty" []
+      getSessCookie response `shouldBe` Nothing
+    length <$> ss_runTx store (ss_toList store) `shouldReturn` 0
+
+  it "uses on-demand allocation by default" $ do
     cfg <- defaultSessionCfg ()
-    sc_sessionMode cfg `shouldBe` SessionsAlways
+    sc_sessionMode cfg `shouldBe` SessionsOnDemand
+
+  it "retains explicit eager allocation" $ do
     (app, store) <- modeApp SessionsAlways
     response <- request app "/empty" []
     getSessCookie response `shouldSatisfy` (/= Nothing)
@@ -111,12 +120,16 @@ spec = describe "Session modes" $ do
 type Store = SessionStore (Session T.Text Int T.Text) STM
 
 modeApp :: SessionMode -> IO (Wai.Application, Store)
-modeApp mode = do
+modeApp = modeAppWith . Just
+
+modeAppWith :: Maybe SessionMode -> IO (Wai.Application, Store)
+modeAppWith modeOverride = do
   store <- newStmSessionStore'
   ready <- newEmptyMVar
   let connection = ConnBuilder (pure "connected") (const $ pure ()) (PoolCfg 1 2 60)
   cfg <- defaultSpockCfg (0 :: Int) (PCConn connection) "state"
-  let sessions = (spc_sessionCfg cfg)
+  let mode = maybe (sc_sessionMode $ spc_sessionCfg cfg) id modeOverride
+      sessions = (spc_sessionCfg cfg)
         { sc_sessionMode = mode,
           sc_store = SessionStoreInstance store,
           sc_hooks = SessionHooks (const $ putMVar ready ()) }

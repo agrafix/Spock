@@ -27,15 +27,32 @@ let sessions = (spc_sessionCfg cfg) { sc_sessionMode = SessionsOnDemand }
 spock (cfg { spc_sessionCfg = sessions }) routes
 ```
 
-`SessionsAlways` remains the default. `SessionsOnDemand` loads, renews, or creates
+Since **Spock 0.16**, `SessionsOnDemand` is the default. It loads, renews, or creates
 a session only when a session action or CSRF check needs it; unused requests do
 not set session cookies. `SessionsDisabled` bypasses session middleware and
 housekeeping entirely. Session actions then raise `SessionUseWhenDisabled`.
 Combining disabled sessions with CSRF protection raises `CsrfRequiresSessions`
 at startup. CSRF protection works normally with on-demand sessions.
 
-This release adds `sc_sessionMode` to `SessionCfg`; applications constructing the
+`sc_sessionMode` was added to `SessionCfg` in 0.15. Applications constructing the
 record directly must supply it. Prefer updating `defaultSessionCfg`.
+
+### Migrating from eager sessions
+
+Previously, every request without a valid session cookie allocated a server-side
+session, even for static pages and stateless APIs. Clients that discard cookies
+could accumulate one session per request until the one-hour expiry and next
+housekeeping sweep. Unused requests now allocate no session and send no session
+cookie. Session actions and CSRF checks still create sessions when needed.
+
+If your application relies on a cookie being sent before any session action, or
+on visits to stateless routes renewing an existing session, explicitly select
+`sc_sessionMode = SessionsAlways`. That mode retains the previous behavior and
+requires memory proportional to the number of live sessions. Browser cookie
+expiry and the server's `sc_sessionTTL` are separate settings.
+
+The [session soak benchmark](benchmarks/README.md) reproduces cookie-less traffic,
+checks expiry cleanup and reports allocations, live heap and session counts.
 
 ## Browser sessions and logout
 
