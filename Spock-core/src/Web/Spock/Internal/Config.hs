@@ -12,7 +12,10 @@ import Web.Spock.Logging
 import qualified Web.Spock.Internal.Wire as W
 
 data SpockConfig = SpockConfig
-  { -- | Maximum request size in bytes
+  { -- | Maximum request body size in bytes, checked as an action reads the
+    -- body (including JSON, form parameters, and uploads). An unused body is
+    -- not read or rejected based on its declared length. Exceeding the limit
+    -- invokes 'sc_errorHandler' with status 413.
     sc_maxRequestSize :: Maybe Word64,
     -- | Error handler. Given status is set in response by default, but you
     -- can always override it with `setStatus`

@@ -517,41 +517,35 @@ handleRequest' ::
   Wai.Application
 handleRequest' config stdMethod registryLift allActions st coreApp req respond =
   do
-    actEnv <-
-      (Left <$> makeActionEnvironment config st stdMethod req)
-        `catch` \(_ :: SizeException) ->
-          return (Right $ getErrorHandler config status413)
-    case actEnv of
-      Left (mkEnv, vaultVar) ->
-        do
-          mRespState <-
-            registryLift (applyAction config req mkEnv allActions)
-              `catches` [ Handler $ \(_ :: SizeException) ->
-                            return (Just $ getErrorHandler config status413),
-                          Handler $ \(e :: SomeException) ->
-                            do
-                              case fromException e :: Maybe SomeAsyncException of
-                                Just _ -> throwIO e
-                                Nothing -> pure ()
-                              logRequestError config req $
-                                T.pack $
-                                  "Spock Error while handling " ++ show (Wai.pathInfo req)
-                                    ++ ": "
-                                    ++ show e
-                              return $ Just $ getErrorHandler config status500
-                        ]
-          case mRespState of
-            Just (ResponseHandler responseHandler) ->
-              responseHandler >>= \app -> app req respond
-            Just respState ->
-              respond $ respStateToResponse respState
-            Nothing ->
-              do
-                newVault <- atomically $ readTVar vaultVar
-                let req' = req {Wai.vault = V.union newVault (Wai.vault req)}
-                coreApp req' respond
-      Right respState ->
+    -- The environment only creates lazy body caches. SizeException can arise
+    -- when an action consumes one of those caches, not during initialization.
+    (mkEnv, vaultVar) <- makeActionEnvironment config st stdMethod req
+    mRespState <-
+      registryLift (applyAction config req mkEnv allActions)
+        `catches` [ Handler $ \(_ :: SizeException) ->
+                      return (Just $ getErrorHandler config status413),
+                    Handler $ \(e :: SomeException) ->
+                      do
+                        case fromException e :: Maybe SomeAsyncException of
+                          Just _ -> throwIO e
+                          Nothing -> pure ()
+                        logRequestError config req $
+                          T.pack $
+                            "Spock Error while handling " ++ show (Wai.pathInfo req)
+                              ++ ": "
+                              ++ show e
+                        return $ Just $ getErrorHandler config status500
+                  ]
+    case mRespState of
+      Just (ResponseHandler responseHandler) ->
+        responseHandler >>= \app -> app req respond
+      Just respState ->
         respond $ respStateToResponse respState
+      Nothing ->
+        do
+          newVault <- atomically $ readTVar vaultVar
+          let req' = req {Wai.vault = V.union newVault (Wai.vault req)}
+          coreApp req' respond
 
 getErrorHandler :: SpockConfigInternal -> Status -> ResponseVal
 getErrorHandler config = ResponseHandler . sci_errorHandler config

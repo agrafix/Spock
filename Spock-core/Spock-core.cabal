@@ -1,5 +1,5 @@
 name:                Spock-core
-version:             0.15.0.1
+version:             0.15.0.2
 synopsis:            Another Haskell web framework for rapid development
 description:         Barebones high performance type safe web framework
 Homepage:            https://www.spock.li
@@ -72,6 +72,7 @@ test-suite spockcoretests
                        Web.Spock.Internal.UtilSpec,
                        Web.Spock.UploadSpec,
                        Web.Spock.LoggingSpec,
+                       Web.Spock.RequestSizeSpec,
                        Web.Spock.SafeSpec
   build-depends:
                        aeson,
