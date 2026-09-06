@@ -31,8 +31,8 @@
 </span><span id="line-31"></span><span>
 </span><span id="line-32"></span><span class="hs-comment">-- | Deliberately has no MonadIO instance: the whole transaction can be retried,</span><span>
 </span><span id="line-33"></span><span class="hs-comment">-- so callbacks must not perform external side effects.</span><span>
-</span><span id="line-34"></span><span class="hs-keyword">newtype</span><span> </span><span id="PostgresqlTx"><span class="annot"><a href="Web.Spock.Session.Postgresql.html#PostgresqlTx"><span class="hs-identifier hs-var">PostgresqlTx</span></a></span></span><span> </span><span id="local-6989586621679115633"><span class="annot"><a href="#local-6989586621679115633"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="PostgresqlTx"><span class="annot"><a href="Web.Spock.Session.Postgresql.html#PostgresqlTx"><span class="hs-identifier hs-var">PostgresqlTx</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ReaderT</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Connection</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679115633"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-35"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679115679"><span id="local-6989586621679115684"><span class="annot"><span class="annottext">(forall a b. (a -&gt; b) -&gt; PostgresqlTx a -&gt; PostgresqlTx b)
+</span><span id="line-34"></span><span class="hs-keyword">newtype</span><span> </span><span id="PostgresqlTx"><span class="annot"><a href="Web.Spock.Session.Postgresql.html#PostgresqlTx"><span class="hs-identifier hs-var">PostgresqlTx</span></a></span></span><span> </span><span id="local-6989586621679115653"><span class="annot"><a href="#local-6989586621679115653"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="PostgresqlTx"><span class="annot"><a href="Web.Spock.Session.Postgresql.html#PostgresqlTx"><span class="hs-identifier hs-var">PostgresqlTx</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ReaderT</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Connection</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679115653"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-35"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679115699"><span id="local-6989586621679115704"><span class="annot"><span class="annottext">(forall a b. (a -&gt; b) -&gt; PostgresqlTx a -&gt; PostgresqlTx b)
 -&gt; (forall a b. a -&gt; PostgresqlTx b -&gt; PostgresqlTx a)
 -&gt; Functor PostgresqlTx
 forall a b. a -&gt; PostgresqlTx b -&gt; PostgresqlTx a
@@ -44,7 +44,7 @@ $cfmap :: forall a b. (a -&gt; b) -&gt; PostgresqlTx a -&gt; PostgresqlTx b
 fmap :: forall a b. (a -&gt; b) -&gt; PostgresqlTx a -&gt; PostgresqlTx b
 $c&lt;$ :: forall a b. a -&gt; PostgresqlTx b -&gt; PostgresqlTx a
 &lt;$ :: forall a b. a -&gt; PostgresqlTx b -&gt; PostgresqlTx a
-</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Functor</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679115693"><span id="local-6989586621679115699"><span id="local-6989586621679115704"><span id="local-6989586621679115709"><span id="local-6989586621679115714"><span class="annot"><span class="annottext">Functor PostgresqlTx
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Functor</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679115713"><span id="local-6989586621679115719"><span id="local-6989586621679115724"><span id="local-6989586621679115729"><span id="local-6989586621679115734"><span class="annot"><span class="annottext">Functor PostgresqlTx
 Functor PostgresqlTx =&gt;
 (forall a. a -&gt; PostgresqlTx a)
 -&gt; (forall a b.
@@ -84,7 +84,7 @@ $c*&gt; :: forall a b. PostgresqlTx a -&gt; PostgresqlTx b -&gt; PostgresqlTx b
 *&gt; :: forall a b. PostgresqlTx a -&gt; PostgresqlTx b -&gt; PostgresqlTx b
 $c&lt;* :: forall a b. PostgresqlTx a -&gt; PostgresqlTx b -&gt; PostgresqlTx a
 &lt;* :: forall a b. PostgresqlTx a -&gt; PostgresqlTx b -&gt; PostgresqlTx a
-</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Applicative</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679115726"><span id="local-6989586621679115732"><span id="local-6989586621679115737"><span class="annot"><span class="annottext">Applicative PostgresqlTx
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Applicative</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679115746"><span id="local-6989586621679115752"><span id="local-6989586621679115757"><span class="annot"><span class="annottext">Applicative PostgresqlTx
 Applicative PostgresqlTx =&gt;
 (forall a b.
  PostgresqlTx a -&gt; (a -&gt; PostgresqlTx b) -&gt; PostgresqlTx b)
@@ -130,7 +130,7 @@ return :: forall a. a -&gt; PostgresqlTx a
 </span><span id="line-47"></span><span>
 </span><span id="line-48"></span><span class="hs-comment">-- | Stored JSON cannot be decoded as the application's session type. No stored</span><span>
 </span><span id="line-49"></span><span class="hs-comment">-- content is included in this exception.</span><span>
-</span><span id="line-50"></span><span class="hs-keyword">data</span><span> </span><span id="SessionDecodeError"><span class="annot"><a href="Web.Spock.Session.Postgresql.html#SessionDecodeError"><span class="hs-identifier hs-var">SessionDecodeError</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="SessionDecodeError"><span class="annot"><a href="Web.Spock.Session.Postgresql.html#SessionDecodeError"><span class="hs-identifier hs-var">SessionDecodeError</span></a></span></span><span> </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679115749"><span id="local-6989586621679115751"><span class="annot"><span class="annottext">SessionDecodeError -&gt; SessionDecodeError -&gt; Bool
+</span><span id="line-50"></span><span class="hs-keyword">data</span><span> </span><span id="SessionDecodeError"><span class="annot"><a href="Web.Spock.Session.Postgresql.html#SessionDecodeError"><span class="hs-identifier hs-var">SessionDecodeError</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="SessionDecodeError"><span class="annot"><a href="Web.Spock.Session.Postgresql.html#SessionDecodeError"><span class="hs-identifier hs-var">SessionDecodeError</span></a></span></span><span> </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679115769"><span id="local-6989586621679115771"><span class="annot"><span class="annottext">SessionDecodeError -&gt; SessionDecodeError -&gt; Bool
 (SessionDecodeError -&gt; SessionDecodeError -&gt; Bool)
 -&gt; (SessionDecodeError -&gt; SessionDecodeError -&gt; Bool)
 -&gt; Eq SessionDecodeError
@@ -139,7 +139,7 @@ $c== :: SessionDecodeError -&gt; SessionDecodeError -&gt; Bool
 == :: SessionDecodeError -&gt; SessionDecodeError -&gt; Bool
 $c/= :: SessionDecodeError -&gt; SessionDecodeError -&gt; Bool
 /= :: SessionDecodeError -&gt; SessionDecodeError -&gt; Bool
-</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679115756"><span id="local-6989586621679115758"><span id="local-6989586621679115762"><span class="annot"><span class="annottext">Int -&gt; SessionDecodeError -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679115776"><span id="local-6989586621679115778"><span id="local-6989586621679115782"><span class="annot"><span class="annottext">Int -&gt; SessionDecodeError -&gt; ShowS
 [SessionDecodeError] -&gt; ShowS
 SessionDecodeError -&gt; String
 (Int -&gt; SessionDecodeError -&gt; ShowS)
@@ -155,41 +155,41 @@ show :: SessionDecodeError -&gt; String
 $cshowList :: [SessionDecodeError] -&gt; ShowS
 showList :: [SessionDecodeError] -&gt; ShowS
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">)</span><span>
-</span><span id="line-51"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679115771"><span id="local-6989586621679115775"><span id="local-6989586621679115778"><span id="local-6989586621679115781"><span class="annot"><span class="hs-identifier hs-type">Exception</span></span><span> </span><span class="annot"><a href="Web.Spock.Session.Postgresql.html#SessionDecodeError"><span class="hs-identifier hs-type">SessionDecodeError</span></a></span></span></span></span></span><span>
+</span><span id="line-51"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679115791"><span id="local-6989586621679115795"><span id="local-6989586621679115798"><span id="local-6989586621679115801"><span class="annot"><span class="hs-identifier hs-type">Exception</span></span><span> </span><span class="annot"><a href="Web.Spock.Session.Postgresql.html#SessionDecodeError"><span class="hs-identifier hs-type">SessionDecodeError</span></a></span></span></span></span></span><span>
 </span><span id="line-52"></span><span>
 </span><span id="line-53"></span><span class="hs-comment">-- | Create the adapter's table. Run once during deployment/startup, before</span><span>
 </span><span id="line-54"></span><span class="hs-comment">-- concurrent workers. All ordinary operations are scoped to a namespace.</span><span>
 </span><span id="line-55"></span><span class="annot"><a href="Web.Spock.Session.Postgresql.html#initializePostgresqlSessions"><span class="hs-identifier hs-type">initializePostgresqlSessions</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Connection</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
 </span><span id="line-56"></span><span id="initializePostgresqlSessions"><span class="annot"><span class="annottext">initializePostgresqlSessions :: Connection -&gt; IO ()
-</span><a href="Web.Spock.Session.Postgresql.html#initializePostgresqlSessions"><span class="hs-identifier hs-var hs-var">initializePostgresqlSessions</span></a></span></span><span> </span><span id="local-6989586621679115784"><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621679115784"><span class="hs-identifier hs-var">connection</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO Int64 -&gt; IO ()
+</span><a href="Web.Spock.Session.Postgresql.html#initializePostgresqlSessions"><span class="hs-identifier hs-var hs-var">initializePostgresqlSessions</span></a></span></span><span> </span><span id="local-6989586621679115804"><span class="annot"><span class="annottext">Connection
+</span><a href="#local-6989586621679115804"><span class="hs-identifier hs-var">connection</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO Int64 -&gt; IO ()
 forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
 </span><span class="hs-identifier hs-var">void</span></span><span> </span><span class="annot"><span class="annottext">(IO Int64 -&gt; IO ()) -&gt; IO Int64 -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Connection -&gt; Query -&gt; IO Int64
 </span><span class="hs-identifier hs-var">execute_</span></span><span> </span><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621679115784"><span class="hs-identifier hs-var">connection</span></a></span><span>
+</span><a href="#local-6989586621679115804"><span class="hs-identifier hs-var">connection</span></a></span><span>
 </span><span id="line-57"></span><span>  </span><span class="annot"><span class="annottext">Query
 </span><span class="hs-string">&quot;CREATE TABLE IF NOT EXISTS spock_sessions (\
   \namespace TEXT NOT NULL, session_id TEXT NOT NULL, csrf_token TEXT NOT NULL,\
   \valid_until TIMESTAMPTZ NOT NULL, session_data JSONB NOT NULL,\
   \PRIMARY KEY (namespace, session_id))&quot;</span></span><span>
 </span><span id="line-61"></span><span>
-</span><span id="line-62"></span><span id="local-6989586621679115548"><span id="local-6989586621679115552"><span id="local-6989586621679115553"><span class="annot"><a href="Web.Spock.Session.Postgresql.html#newPostgresqlSessionStore"><span class="hs-identifier hs-type">newPostgresqlSessionStore</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="#local-6989586621679115548"><span class="hs-identifier hs-type">sess</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><a href="#local-6989586621679115548"><span class="hs-identifier hs-type">sess</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
-</span><span id="line-63"></span><span>  </span><span class="annot"><a href="Web.Spock.Session.Postgresql.html#PostgresqlSessionCfg"><span class="hs-identifier hs-type">PostgresqlSessionCfg</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Pool</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Connection</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">SessionStore</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Session</span></span><span> </span><span class="annot"><a href="#local-6989586621679115552"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679115548"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679115553"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="Web.Spock.Session.Postgresql.html#PostgresqlTx"><span class="hs-identifier hs-type">PostgresqlTx</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-62"></span><span id="local-6989586621679115568"><span id="local-6989586621679115572"><span id="local-6989586621679115573"><span class="annot"><a href="Web.Spock.Session.Postgresql.html#newPostgresqlSessionStore"><span class="hs-identifier hs-type">newPostgresqlSessionStore</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="#local-6989586621679115568"><span class="hs-identifier hs-type">sess</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><a href="#local-6989586621679115568"><span class="hs-identifier hs-type">sess</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-63"></span><span>  </span><span class="annot"><a href="Web.Spock.Session.Postgresql.html#PostgresqlSessionCfg"><span class="hs-identifier hs-type">PostgresqlSessionCfg</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Pool</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Connection</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">SessionStore</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Session</span></span><span> </span><span class="annot"><a href="#local-6989586621679115572"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679115568"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679115573"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="Web.Spock.Session.Postgresql.html#PostgresqlTx"><span class="hs-identifier hs-type">PostgresqlTx</span></a></span><span class="hs-special">)</span></span></span></span><span>
 </span><span id="line-64"></span><span id="newPostgresqlSessionStore"><span class="annot"><span class="annottext">newPostgresqlSessionStore :: forall sess conn st.
 (ToJSON sess, FromJSON sess) =&gt;
 PostgresqlSessionCfg
 -&gt; Pool Connection
 -&gt; IO (SessionStore (Session conn sess st) PostgresqlTx)
-</span><a href="Web.Spock.Session.Postgresql.html#newPostgresqlSessionStore"><span class="hs-identifier hs-var hs-var">newPostgresqlSessionStore</span></a></span></span><span> </span><span id="local-6989586621679115798"><span class="annot"><span class="annottext">PostgresqlSessionCfg
-</span><a href="#local-6989586621679115798"><span class="hs-identifier hs-var">cfg</span></a></span></span><span> </span><span id="local-6989586621679115799"><span class="annot"><span class="annottext">Pool Connection
-</span><a href="#local-6989586621679115799"><span class="hs-identifier hs-var">pool</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a href="Web.Spock.Session.Postgresql.html#newPostgresqlSessionStore"><span class="hs-identifier hs-var hs-var">newPostgresqlSessionStore</span></a></span></span><span> </span><span id="local-6989586621679115818"><span class="annot"><span class="annottext">PostgresqlSessionCfg
+</span><a href="#local-6989586621679115818"><span class="hs-identifier hs-var">cfg</span></a></span></span><span> </span><span id="local-6989586621679115819"><span class="annot"><span class="annottext">Pool Connection
+</span><a href="#local-6989586621679115819"><span class="hs-identifier hs-var">pool</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-65"></span><span>  </span><span class="annot"><span class="annottext">Bool -&gt; IO () -&gt; IO ()
 forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
 </span><span class="hs-identifier hs-var">unless</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PostgresqlSessionCfg -&gt; Int
 </span><a href="Web.Spock.Session.Postgresql.html#psc_maxRetries"><span class="hs-identifier hs-var">psc_maxRetries</span></a></span><span> </span><span class="annot"><span class="annottext">PostgresqlSessionCfg
-</span><a href="#local-6989586621679115798"><span class="hs-identifier hs-var">cfg</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+</span><a href="#local-6989586621679115818"><span class="hs-identifier hs-var">cfg</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
 forall a. Ord a =&gt; a -&gt; a -&gt; Bool
 </span><span class="hs-operator hs-var">&gt;=</span></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">0</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
@@ -201,34 +201,34 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; IOError
 </span><span class="hs-identifier hs-var">userError</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;psc_maxRetries must be nonnegative&quot;</span></span><span>
-</span><span id="line-66"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679115802"><span class="annot"><span class="annottext">namespace :: Text
-</span><a href="#local-6989586621679115802"><span class="hs-identifier hs-var hs-var">namespace</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PostgresqlSessionCfg -&gt; Text
+</span><span id="line-66"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679115822"><span class="annot"><span class="annottext">namespace :: Text
+</span><a href="#local-6989586621679115822"><span class="hs-identifier hs-var hs-var">namespace</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PostgresqlSessionCfg -&gt; Text
 </span><a href="Web.Spock.Session.Postgresql.html#psc_namespace"><span class="hs-identifier hs-var">psc_namespace</span></a></span><span> </span><span class="annot"><span class="annottext">PostgresqlSessionCfg
-</span><a href="#local-6989586621679115798"><span class="hs-identifier hs-var">cfg</span></a></span><span>
-</span><span id="line-67"></span><span>      </span><span id="local-6989586621679115849"><span class="annot"><span class="annottext">store :: SessionStore (Session conn sess st) PostgresqlTx
-</span><a href="#local-6989586621679115849"><span class="hs-identifier hs-var hs-var">store</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SessionStore</span></span><span>
+</span><a href="#local-6989586621679115818"><span class="hs-identifier hs-var">cfg</span></a></span><span>
+</span><span id="line-67"></span><span>      </span><span id="local-6989586621679115869"><span class="annot"><span class="annottext">store :: SessionStore (Session conn sess st) PostgresqlTx
+</span><a href="#local-6989586621679115869"><span class="hs-identifier hs-var hs-var">store</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SessionStore</span></span><span>
 </span><span id="line-68"></span><span>        </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">ss_runTx :: forall a. PostgresqlTx a -&gt; IO a
-</span><span class="hs-identifier hs-var">ss_runTx</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Session.Postgresql.html#PostgresqlTx"><span class="hs-identifier hs-type">PostgresqlTx</span></a></span><span> </span><span id="local-6989586621679115852"><span class="annot"><span class="annottext">ReaderT Connection IO a
-</span><a href="#local-6989586621679115852"><span class="hs-identifier hs-var">action</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Pool Connection -&gt; (Connection -&gt; IO a) -&gt; IO a
+</span><span class="hs-identifier hs-var">ss_runTx</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Session.Postgresql.html#PostgresqlTx"><span class="hs-identifier hs-type">PostgresqlTx</span></a></span><span> </span><span id="local-6989586621679115872"><span class="annot"><span class="annottext">ReaderT Connection IO a
+</span><a href="#local-6989586621679115872"><span class="hs-identifier hs-var">action</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Pool Connection -&gt; (Connection -&gt; IO a) -&gt; IO a
 forall a r. Pool a -&gt; (a -&gt; IO r) -&gt; IO r
 </span><span class="hs-identifier hs-var">withResource</span></span><span> </span><span class="annot"><span class="annottext">Pool Connection
-</span><a href="#local-6989586621679115799"><span class="hs-identifier hs-var">pool</span></a></span><span> </span><span class="annot"><span class="annottext">((Connection -&gt; IO a) -&gt; IO a) -&gt; (Connection -&gt; IO a) -&gt; IO a
+</span><a href="#local-6989586621679115819"><span class="hs-identifier hs-var">pool</span></a></span><span> </span><span class="annot"><span class="annottext">((Connection -&gt; IO a) -&gt; IO a) -&gt; (Connection -&gt; IO a) -&gt; IO a
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679115853"><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621679115853"><span class="hs-identifier hs-var">connection</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679115873"><span class="annot"><span class="annottext">Connection
+</span><a href="#local-6989586621679115873"><span class="hs-identifier hs-var">connection</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-69"></span><span>            </span><span class="annot"><span class="annottext">Int -&gt; Connection -&gt; IO a -&gt; IO a
 forall a. Int -&gt; Connection -&gt; IO a -&gt; IO a
 </span><a href="Web.Spock.Session.Postgresql.html#retryTransaction"><span class="hs-identifier hs-var">retryTransaction</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PostgresqlSessionCfg -&gt; Int
 </span><a href="Web.Spock.Session.Postgresql.html#psc_maxRetries"><span class="hs-identifier hs-var">psc_maxRetries</span></a></span><span> </span><span class="annot"><span class="annottext">PostgresqlSessionCfg
-</span><a href="#local-6989586621679115798"><span class="hs-identifier hs-var">cfg</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621679115853"><span class="hs-identifier hs-var">connection</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ReaderT Connection IO a -&gt; Connection -&gt; IO a
+</span><a href="#local-6989586621679115818"><span class="hs-identifier hs-var">cfg</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Connection
+</span><a href="#local-6989586621679115873"><span class="hs-identifier hs-var">connection</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ReaderT Connection IO a -&gt; Connection -&gt; IO a
 forall r (m :: * -&gt; *) a. ReaderT r m a -&gt; r -&gt; m a
 </span><span class="hs-identifier hs-var">runReaderT</span></span><span> </span><span class="annot"><span class="annottext">ReaderT Connection IO a
-</span><a href="#local-6989586621679115852"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621679115853"><span class="hs-identifier hs-var">connection</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><a href="#local-6989586621679115872"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="annot"><span class="annottext">Connection
+</span><a href="#local-6989586621679115873"><span class="hs-identifier hs-var">connection</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
 </span><span id="line-70"></span><span>          </span><span class="annot"><span class="annottext">ss_loadSession :: Text -&gt; PostgresqlTx (Maybe (Session conn sess st))
-</span><span class="hs-identifier hs-var">ss_loadSession</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679115857"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679115857"><span class="hs-identifier hs-var">sid</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Connection -&gt; IO (Maybe (Session conn sess st)))
+</span><span class="hs-identifier hs-var">ss_loadSession</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679115877"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679115877"><span class="hs-identifier hs-var">sid</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Connection -&gt; IO (Maybe (Session conn sess st)))
 -&gt; PostgresqlTx (Maybe (Session conn sess st))
 forall a. (Connection -&gt; IO a) -&gt; PostgresqlTx a
 </span><a href="Web.Spock.Session.Postgresql.html#onConnection"><span class="hs-identifier hs-var">onConnection</span></a></span><span> </span><span class="annot"><span class="annottext">((Connection -&gt; IO (Maybe (Session conn sess st)))
@@ -236,29 +236,29 @@ forall a. (Connection -&gt; IO a) -&gt; PostgresqlTx a
 -&gt; (Connection -&gt; IO (Maybe (Session conn sess st)))
 -&gt; PostgresqlTx (Maybe (Session conn sess st))
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679115859"><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621679115859"><span class="hs-identifier hs-var">connection</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-71"></span><span>            </span><span id="local-6989586621679115860"><span class="annot"><a href="#local-6989586621679115860"><span class="hs-identifier hs-var">rows</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Connection
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679115879"><span class="annot"><span class="annottext">Connection
+</span><a href="#local-6989586621679115879"><span class="hs-identifier hs-var">connection</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-71"></span><span>            </span><span id="local-6989586621679115880"><span class="annot"><a href="#local-6989586621679115880"><span class="hs-identifier hs-var">rows</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Connection
 -&gt; Query -&gt; (Text, Text) -&gt; IO [(Text, Text, UTCTime, Text)]
 forall q r.
 (ToRow q, FromRow r) =&gt;
 Connection -&gt; Query -&gt; q -&gt; IO [r]
 </span><span class="hs-identifier hs-var">query</span></span><span> </span><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621679115859"><span class="hs-identifier hs-var">connection</span></a></span><span>
+</span><a href="#local-6989586621679115879"><span class="hs-identifier hs-var">connection</span></a></span><span>
 </span><span id="line-72"></span><span>              </span><span class="annot"><span class="annottext">Query
 </span><span class="hs-string">&quot;SELECT session_id, csrf_token, valid_until, session_data::text FROM spock_sessions WHERE namespace = ? AND session_id = ?&quot;</span></span><span>
 </span><span id="line-73"></span><span>              </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679115802"><span class="hs-identifier hs-var">namespace</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679115857"><span class="hs-identifier hs-var">sid</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-74"></span><span>            </span><span class="hs-keyword">case</span><span> </span><span class="annot"><a href="#local-6989586621679115860"><span class="hs-identifier hs-type">rows</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="#local-6989586621679115822"><span class="hs-identifier hs-var">namespace</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679115877"><span class="hs-identifier hs-var">sid</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-74"></span><span>            </span><span class="hs-keyword">case</span><span> </span><span class="annot"><a href="#local-6989586621679115880"><span class="hs-identifier hs-type">rows</span></a></span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-75"></span><span>              </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe (Session conn sess st) -&gt; IO (Maybe (Session conn sess st))
 forall a. a -&gt; IO a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">Maybe (Session conn sess st)
 forall a. Maybe a
 </span><span class="hs-identifier hs-var">Nothing</span></span><span>
-</span><span id="line-76"></span><span>              </span><span id="local-6989586621679115862"><span class="annot"><span class="annottext">(Text, Text, UTCTime, Text)
-</span><a href="#local-6989586621679115862"><span class="hs-identifier hs-var">row</span></a></span></span><span> </span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span> </span><span class="annot"><span class="annottext">[(Text, Text, UTCTime, Text)]
+</span><span id="line-76"></span><span>              </span><span id="local-6989586621679115882"><span class="annot"><span class="annottext">(Text, Text, UTCTime, Text)
+</span><a href="#local-6989586621679115882"><span class="hs-identifier hs-var">row</span></a></span></span><span> </span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span> </span><span class="annot"><span class="annottext">[(Text, Text, UTCTime, Text)]
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Session conn sess st -&gt; Maybe (Session conn sess st)
 forall a. a -&gt; Maybe a
 </span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">(Session conn sess st -&gt; Maybe (Session conn sess st))
@@ -269,36 +269,36 @@ forall sess conn st.
 FromJSON sess =&gt;
 (Text, Text, UTCTime, Text) -&gt; IO (Session conn sess st)
 </span><a href="Web.Spock.Session.Postgresql.html#decodeSession"><span class="hs-identifier hs-var">decodeSession</span></a></span><span> </span><span class="annot"><span class="annottext">(Text, Text, UTCTime, Text)
-</span><a href="#local-6989586621679115862"><span class="hs-identifier hs-var">row</span></a></span><span class="hs-special">,</span><span>
+</span><a href="#local-6989586621679115882"><span class="hs-identifier hs-var">row</span></a></span><span class="hs-special">,</span><span>
 </span><span id="line-77"></span><span>          </span><span class="annot"><span class="annottext">ss_deleteSession :: Text -&gt; PostgresqlTx ()
-</span><span class="hs-identifier hs-var">ss_deleteSession</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679115866"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679115866"><span class="hs-identifier hs-var">sid</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Connection -&gt; IO ()) -&gt; PostgresqlTx ()
+</span><span class="hs-identifier hs-var">ss_deleteSession</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679115886"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679115886"><span class="hs-identifier hs-var">sid</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Connection -&gt; IO ()) -&gt; PostgresqlTx ()
 forall a. (Connection -&gt; IO a) -&gt; PostgresqlTx a
 </span><a href="Web.Spock.Session.Postgresql.html#onConnection"><span class="hs-identifier hs-var">onConnection</span></a></span><span> </span><span class="annot"><span class="annottext">((Connection -&gt; IO ()) -&gt; PostgresqlTx ())
 -&gt; (Connection -&gt; IO ()) -&gt; PostgresqlTx ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679115867"><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621679115867"><span class="hs-identifier hs-var">connection</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IO Int64 -&gt; IO ()
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679115887"><span class="annot"><span class="annottext">Connection
+</span><a href="#local-6989586621679115887"><span class="hs-identifier hs-var">connection</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IO Int64 -&gt; IO ()
 forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
 </span><span class="hs-identifier hs-var">void</span></span><span> </span><span class="annot"><span class="annottext">(IO Int64 -&gt; IO ()) -&gt; IO Int64 -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Connection -&gt; Query -&gt; (Text, Text) -&gt; IO Int64
 forall q. ToRow q =&gt; Connection -&gt; Query -&gt; q -&gt; IO Int64
 </span><span class="hs-identifier hs-var">execute</span></span><span> </span><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621679115867"><span class="hs-identifier hs-var">connection</span></a></span><span>
+</span><a href="#local-6989586621679115887"><span class="hs-identifier hs-var">connection</span></a></span><span>
 </span><span id="line-78"></span><span>            </span><span class="annot"><span class="annottext">Query
 </span><span class="hs-string">&quot;DELETE FROM spock_sessions WHERE namespace = ? AND session_id = ?&quot;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679115802"><span class="hs-identifier hs-var">namespace</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679115866"><span class="hs-identifier hs-var">sid</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><a href="#local-6989586621679115822"><span class="hs-identifier hs-var">namespace</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679115886"><span class="hs-identifier hs-var">sid</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
 </span><span id="line-79"></span><span>          </span><span class="annot"><span class="annottext">ss_storeSession :: Session conn sess st -&gt; PostgresqlTx ()
-</span><span class="hs-identifier hs-var">ss_storeSession</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679115870"><span class="annot"><span class="annottext">Session conn sess st
-</span><a href="#local-6989586621679115870"><span class="hs-identifier hs-var">session</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Connection -&gt; IO ()) -&gt; PostgresqlTx ()
+</span><span class="hs-identifier hs-var">ss_storeSession</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679115890"><span class="annot"><span class="annottext">Session conn sess st
+</span><a href="#local-6989586621679115890"><span class="hs-identifier hs-var">session</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Connection -&gt; IO ()) -&gt; PostgresqlTx ()
 forall a. (Connection -&gt; IO a) -&gt; PostgresqlTx a
 </span><a href="Web.Spock.Session.Postgresql.html#onConnection"><span class="hs-identifier hs-var">onConnection</span></a></span><span> </span><span class="annot"><span class="annottext">((Connection -&gt; IO ()) -&gt; PostgresqlTx ())
 -&gt; (Connection -&gt; IO ()) -&gt; PostgresqlTx ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679115871"><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621679115871"><span class="hs-identifier hs-var">connection</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IO Int64 -&gt; IO ()
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679115891"><span class="annot"><span class="annottext">Connection
+</span><a href="#local-6989586621679115891"><span class="hs-identifier hs-var">connection</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IO Int64 -&gt; IO ()
 forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
 </span><span class="hs-identifier hs-var">void</span></span><span> </span><span class="annot"><span class="annottext">(IO Int64 -&gt; IO ()) -&gt; IO Int64 -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
@@ -306,21 +306,21 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 -&gt; Query -&gt; (Text, Text, Text, UTCTime, Text) -&gt; IO Int64
 forall q. ToRow q =&gt; Connection -&gt; Query -&gt; q -&gt; IO Int64
 </span><span class="hs-identifier hs-var">execute</span></span><span> </span><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621679115871"><span class="hs-identifier hs-var">connection</span></a></span><span>
+</span><a href="#local-6989586621679115891"><span class="hs-identifier hs-var">connection</span></a></span><span>
 </span><span id="line-80"></span><span>            </span><span class="annot"><span class="annottext">Query
 </span><span class="hs-string">&quot;INSERT INTO spock_sessions (namespace, session_id, csrf_token, valid_until, session_data) VALUES (?, ?, ?, ?, ?::jsonb) \
             \ON CONFLICT (namespace, session_id) DO UPDATE SET csrf_token = EXCLUDED.csrf_token, valid_until = EXCLUDED.valid_until, session_data = EXCLUDED.session_data&quot;</span></span><span>
 </span><span id="line-82"></span><span>            </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679115802"><span class="hs-identifier hs-var">namespace</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Session conn sess st -&gt; Text
+</span><a href="#local-6989586621679115822"><span class="hs-identifier hs-var">namespace</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Session conn sess st -&gt; Text
 forall conn sess st. Session conn sess st -&gt; Text
 </span><span class="hs-identifier hs-var">sess_id</span></span><span> </span><span class="annot"><span class="annottext">Session conn sess st
-</span><a href="#local-6989586621679115870"><span class="hs-identifier hs-var">session</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Session conn sess st -&gt; Text
+</span><a href="#local-6989586621679115890"><span class="hs-identifier hs-var">session</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Session conn sess st -&gt; Text
 forall conn sess st. Session conn sess st -&gt; Text
 </span><span class="hs-identifier hs-var">sess_csrfToken</span></span><span> </span><span class="annot"><span class="annottext">Session conn sess st
-</span><a href="#local-6989586621679115870"><span class="hs-identifier hs-var">session</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Session conn sess st -&gt; UTCTime
+</span><a href="#local-6989586621679115890"><span class="hs-identifier hs-var">session</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Session conn sess st -&gt; UTCTime
 forall conn sess st. Session conn sess st -&gt; UTCTime
 </span><span class="hs-identifier hs-var">sess_validUntil</span></span><span> </span><span class="annot"><span class="annottext">Session conn sess st
-</span><a href="#local-6989586621679115870"><span class="hs-identifier hs-var">session</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Text
+</span><a href="#local-6989586621679115890"><span class="hs-identifier hs-var">session</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Text
 </span><span class="hs-identifier hs-var">T.decodeUtf8</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Text) -&gt; ByteString -&gt; Text
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">LazyByteString -&gt; ByteString
@@ -333,7 +333,7 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Session conn sess st -&gt; sess
 forall conn sess st. Session conn sess st -&gt; sess
 </span><span class="hs-identifier hs-var">sess_data</span></span><span> </span><span class="annot"><span class="annottext">Session conn sess st
-</span><a href="#local-6989586621679115870"><span class="hs-identifier hs-var">session</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><a href="#local-6989586621679115890"><span class="hs-identifier hs-var">session</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
 </span><span id="line-83"></span><span>          </span><span class="annot"><span class="annottext">ss_toList :: PostgresqlTx [Session conn sess st]
 </span><span class="hs-identifier hs-var">ss_toList</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Connection -&gt; IO [Session conn sess st])
 -&gt; PostgresqlTx [Session conn sess st]
@@ -343,61 +343,61 @@ forall a. (Connection -&gt; IO a) -&gt; PostgresqlTx a
 -&gt; (Connection -&gt; IO [Session conn sess st])
 -&gt; PostgresqlTx [Session conn sess st]
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679115879"><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621679115879"><span class="hs-identifier hs-var">connection</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-84"></span><span>            </span><span id="local-6989586621679115880"><span class="annot"><a href="#local-6989586621679115880"><span class="hs-identifier hs-var">rows</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Connection
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679115899"><span class="annot"><span class="annottext">Connection
+</span><a href="#local-6989586621679115899"><span class="hs-identifier hs-var">connection</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-84"></span><span>            </span><span id="local-6989586621679115900"><span class="annot"><a href="#local-6989586621679115900"><span class="hs-identifier hs-var">rows</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Connection
 -&gt; Query -&gt; Only Text -&gt; IO [(Text, Text, UTCTime, Text)]
 forall q r.
 (ToRow q, FromRow r) =&gt;
 Connection -&gt; Query -&gt; q -&gt; IO [r]
 </span><span class="hs-identifier hs-var">query</span></span><span> </span><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621679115879"><span class="hs-identifier hs-var">connection</span></a></span><span>
+</span><a href="#local-6989586621679115899"><span class="hs-identifier hs-var">connection</span></a></span><span>
 </span><span id="line-85"></span><span>              </span><span class="annot"><span class="annottext">Query
 </span><span class="hs-string">&quot;SELECT session_id, csrf_token, valid_until, session_data::text FROM spock_sessions WHERE namespace = ? ORDER BY session_id&quot;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Only Text
 forall a. a -&gt; Only a
 </span><span class="hs-identifier hs-var">Only</span></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679115802"><span class="hs-identifier hs-var">namespace</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-86"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">mapM</span></span><span> </span><span class="annot"><a href="Web.Spock.Session.Postgresql.html#decodeSession"><span class="hs-identifier hs-type">decodeSession</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679115880"><span class="hs-identifier hs-type">rows</span></a></span><span class="hs-special">,</span><span>
+</span><a href="#local-6989586621679115822"><span class="hs-identifier hs-var">namespace</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-86"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">mapM</span></span><span> </span><span class="annot"><a href="Web.Spock.Session.Postgresql.html#decodeSession"><span class="hs-identifier hs-type">decodeSession</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679115900"><span class="hs-identifier hs-type">rows</span></a></span><span class="hs-special">,</span><span>
 </span><span id="line-87"></span><span>          </span><span class="annot"><span class="annottext">ss_filterSessions :: (Session conn sess st -&gt; Bool) -&gt; PostgresqlTx ()
-</span><span class="hs-identifier hs-var">ss_filterSessions</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679115884"><span class="annot"><span class="annottext">Session conn sess st -&gt; Bool
-</span><a href="#local-6989586621679115884"><span class="hs-identifier hs-var">predicate</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-88"></span><span>            </span><span id="local-6989586621679115885"><span class="annot"><a href="#local-6989586621679115885"><span class="hs-identifier hs-var">sessions</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">SessionStore (Session conn sess st) PostgresqlTx
+</span><span class="hs-identifier hs-var">ss_filterSessions</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679115904"><span class="annot"><span class="annottext">Session conn sess st -&gt; Bool
+</span><a href="#local-6989586621679115904"><span class="hs-identifier hs-var">predicate</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-88"></span><span>            </span><span id="local-6989586621679115905"><span class="annot"><a href="#local-6989586621679115905"><span class="hs-identifier hs-var">sessions</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">SessionStore (Session conn sess st) PostgresqlTx
 -&gt; PostgresqlTx [Session conn sess st]
 forall sess (tx :: * -&gt; *). SessionStore sess tx -&gt; tx [sess]
 </span><span class="hs-identifier hs-var">ss_toList</span></span><span> </span><span class="annot"><span class="annottext">SessionStore (Session conn sess st) PostgresqlTx
-</span><a href="#local-6989586621679115849"><span class="hs-identifier hs-var">store</span></a></span><span>
-</span><span id="line-89"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">forM_</span></span><span> </span><span class="annot"><a href="#local-6989586621679115885"><span class="hs-identifier hs-type">sessions</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679115886"><span class="annot"><span class="annottext">Session conn sess st
-</span><a href="#local-6989586621679115886"><span class="hs-identifier hs-var">session</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; PostgresqlTx () -&gt; PostgresqlTx ()
+</span><a href="#local-6989586621679115869"><span class="hs-identifier hs-var">store</span></a></span><span>
+</span><span id="line-89"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">forM_</span></span><span> </span><span class="annot"><a href="#local-6989586621679115905"><span class="hs-identifier hs-type">sessions</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679115906"><span class="annot"><span class="annottext">Session conn sess st
+</span><a href="#local-6989586621679115906"><span class="hs-identifier hs-var">session</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; PostgresqlTx () -&gt; PostgresqlTx ()
 forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
 </span><span class="hs-identifier hs-var">unless</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Session conn sess st -&gt; Bool
-</span><a href="#local-6989586621679115884"><span class="hs-identifier hs-var">predicate</span></a></span><span> </span><span class="annot"><span class="annottext">Session conn sess st
-</span><a href="#local-6989586621679115886"><span class="hs-identifier hs-var">session</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(PostgresqlTx () -&gt; PostgresqlTx ())
+</span><a href="#local-6989586621679115904"><span class="hs-identifier hs-var">predicate</span></a></span><span> </span><span class="annot"><span class="annottext">Session conn sess st
+</span><a href="#local-6989586621679115906"><span class="hs-identifier hs-var">session</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(PostgresqlTx () -&gt; PostgresqlTx ())
 -&gt; PostgresqlTx () -&gt; PostgresqlTx ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">SessionStore (Session conn sess st) PostgresqlTx
 -&gt; Text -&gt; PostgresqlTx ()
 forall sess (tx :: * -&gt; *). SessionStore sess tx -&gt; Text -&gt; tx ()
 </span><span class="hs-identifier hs-var">ss_deleteSession</span></span><span> </span><span class="annot"><span class="annottext">SessionStore (Session conn sess st) PostgresqlTx
-</span><a href="#local-6989586621679115849"><span class="hs-identifier hs-var">store</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Session conn sess st -&gt; Text
+</span><a href="#local-6989586621679115869"><span class="hs-identifier hs-var">store</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Session conn sess st -&gt; Text
 forall conn sess st. Session conn sess st -&gt; Text
 </span><span class="hs-identifier hs-var">sess_id</span></span><span> </span><span class="annot"><span class="annottext">Session conn sess st
-</span><a href="#local-6989586621679115886"><span class="hs-identifier hs-var">session</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><a href="#local-6989586621679115906"><span class="hs-identifier hs-var">session</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
 </span><span id="line-90"></span><span>          </span><span class="annot"><span class="annottext">ss_mapSessions :: (Session conn sess st -&gt; PostgresqlTx (Session conn sess st))
 -&gt; PostgresqlTx ()
-</span><span class="hs-identifier hs-var">ss_mapSessions</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679115888"><span class="annot"><span class="annottext">Session conn sess st -&gt; PostgresqlTx (Session conn sess st)
-</span><a href="#local-6989586621679115888"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-91"></span><span>            </span><span id="local-6989586621679115889"><span class="annot"><a href="#local-6989586621679115889"><span class="hs-identifier hs-var">sessions</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">SessionStore (Session conn sess st) PostgresqlTx
+</span><span class="hs-identifier hs-var">ss_mapSessions</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679115908"><span class="annot"><span class="annottext">Session conn sess st -&gt; PostgresqlTx (Session conn sess st)
+</span><a href="#local-6989586621679115908"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-91"></span><span>            </span><span id="local-6989586621679115909"><span class="annot"><a href="#local-6989586621679115909"><span class="hs-identifier hs-var">sessions</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">SessionStore (Session conn sess st) PostgresqlTx
 -&gt; PostgresqlTx [Session conn sess st]
 forall sess (tx :: * -&gt; *). SessionStore sess tx -&gt; tx [sess]
 </span><span class="hs-identifier hs-var">ss_toList</span></span><span> </span><span class="annot"><span class="annottext">SessionStore (Session conn sess st) PostgresqlTx
-</span><a href="#local-6989586621679115849"><span class="hs-identifier hs-var">store</span></a></span><span>
-</span><span id="line-92"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">forM_</span></span><span> </span><span class="annot"><a href="#local-6989586621679115889"><span class="hs-identifier hs-type">sessions</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679115890"><span class="annot"><span class="annottext">Session conn sess st
-</span><a href="#local-6989586621679115890"><span class="hs-identifier hs-var">session</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-93"></span><span>              </span><span id="local-6989586621679115891"><span class="annot"><a href="#local-6989586621679115891"><span class="hs-identifier hs-var">updated</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Session conn sess st -&gt; PostgresqlTx (Session conn sess st)
-</span><a href="#local-6989586621679115888"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">Session conn sess st
-</span><a href="#local-6989586621679115890"><span class="hs-identifier hs-var">session</span></a></span><span>
+</span><a href="#local-6989586621679115869"><span class="hs-identifier hs-var">store</span></a></span><span>
+</span><span id="line-92"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">forM_</span></span><span> </span><span class="annot"><a href="#local-6989586621679115909"><span class="hs-identifier hs-type">sessions</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679115910"><span class="annot"><span class="annottext">Session conn sess st
+</span><a href="#local-6989586621679115910"><span class="hs-identifier hs-var">session</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-93"></span><span>              </span><span id="local-6989586621679115911"><span class="annot"><a href="#local-6989586621679115911"><span class="hs-identifier hs-var">updated</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Session conn sess st -&gt; PostgresqlTx (Session conn sess st)
+</span><a href="#local-6989586621679115908"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">Session conn sess st
+</span><a href="#local-6989586621679115910"><span class="hs-identifier hs-var">session</span></a></span><span>
 </span><span id="line-94"></span><span>              </span><span class="hs-comment">-- Like the STM store, mapping preserves the entry's key.</span><span>
-</span><span id="line-95"></span><span>              </span><span class="annot"><span class="hs-identifier hs-var">ss_storeSession</span></span><span> </span><span class="annot"><a href="#local-6989586621679115849"><span class="hs-identifier hs-type">store</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679115891"><span class="hs-identifier hs-type">updated</span></a></span><span> </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="hs-identifier hs-var">sess_id</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-var">sess_id</span></span><span> </span><span class="annot"><a href="#local-6989586621679115890"><span class="hs-identifier hs-type">session</span></a></span><span> </span><span class="hs-special">}</span><span class="hs-special">)</span><span>
+</span><span id="line-95"></span><span>              </span><span class="annot"><span class="hs-identifier hs-var">ss_storeSession</span></span><span> </span><span class="annot"><a href="#local-6989586621679115869"><span class="hs-identifier hs-type">store</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679115911"><span class="hs-identifier hs-type">updated</span></a></span><span> </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="hs-identifier hs-var">sess_id</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-var">sess_id</span></span><span> </span><span class="annot"><a href="#local-6989586621679115910"><span class="hs-identifier hs-type">session</span></a></span><span> </span><span class="hs-special">}</span><span class="hs-special">)</span><span>
 </span><span id="line-96"></span><span>        </span><span class="hs-special">}</span><span>
 </span><span id="line-97"></span><span>  </span><span class="annot"><span class="annottext">SessionStore (Session conn sess st) PostgresqlTx
 -&gt; IO (SessionStore (Session conn sess st) PostgresqlTx)
@@ -406,9 +406,9 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">SessionStore (Session conn sess st) PostgresqlTx
 forall {conn} {st}.
 SessionStore (Session conn sess st) PostgresqlTx
-</span><a href="#local-6989586621679115849"><span class="hs-identifier hs-var">store</span></a></span><span>
+</span><a href="#local-6989586621679115869"><span class="hs-identifier hs-var">store</span></a></span><span>
 </span><span id="line-98"></span><span>
-</span><span id="line-99"></span><span id="local-6989586621679115593"><span class="annot"><a href="Web.Spock.Session.Postgresql.html#onConnection"><span class="hs-identifier hs-type">onConnection</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Connection</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679115593"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Spock.Session.Postgresql.html#PostgresqlTx"><span class="hs-identifier hs-type">PostgresqlTx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679115593"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-99"></span><span id="local-6989586621679115613"><span class="annot"><a href="Web.Spock.Session.Postgresql.html#onConnection"><span class="hs-identifier hs-type">onConnection</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Connection</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679115613"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Spock.Session.Postgresql.html#PostgresqlTx"><span class="hs-identifier hs-type">PostgresqlTx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679115613"><span class="hs-identifier hs-type">a</span></a></span></span><span>
 </span><span id="line-100"></span><span id="onConnection"><span class="annot"><span class="annottext">onConnection :: forall a. (Connection -&gt; IO a) -&gt; PostgresqlTx a
 </span><a href="Web.Spock.Session.Postgresql.html#onConnection"><span class="hs-identifier hs-var hs-var">onConnection</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ReaderT Connection IO a -&gt; PostgresqlTx a
 forall a. ReaderT Connection IO a -&gt; PostgresqlTx a
@@ -421,27 +421,27 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 forall r (m :: * -&gt; *) a. (r -&gt; m a) -&gt; ReaderT r m a
 </span><span class="hs-identifier hs-var">ReaderT</span></span><span>
 </span><span id="line-101"></span><span>
-</span><span id="line-102"></span><span id="local-6989586621679115599"><span id="local-6989586621679115600"><span id="local-6989586621679115601"><span class="annot"><a href="Web.Spock.Session.Postgresql.html#decodeSession"><span class="hs-identifier hs-type">decodeSession</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><a href="#local-6989586621679115599"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTCTime</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Session</span></span><span> </span><span class="annot"><a href="#local-6989586621679115600"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679115599"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679115601"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-102"></span><span id="local-6989586621679115619"><span id="local-6989586621679115620"><span id="local-6989586621679115621"><span class="annot"><a href="Web.Spock.Session.Postgresql.html#decodeSession"><span class="hs-identifier hs-type">decodeSession</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><a href="#local-6989586621679115619"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTCTime</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Session</span></span><span> </span><span class="annot"><a href="#local-6989586621679115620"><span class="hs-identifier hs-type">conn</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679115619"><span class="hs-identifier hs-type">sess</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679115621"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span></span></span></span><span>
 </span><span id="line-103"></span><span id="decodeSession"><span class="annot"><span class="annottext">decodeSession :: forall sess conn st.
 FromJSON sess =&gt;
 (Text, Text, UTCTime, Text) -&gt; IO (Session conn sess st)
-</span><a href="Web.Spock.Session.Postgresql.html#decodeSession"><span class="hs-identifier hs-var hs-var">decodeSession</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679115900"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679115900"><span class="hs-identifier hs-var">sid</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679115901"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679115901"><span class="hs-identifier hs-var">csrf</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679115902"><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621679115902"><span class="hs-identifier hs-var">expiry</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679115903"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679115903"><span class="hs-identifier hs-var">payload</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Web.Spock.Session.Postgresql.html#decodeSession"><span class="hs-identifier hs-var hs-var">decodeSession</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679115920"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679115920"><span class="hs-identifier hs-var">sid</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679115921"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679115921"><span class="hs-identifier hs-var">csrf</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679115922"><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679115922"><span class="hs-identifier hs-var">expiry</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679115923"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679115923"><span class="hs-identifier hs-var">payload</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-104"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Either String sess
 forall a. FromJSON a =&gt; ByteString -&gt; Either String a
 </span><span class="hs-identifier hs-var">eitherDecodeStrict'</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; ByteString
 </span><span class="hs-identifier hs-var">T.encodeUtf8</span></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679115903"><span class="hs-identifier hs-var">payload</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="#local-6989586621679115923"><span class="hs-identifier hs-var">payload</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-105"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Left</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">SessionDecodeError -&gt; IO (Session conn sess st)
 forall e a. (HasCallStack, Exception e) =&gt; e -&gt; IO a
 </span><span class="hs-identifier hs-var">throwIO</span></span><span> </span><span class="annot"><span class="annottext">SessionDecodeError
 </span><a href="Web.Spock.Session.Postgresql.html#SessionDecodeError"><span class="hs-identifier hs-var">SessionDecodeError</span></a></span><span>
-</span><span id="line-106"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Right</span></span><span> </span><span id="local-6989586621679115905"><span class="annot"><span class="annottext">sess
-</span><a href="#local-6989586621679115905"><span class="hs-identifier hs-var">value</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Session conn sess st -&gt; IO (Session conn sess st)
+</span><span id="line-106"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Right</span></span><span> </span><span id="local-6989586621679115925"><span class="annot"><span class="annottext">sess
+</span><a href="#local-6989586621679115925"><span class="hs-identifier hs-var">value</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Session conn sess st -&gt; IO (Session conn sess st)
 forall a. a -&gt; IO a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">(Session conn sess st -&gt; IO (Session conn sess st))
@@ -451,47 +451,47 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 forall conn sess st.
 Text -&gt; Text -&gt; UTCTime -&gt; sess -&gt; Session conn sess st
 </span><span class="hs-identifier hs-var">Session</span></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679115900"><span class="hs-identifier hs-var">sid</span></a></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679115901"><span class="hs-identifier hs-var">csrf</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621679115902"><span class="hs-identifier hs-var">expiry</span></a></span><span> </span><span class="annot"><span class="annottext">sess
-</span><a href="#local-6989586621679115905"><span class="hs-identifier hs-var">value</span></a></span><span>
+</span><a href="#local-6989586621679115920"><span class="hs-identifier hs-var">sid</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679115921"><span class="hs-identifier hs-var">csrf</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679115922"><span class="hs-identifier hs-var">expiry</span></a></span><span> </span><span class="annot"><span class="annottext">sess
+</span><a href="#local-6989586621679115925"><span class="hs-identifier hs-var">value</span></a></span><span>
 </span><span id="line-107"></span><span>
-</span><span id="line-108"></span><span id="local-6989586621679115589"><span class="annot"><a href="Web.Spock.Session.Postgresql.html#retryTransaction"><span class="hs-identifier hs-type">retryTransaction</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Connection</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679115589"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679115589"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-108"></span><span id="local-6989586621679115609"><span class="annot"><a href="Web.Spock.Session.Postgresql.html#retryTransaction"><span class="hs-identifier hs-type">retryTransaction</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Connection</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679115609"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679115609"><span class="hs-identifier hs-type">a</span></a></span></span><span>
 </span><span id="line-109"></span><span id="retryTransaction"><span class="annot"><span class="annottext">retryTransaction :: forall a. Int -&gt; Connection -&gt; IO a -&gt; IO a
-</span><a href="Web.Spock.Session.Postgresql.html#retryTransaction"><span class="hs-identifier hs-var hs-var">retryTransaction</span></a></span></span><span> </span><span id="local-6989586621679115907"><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679115907"><span class="hs-identifier hs-var">limit</span></a></span></span><span> </span><span id="local-6989586621679115908"><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621679115908"><span class="hs-identifier hs-var">connection</span></a></span></span><span> </span><span id="local-6989586621679115909"><span class="annot"><span class="annottext">IO a
-</span><a href="#local-6989586621679115909"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO a
-</span><a href="#local-6989586621679115910"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="Web.Spock.Session.Postgresql.html#retryTransaction"><span class="hs-identifier hs-var hs-var">retryTransaction</span></a></span></span><span> </span><span id="local-6989586621679115927"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679115927"><span class="hs-identifier hs-var">limit</span></a></span></span><span> </span><span id="local-6989586621679115928"><span class="annot"><span class="annottext">Connection
+</span><a href="#local-6989586621679115928"><span class="hs-identifier hs-var">connection</span></a></span></span><span> </span><span id="local-6989586621679115929"><span class="annot"><span class="annottext">IO a
+</span><a href="#local-6989586621679115929"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO a
+</span><a href="#local-6989586621679115930"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">0</span></span><span>
 </span><span id="line-110"></span><span>  </span><span class="hs-keyword">where</span><span>
-</span><span id="line-111"></span><span>    </span><span id="local-6989586621679115910"><span class="annot"><span class="annottext">go :: Int -&gt; IO a
-</span><a href="#local-6989586621679115910"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span id="local-6989586621679115932"><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679115932"><span class="hs-identifier hs-var">attempt</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TransactionMode -&gt; Connection -&gt; IO a -&gt; IO a
+</span><span id="line-111"></span><span>    </span><span id="local-6989586621679115930"><span class="annot"><span class="annottext">go :: Int -&gt; IO a
+</span><a href="#local-6989586621679115930"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span id="local-6989586621679115952"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679115952"><span class="hs-identifier hs-var">attempt</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TransactionMode -&gt; Connection -&gt; IO a -&gt; IO a
 forall a. TransactionMode -&gt; Connection -&gt; IO a -&gt; IO a
 </span><span class="hs-identifier hs-var">withTransactionMode</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IsolationLevel -&gt; ReadWriteMode -&gt; TransactionMode
 </span><span class="hs-identifier hs-var">TransactionMode</span></span><span> </span><span class="annot"><span class="annottext">IsolationLevel
 </span><span class="hs-identifier hs-var">Serializable</span></span><span> </span><span class="annot"><span class="annottext">ReadWriteMode
 </span><span class="hs-identifier hs-var">ReadWrite</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621679115908"><span class="hs-identifier hs-var">connection</span></a></span><span> </span><span class="annot"><span class="annottext">IO a
-</span><a href="#local-6989586621679115909"><span class="hs-identifier hs-var">action</span></a></span><span>
+</span><a href="#local-6989586621679115928"><span class="hs-identifier hs-var">connection</span></a></span><span> </span><span class="annot"><span class="annottext">IO a
+</span><a href="#local-6989586621679115929"><span class="hs-identifier hs-var">action</span></a></span><span>
 </span><span id="line-112"></span><span>      </span><span class="annot"><span class="annottext">IO a -&gt; (SqlError -&gt; IO a) -&gt; IO a
 forall e a. Exception e =&gt; IO a -&gt; (e -&gt; IO a) -&gt; IO a
-</span><span class="hs-operator hs-var">`catch`</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679115937"><span class="annot"><span class="annottext">SqlError
-</span><a href="#local-6989586621679115937"><span class="hs-identifier hs-var">err</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SqlError</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span class="hs-operator hs-var">`catch`</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679115957"><span class="annot"><span class="annottext">SqlError
+</span><a href="#local-6989586621679115957"><span class="hs-identifier hs-var">err</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SqlError</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-113"></span><span>        </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">SqlError -&gt; ByteString
 </span><span class="hs-identifier hs-var">sqlState</span></span><span> </span><span class="annot"><span class="annottext">SqlError
-</span><a href="#local-6989586621679115937"><span class="hs-identifier hs-var">err</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; [ByteString] -&gt; Bool
+</span><a href="#local-6989586621679115957"><span class="hs-identifier hs-var">err</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; [ByteString] -&gt; Bool
 forall a. Eq a =&gt; a -&gt; [a] -&gt; Bool
 forall (t :: * -&gt; *) a. (Foldable t, Eq a) =&gt; a -&gt; t a -&gt; Bool
 </span><span class="hs-operator hs-var">`elem`</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">ByteString
 </span><span class="hs-string">&quot;40001&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ByteString
 </span><span class="hs-string">&quot;40P01&quot;</span></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
 </span><span class="hs-operator hs-var">&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679115932"><span class="hs-identifier hs-var">attempt</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+</span><a href="#local-6989586621679115952"><span class="hs-identifier hs-var">attempt</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
 forall a. Ord a =&gt; a -&gt; a -&gt; Bool
 </span><span class="hs-operator hs-var">&lt;</span></span><span> </span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679115907"><span class="hs-identifier hs-var">limit</span></a></span><span>
+</span><a href="#local-6989586621679115927"><span class="hs-identifier hs-var">limit</span></a></span><span>
 </span><span id="line-114"></span><span>          </span><span class="hs-keyword">then</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-115"></span><span>            </span><span class="annot"><span class="annottext">Int -&gt; IO ()
 </span><span class="hs-identifier hs-var">threadDelay</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
@@ -501,18 +501,18 @@ forall a. Ord a =&gt; a -&gt; a -&gt; a
 </span><span class="hs-number">1000</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
 forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><span class="hs-operator hs-var">*</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679115932"><span class="hs-identifier hs-var">attempt</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+</span><a href="#local-6989586621679115952"><span class="hs-identifier hs-var">attempt</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
 forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">1</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-116"></span><span>            </span><span class="annot"><span class="annottext">Int -&gt; IO a
-</span><a href="#local-6989586621679115910"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679115932"><span class="hs-identifier hs-var">attempt</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+</span><a href="#local-6989586621679115930"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679115952"><span class="hs-identifier hs-var">attempt</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
 forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">1</span></span><span class="hs-special">)</span><span>
 </span><span id="line-117"></span><span>          </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">SqlError -&gt; IO a
 forall e a. (HasCallStack, Exception e) =&gt; e -&gt; IO a
 </span><span class="hs-identifier hs-var">throwIO</span></span><span> </span><span class="annot"><span class="annottext">SqlError
-</span><a href="#local-6989586621679115937"><span class="hs-identifier hs-var">err</span></a></span><span>
+</span><a href="#local-6989586621679115957"><span class="hs-identifier hs-var">err</span></a></span><span>
 </span><span id="line-118"></span></pre></body></html>

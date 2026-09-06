@@ -69,3 +69,8 @@ field; using the default configuration helpers avoids this migration.
 The default ignores empty path segments for compatibility. Opt into strict
 matching or method-preserving canonical redirects; see the
 [slash routing guide](https://www.spock.li/tutorials/routing).
+
+Typed file extensions use `<.>`: `var <.> "txt"` or `var <.> var`.
+Use `renderRouteEncoded` for percent-encoded links. The
+[routing guide](https://www.spock.li/tutorials/routing#file-extensions-in-typed-routes)
+covers matching precedence, multiple dots, and typed extension values.

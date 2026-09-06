@@ -12,7 +12,9 @@ import Data.HVect
 import Data.Maybe (fromMaybe)
 import Data.String
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import Data.Typeable (Typeable)
+import Network.HTTP.Types.URI (urlEncode)
 import Web.HttpApiData
 import Web.Routing.SafeRouting
 
@@ -23,12 +25,16 @@ data Path (as :: [*]) (pathState :: PathState) where
   StaticCons :: T.Text -> Path as ps -> Path as ps
   VarCons :: (FromHttpApiData a, Typeable a) => Path as ps -> Path (a ': as) ps
   Wildcard :: Path as 'Open -> Path (T.Text ': as) 'Closed
+  WithExtension :: Path as 'Open -> Path bs 'Open -> Path (Append as bs) 'Open
+  AppendPath :: Path as 'Open -> Path bs ps -> Path (Append as bs) ps
 
 toInternalPath :: Path as pathState -> PathInternal as
 toInternalPath Empty = PI_Empty
 toInternalPath (StaticCons t p) = PI_StaticCons t (toInternalPath p)
 toInternalPath (VarCons p) = PI_VarCons (toInternalPath p)
 toInternalPath (Wildcard p) = PI_Wildcard (toInternalPath p)
+toInternalPath (WithExtension left right) = PI_Extension (toInternalPath left) (toInternalPath right)
+toInternalPath (AppendPath left right) = PI_Append (toInternalPath left) (toInternalPath right)
 
 type Var a = Path (a ': '[]) 'Open
 
@@ -77,6 +83,9 @@ trailingSlash path = appendSlash path
     appendSlash (StaticCons "" Empty) = StaticCons "" Empty
     appendSlash (StaticCons piece rest) = StaticCons piece (appendSlash rest)
     appendSlash (VarCons rest) = VarCons (appendSlash rest)
+    appendSlash (WithExtension left Empty) = WithExtension left (StaticCons "" $ StaticCons "" Empty)
+    appendSlash (WithExtension left right) = WithExtension left (appendSlash right)
+    appendSlash (AppendPath left right) = AppendPath left (appendSlash right)
 
 -- | Matches the rest of the route. Should be the last part of the path.
 wildcard :: Path '[T.Text] 'Closed
@@ -86,12 +95,38 @@ wildcard = Wildcard Empty
 (</>) Empty xs = xs
 (</>) (StaticCons pathPiece xs) ys = StaticCons pathPiece (xs </> ys)
 (</>) (VarCons xs) ys = VarCons (xs </> ys)
+(</>) path@(WithExtension _ _) ys = AppendPath path ys
+(</>) path@(AppendPath _ _) ys = AppendPath path ys
+
+-- | Join the last segment on the left and the first on the right with a dot.
+-- Both sides may contain typed captures: @var <.> "txt"@ or @var <.> var@.
+-- Matching tries the rightmost dot first and accepts the first split whose
+-- typed parsers and literals succeed. Use a custom capture type to restrict
+-- extensions; a Text capture accepts any text, including an empty extension.
+-- Static routes take precedence over extensions, then plain captures and
+-- wildcards. More literal characters give an extension pattern priority.
+(<.>) :: Path as 'Open -> Path bs 'Open -> Path (Append as bs) 'Open
+(<.>) (StaticCons base Empty) (StaticCons extension rest) = StaticCons (base <> "." <> extension) rest
+(<.>) path@(StaticCons piece rest) right = case rest of
+  Empty -> WithExtension path right
+  _ -> StaticCons piece (rest <.> right)
+(<.>) path@(VarCons rest) right = case rest of
+  Empty -> WithExtension path right
+  _ -> VarCons (rest <.> right)
+(<.>) left right = WithExtension left right
+infixl 8 <.>
 
 pathToRep :: Path as ps -> Rep as
 pathToRep Empty = RNil
 pathToRep (StaticCons _ p) = pathToRep p
 pathToRep (VarCons p) = RCons (pathToRep p)
 pathToRep (Wildcard p) = RCons (pathToRep p)
+pathToRep (WithExtension left right) = appendRep (pathToRep left) (pathToRep right)
+pathToRep (AppendPath left right) = appendRep (pathToRep left) (pathToRep right)
+
+appendRep :: Rep as -> Rep bs -> Rep (Append as bs)
+appendRep RNil right = right
+appendRep (RCons left) right = RCons (appendRep left right)
 
 renderRoute :: AllHave ToHttpApiData as => Path as 'Open -> HVect as -> T.Text
 renderRoute = renderRouteWith IgnoreSlashes
@@ -106,16 +141,44 @@ normalizePath IgnoreSlashes (StaticCons "" rest) = normalizePath IgnoreSlashes r
 normalizePath policy (StaticCons piece rest) = StaticCons piece (normalizePath policy rest)
 normalizePath policy (VarCons rest) = VarCons (normalizePath policy rest)
 normalizePath policy (Wildcard rest) = Wildcard (normalizePath policy rest)
+normalizePath policy (WithExtension left right) = WithExtension (normalizePath policy left) (normalizePath policy right)
+normalizePath policy (AppendPath left right) = AppendPath (normalizePath policy left) (normalizePath policy right)
 normalizePath _ Empty = Empty
 
 renderRoute' :: AllHave ToHttpApiData as => Path as 'Open -> HVect as -> [T.Text]
-renderRoute' Empty _ = []
-renderRoute' (StaticCons pathPiece pathXs) paramXs =
-  (pathPiece : renderRoute' pathXs paramXs)
-renderRoute' (VarCons pathXs) (val :&: paramXs) =
-  (toUrlPiece val : renderRoute' pathXs paramXs)
+renderRoute' path = fst . renderPieces path . captureTexts
 
-#if __GLASGOW_HASKELL__ < 800
-renderRoute' _ _ =
-    error "This will never happen."
-#endif
+captureTexts :: AllHave ToHttpApiData as => HVect as -> [T.Text]
+captureTexts HNil = []
+captureTexts (value :&: rest) = toUrlPiece value : captureTexts rest
+
+renderPieces :: Path as 'Open -> [T.Text] -> ([T.Text], [T.Text])
+renderPieces Empty values = ([], values)
+renderPieces (StaticCons piece rest) values = let (pieces, remaining) = renderPieces rest values in (piece : pieces, remaining)
+renderPieces (VarCons rest) (value : values) = let (pieces, remaining) = renderPieces rest values in (value : pieces, remaining)
+renderPieces (VarCons _) [] = error "renderPieces: internal capture arity mismatch"
+renderPieces (WithExtension left right) values =
+  let (leftPieces, rest) = renderPieces left values
+      (rightPieces, remaining) = renderPieces right rest
+  in (joinWithDot leftPieces rightPieces, remaining)
+renderPieces (AppendPath left right) values =
+  let (leftPieces, rest) = renderPieces left values
+      (rightPieces, remaining) = renderPieces right rest
+  in (leftPieces ++ rightPieces, remaining)
+
+joinWithDot :: [T.Text] -> [T.Text] -> [T.Text]
+joinWithDot [] [] = ["."]
+joinWithDot [] (first : rest) = ("." <> first) : rest
+joinWithDot [lastPiece] [] = [lastPiece <> "."]
+joinWithDot [lastPiece] (first : rest) = (lastPiece <> "." <> first) : rest
+joinWithDot (piece : rest) right = piece : joinWithDot rest right
+
+-- | Percent-encode each complete segment after joining extension pieces.
+-- This protects slashes, spaces, percent signs, query delimiters and Unicode
+-- in captures. The unencoded 'renderRoute' remains available for compatibility.
+renderRouteEncoded :: AllHave ToHttpApiData as => Path as 'Open -> HVect as -> T.Text
+renderRouteEncoded = renderRouteEncodedWith IgnoreSlashes
+
+renderRouteEncodedWith :: AllHave ToHttpApiData as => SlashPolicy -> Path as 'Open -> HVect as -> T.Text
+renderRouteEncodedWith policy path = combineRoutePieces . map (T.decodeUtf8 . urlEncode True . T.encodeUtf8)
+  . renderRoute' (normalizePath policy path)

@@ -20,6 +20,12 @@ import Web.Spock.Core hiding (request)
 
 main :: IO ()
 main = hspec $ before apiApp $ describe "Typed API requests" $ do
+  it "wires fixed suffix paths with the existing query and header parameters" $ \app ->
+    expectJSON app "GET" "/items/3.txt?offset=4" [("X-Client", "test")] "" (String "7:test")
+  it "passes extension captures before query, header, and body arguments" $ \app -> do
+    expectJSON app "PATCH" "/formats/3.txt?offset=4" [("X-Client", "test")] "5" (String "12:test:txt")
+    result <- send app "PATCH" "/formats/3?offset=4" [("X-Client", "test")] "5"
+    Wai.simpleStatus result `shouldBe` status404
   it "keeps GET, POST, and PUT endpoint behavior" $ \app -> do
     expectJSON app "GET" "/legacy/3" [] "" (Number 3)
     expectJSON app "POST" "/legacy/3" [] "4" (Number 7)
@@ -80,6 +86,14 @@ apiApp = spockAsApp $ spockT id $ do
   defEndpoint (MethodPatch Proxy ("legacy" <//> var) :: Endpoint '[Int] ('Just Int) Int) $ \a b -> pure (a + b)
   defEndpoint (MethodDelete ("legacy" <//> var) :: Endpoint '[Int] 'Nothing Bool) $ \a -> pure (a > 0)
   defDocumentedEndpoint item $ \a offset client -> pure $ renderItem a offset client
+  defDocumentedEndpoint (item { de_endpoint = MethodGet $ "items" <//> var <.> "txt", de_operation = operationInfo "textItem" }) $
+    \a offset client -> pure $ renderItem a offset client
+  let formatItem = DocumentedEndpoint
+        (MethodPatch Proxy ("formats" <//> var <.> var) :: Endpoint '[Int, T.Text] ('Just Int) T.Text)
+        (operationInfo "formatItem")
+        (PathParameter (parameterInfo "id" intSchema) $ PathParameter (parameterInfo "format" textSchema) NoPathParameters)
+        (de_parameters item) (JsonBody intSchema) textSchema
+  defDocumentedEndpoint formatItem $ \a format offset client value -> pure $ renderItem (a + value) offset client <> ":" <> format
   defDocumentedEndpoint (item { de_endpoint = MethodDelete ("items" <//> var), de_operation = operationInfo "deleteItem" }) $
     \a offset client -> pure $ renderItem a offset client
   defDocumentedEndpoint (item { de_endpoint = MethodPatch Proxy ("items" <//> var), de_body = JsonBody intSchema, de_operation = operationInfo "patchItem" }) $

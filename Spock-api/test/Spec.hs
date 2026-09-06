@@ -16,6 +16,28 @@ import Web.Spock.Api.Document
 
 main :: IO ()
 main = hspec $ describe "OpenAPI generation" $ do
+  it "renders fixed and captured extensions with named metadata in order" $ do
+    let fixed = getItem { de_endpoint = MethodGet $ "items" <//> var <.> "txt" }
+        captured = DocumentedEndpoint
+          (MethodGet ("files" <//> var <.> var <.> "gz") :: Endpoint '[Int, T.Text] 'Nothing T.Text)
+          (operationInfo "getFile") (PathParameter (parameterInfo "id" intSchema) $
+            PathParameter (parameterInfo "format" textSchema) NoPathParameters)
+          NoParameters NoBody textSchema
+    doc <- requireDocument [SomeEndpoint fixed, SomeEndpoint captured]
+    at ["paths", "/items/{id}.txt", "get", "operationId"] doc `shouldBe` String "getItem"
+    appended <- requireDocument [SomeEndpoint $ fixed { de_endpoint = MethodGet $ ("items" <//> var <.> "txt") <//> "details" }]
+    at ["paths", "/items/{id}.txt/details", "get", "operationId"] appended `shouldBe` String "getItem"
+    at ["paths", "/files/{id}.{format}.gz", "get", "operationId"] doc `shouldBe` String "getFile"
+    case at ["paths", "/files/{id}.{format}.gz", "get", "parameters"] doc of
+      Array values -> map (at ["name"]) (Vector.toList values) `shouldBe` map String ["id", "format"]
+      value -> expectationFailure $ show value
+  it "retains suffix literals while detecting conflicting capture names" $ do
+    let fixed = getItem { de_endpoint = MethodGet $ "items" <//> var <.> "txt" }
+        otherSuffix = fixed { de_endpoint = MethodGet $ "items" <//> var <.> "json", de_operation = operationInfo "jsonItem" }
+        conflicting = fixed { de_operation = operationInfo "otherName", de_pathParameters = PathParameter (parameterInfo "otherId" intSchema) NoPathParameters }
+    _ <- requireDocument [SomeEndpoint fixed, SomeEndpoint otherSuffix]
+    openApiDocument "API" "1" [SomeEndpoint fixed, SomeEndpoint conflicting] `shouldSatisfy` isLeft
+
   it "renders distinct slash forms only with a strict policy" $ do
     let item = getItem { de_endpoint = MethodGet $ trailingSlash $ "items" <//> var }
     legacy <- requireDocument [SomeEndpoint item]

@@ -1,5 +1,5 @@
 name:                Spock-api-server
-version:             0.15.0.0
+version:             0.16.0.0
 synopsis:            Another Haskell web framework for rapid development
 description:         Server wiring for Spock-api APIs
 Homepage:            https://www.spock.li
@@ -20,8 +20,8 @@ library
   exposed-modules:     Web.Spock.Api.Server
   build-depends:
                 base >= 4 && < 5,
-                Spock-core >= 0.15,
-                Spock-api >= 0.15 && < 0.16,
+                Spock-core >= 0.16.1,
+                Spock-api >= 0.16 && < 0.17,
                 aeson >= 2.0,
                 bytestring,
                 case-insensitive,

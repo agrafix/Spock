@@ -76,6 +76,18 @@ spec =
               defRAny "entry/" $ pure $ StrVar "directory"
         map runIdentity (handle False ["entry"]) `shouldBe` [StrVar "file"]
         map runIdentity (handle False ["entry", ""]) `shouldBe` [StrVar "directory"]
+      it "round-trips multiple extension captures through the parser and registry" $ do
+        let path = "page" </> (var :: Var Int) <.> (var :: Var T.Text) <.> "gz"
+            (_, handle, _) = runIdentity $ runRegistryWith StrictSlashes $
+              defR path (\number extension -> pure $ ListVar [IntVar number, StrVar extension])
+        forM_ [(-1, "txt"), (0, "html"), (42, "json")] $ \(number, extension) -> do
+          let pieces' = T.splitOn "/" $ renderRouteWith StrictSlashes path (number :&: extension :&: HNil)
+          parse (toInternalPath path) pieces' `shouldBe` Just (number :&: extension :&: HNil)
+          map runIdentity (handle True pieces') `shouldBe` [ListVar [IntVar number, StrVar extension]]
+      it "parses appended extension paths and wildcard tails consistently" $ do
+        let path = ((var :: Var Int) <.> "txt") </> wildcard
+        parse (toInternalPath path) ["42.txt", "a", "b"] `shouldBe` Just (42 :&: "a/b" :&: HNil)
+        parse (toInternalPath path) ["42.txt"] `shouldBe` Just (42 :&: "" :&: HNil)
       it "should match any routes" $
         do
           checkRoute' "/any" True [StrVar "any", StrVar "any"] -- two due to hookAny

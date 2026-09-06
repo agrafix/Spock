@@ -75,3 +75,8 @@ modern JavaScript GHC remains separate work.
 `openApiDocumentWith` and `renderRouteWith` accept the server's `SlashPolicy`
 when using strict or canonical trailing-slash routing. Existing entry points
 retain `IgnoreSlashes`. See the [routing guide](https://www.spock.li/tutorials/routing).
+
+Typed file extensions use `<.>`: `var <.> "txt"` or `var <.> var`.
+Use `renderRouteEncoded` for percent-encoded links. The
+[routing guide](https://www.spock.li/tutorials/routing#file-extensions-in-typed-routes)
+covers matching precedence, multiple dots, and typed extension values.

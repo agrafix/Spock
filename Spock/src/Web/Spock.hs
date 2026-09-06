@@ -45,11 +45,14 @@ module Web.Spock
     static,
     trailingSlash,
     (<//>),
+    (<.>),
     wildcard,
 
     -- * Rendering routes
     renderRoute,
     renderRouteWith,
+    renderRouteEncoded,
+    renderRouteEncodedWith,
 
     -- * Hooking routes
     prehook,

@@ -29,7 +29,7 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import Network.HTTP.Types.URI (urlEncode)
 import Web.HttpApiData (FromHttpApiData)
-import Web.Routing.Combinators (PathState (Open), normalizePath)
+import Web.Routing.Combinators (PathState (Open), normalizePath, joinWithDot)
 import Web.Spock.Api
 
 newtype Schema a = Schema { schemaValue :: Value }
@@ -170,19 +170,34 @@ endpointRoute (MethodPatch _ path) = ("patch", path)
 endpointRoute (MethodDelete path) = ("delete", path)
 
 describePath :: Path p 'Open -> PathParameters p -> (Text, Text, [Value])
-describePath path parameters = let (pieces, template, values) = go path parameters
+describePath path parameters = let (pieces, template, values, _) = go path (captureInfo parameters)
   in ("/" <> T.intercalate "/" pieces, "/" <> T.intercalate "/" template, values)
   where
-    go :: Path as 'Open -> PathParameters as -> ([Text], [Text], [Value])
-    go Empty NoPathParameters = ([], [], [])
+    captureInfo :: PathParameters as -> [(Text, Value)]
+    captureInfo NoPathParameters = []
+    captureInfo (PathParameter info rest) =
+      (pi_name info, describeParameter "path" True "simple" False info) : captureInfo rest
+
+    -- Path and PathParameters have the same capture index. Flattening metadata
+    -- once lets composite segments consume that order without unsafe coercions.
+    go :: Path as 'Open -> [(Text, Value)] -> ([Text], [Text], [Value], [(Text, Value)])
+    go Empty params = ([], [], [], params)
     go (StaticCons piece rest) params =
-      let (pieces, template, values) = go rest params
+      let (pieces, template, values, remaining) = go rest params
           encoded = T.decodeUtf8 $ urlEncode True $ T.encodeUtf8 piece
-      in (encoded : pieces, encoded : template, values)
-    go (VarCons rest) (PathParameter info params) =
-      let (pieces, template, values) = go rest params
-      in (("{" <> pi_name info <> "}") : pieces, "{}" : template,
-          describeParameter "path" True "simple" False info : values)
+      in (encoded : pieces, encoded : template, values, remaining)
+    go (VarCons rest) ((name, info) : params) =
+      let (pieces, template, values, remaining) = go rest params
+      in (("{" <> name <> "}") : pieces, "{}" : template, info : values, remaining)
+    go (VarCons _) [] = error "describePath: internal capture arity mismatch"
+    go (WithExtension left right) params =
+      let (leftPieces, leftTemplate, leftValues, rest) = go left params
+          (rightPieces, rightTemplate, rightValues, remaining) = go right rest
+      in (joinWithDot leftPieces rightPieces, joinWithDot leftTemplate rightTemplate, leftValues ++ rightValues, remaining)
+    go (AppendPath left right) params =
+      let (leftPieces, leftTemplate, leftValues, rest) = go left params
+          (rightPieces, rightTemplate, rightValues, remaining) = go right rest
+      in (leftPieces ++ rightPieces, leftTemplate ++ rightTemplate, leftValues ++ rightValues, remaining)
 
 describeParameters :: Parameters q -> [Value]
 describeParameters NoParameters = []

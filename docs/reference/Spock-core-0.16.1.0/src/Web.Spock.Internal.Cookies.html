@@ -1,0 +1,259 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE CPP #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-3"></span><span>
+</span><span id="line-4"></span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Cookies.html"><span class="hs-identifier">Web.Spock.Internal.Cookies</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">BS</span></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString.Builder</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">B</span></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString.Lazy</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">BSL</span></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text.Encoding</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Time</span></span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Network.HTTP.Types.URI</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">URI</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">urlDecode</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">urlEncode</span></span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Web.Cookie</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">C</span></span><span class="hs-cpp">
+
+#if MIN_VERSION_base(4,8,0)
+</span><span class="hs-cpp">#else
+</span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Control.Applicative</span><span class="hs-cpp">
+#endif
+</span><span>
+</span><span id="line-20"></span><span class="annot"><span class="hs-comment">-- | Cookie settings</span></span><span>
+</span><span id="line-21"></span><span class="hs-keyword">data</span><span> </span><span id="CookieSettings"><span class="annot"><a href="Web.Spock.Internal.Cookies.html#CookieSettings"><span class="hs-identifier hs-var">CookieSettings</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="CookieSettings"><span class="annot"><a href="Web.Spock.Internal.Cookies.html#CookieSettings"><span class="hs-identifier hs-var">CookieSettings</span></a></span></span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="hs-comment">-- | cookie expiration setting, see 'CookieEOL'</span></span><span>
+</span><span id="line-23"></span><span>    </span><span id="cs_EOL"><span class="annot"><span class="annottext">CookieSettings -&gt; CookieEOL
+</span><a href="Web.Spock.Internal.Cookies.html#cs_EOL"><span class="hs-identifier hs-var hs-var">cs_EOL</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Cookies.html#CookieEOL"><span class="hs-identifier hs-type">CookieEOL</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-24"></span><span>    </span><span class="annot"><span class="hs-comment">-- | a path for the cookie</span></span><span>
+</span><span id="line-25"></span><span>    </span><span id="cs_path"><span class="annot"><span class="annottext">CookieSettings -&gt; Maybe ByteString
+</span><a href="Web.Spock.Internal.Cookies.html#cs_path"><span class="hs-identifier hs-var hs-var">cs_path</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BS.ByteString</span></span><span class="hs-special">,</span><span>
+</span><span id="line-26"></span><span>    </span><span class="annot"><span class="hs-comment">-- | a domain for the cookie. 'Nothing' means no domain is set</span></span><span>
+</span><span id="line-27"></span><span>    </span><span id="cs_domain"><span class="annot"><span class="annottext">CookieSettings -&gt; Maybe ByteString
+</span><a href="Web.Spock.Internal.Cookies.html#cs_domain"><span class="hs-identifier hs-var hs-var">cs_domain</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BS.ByteString</span></span><span class="hs-special">,</span><span>
+</span><span id="line-28"></span><span>    </span><span class="annot"><span class="hs-comment">-- | whether the cookie should be set as HttpOnly</span></span><span>
+</span><span id="line-29"></span><span>    </span><span id="cs_HTTPOnly"><span class="annot"><span class="annottext">CookieSettings -&gt; Bool
+</span><a href="Web.Spock.Internal.Cookies.html#cs_HTTPOnly"><span class="hs-identifier hs-var hs-var">cs_HTTPOnly</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span class="hs-special">,</span><span>
+</span><span id="line-30"></span><span>    </span><span class="annot"><span class="hs-comment">-- | whether the cookie should be marked secure (sent over HTTPS only)</span></span><span>
+</span><span id="line-31"></span><span>    </span><span id="cs_secure"><span class="annot"><span class="annottext">CookieSettings -&gt; Bool
+</span><a href="Web.Spock.Internal.Cookies.html#cs_secure"><span class="hs-identifier hs-var hs-var">cs_secure</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span class="hs-special">,</span><span>
+</span><span id="line-32"></span><span>    </span><span class="hs-comment">-- | Cross-site cookie policy. 'Nothing' omits the attribute. When using</span><span>
+</span><span id="line-33"></span><span>    </span><span class="hs-comment">-- 'SameSiteNone', also enable 'cs_secure' for browser compatibility.</span><span>
+</span><span id="line-34"></span><span>    </span><span id="cs_sameSite"><span class="annot"><span class="annottext">CookieSettings -&gt; Maybe SameSite
+</span><a href="Web.Spock.Internal.Cookies.html#cs_sameSite"><span class="hs-identifier hs-var hs-var">cs_sameSite</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="Web.Spock.Internal.Cookies.html#SameSite"><span class="hs-identifier hs-type">SameSite</span></a></span><span>
+</span><span id="line-35"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span class="hs-keyword">data</span><span> </span><span id="SameSite"><span class="annot"><a href="Web.Spock.Internal.Cookies.html#SameSite"><span class="hs-identifier hs-var">SameSite</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="SameSiteLax"><span class="annot"><a href="Web.Spock.Internal.Cookies.html#SameSiteLax"><span class="hs-identifier hs-var">SameSiteLax</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="SameSiteStrict"><span class="annot"><a href="Web.Spock.Internal.Cookies.html#SameSiteStrict"><span class="hs-identifier hs-var">SameSiteStrict</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="SameSiteNone"><span class="annot"><a href="Web.Spock.Internal.Cookies.html#SameSiteNone"><span class="hs-identifier hs-var">SameSiteNone</span></a></span></span><span>
+</span><span id="line-38"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679143238"><span id="local-6989586621679143243"><span class="annot"><span class="annottext">SameSite -&gt; SameSite -&gt; Bool
+(SameSite -&gt; SameSite -&gt; Bool)
+-&gt; (SameSite -&gt; SameSite -&gt; Bool) -&gt; Eq SameSite
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: SameSite -&gt; SameSite -&gt; Bool
+== :: SameSite -&gt; SameSite -&gt; Bool
+$c/= :: SameSite -&gt; SameSite -&gt; Bool
+/= :: SameSite -&gt; SameSite -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679143248"><span id="local-6989586621679143250"><span id="local-6989586621679143254"><span class="annot"><span class="annottext">Int -&gt; SameSite -&gt; ShowS
+[SameSite] -&gt; ShowS
+SameSite -&gt; String
+(Int -&gt; SameSite -&gt; ShowS)
+-&gt; (SameSite -&gt; String) -&gt; ([SameSite] -&gt; ShowS) -&gt; Show SameSite
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; SameSite -&gt; ShowS
+showsPrec :: Int -&gt; SameSite -&gt; ShowS
+$cshow :: SameSite -&gt; String
+show :: SameSite -&gt; String
+$cshowList :: [SameSite] -&gt; ShowS
+showList :: [SameSite] -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span class="annot"><span class="hs-comment">-- | Setting cookie expiration</span></span><span>
+</span><span id="line-41"></span><span class="hs-keyword">data</span><span> </span><span id="CookieEOL"><span class="annot"><a href="Web.Spock.Internal.Cookies.html#CookieEOL"><span class="hs-identifier hs-var">CookieEOL</span></a></span></span><span>
+</span><span id="line-42"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-comment">-- | a point in time in UTC until the cookie is valid</span></span><span>
+</span><span id="line-43"></span><span>    </span><span id="CookieValidUntil"><span class="annot"><a href="Web.Spock.Internal.Cookies.html#CookieValidUntil"><span class="hs-identifier hs-var">CookieValidUntil</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTCTime</span></span><span>
+</span><span id="line-44"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-comment">-- | a period (in seconds) for which the cookie is valid</span></span><span>
+</span><span id="line-45"></span><span>    </span><span id="CookieValidFor"><span class="annot"><a href="Web.Spock.Internal.Cookies.html#CookieValidFor"><span class="hs-identifier hs-var">CookieValidFor</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">NominalDiffTime</span></span><span>
+</span><span id="line-46"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-comment">-- | the cookie expires with the browser session</span></span><span>
+</span><span id="line-47"></span><span>    </span><span id="CookieValidForSession"><span class="annot"><a href="Web.Spock.Internal.Cookies.html#CookieValidForSession"><span class="hs-identifier hs-var">CookieValidForSession</span></a></span></span><span>
+</span><span id="line-48"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-comment">-- | the cookie will have an expiration date in the far future</span></span><span>
+</span><span id="line-49"></span><span>    </span><span id="CookieValidForever"><span class="annot"><a href="Web.Spock.Internal.Cookies.html#CookieValidForever"><span class="hs-identifier hs-var">CookieValidForever</span></a></span></span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span class="hs-comment">-- | Default cookie settings, equals</span><span>
+</span><span id="line-52"></span><span class="hs-comment">--</span><span>
+</span><span id="line-53"></span><span class="hs-comment">-- &gt; CookieSettings</span><span>
+</span><span id="line-54"></span><span class="hs-comment">-- &gt;   { cs_EOL      = CookieValidForSession</span><span>
+</span><span id="line-55"></span><span class="hs-comment">-- &gt;   , cs_HTTPOnly = False</span><span>
+</span><span id="line-56"></span><span class="hs-comment">-- &gt;   , cs_secure   = False</span><span>
+</span><span id="line-57"></span><span class="hs-comment">-- &gt;   , cs_sameSite = Nothing</span><span>
+</span><span id="line-58"></span><span class="hs-comment">-- &gt;   , cs_domain   = Nothing</span><span>
+</span><span id="line-59"></span><span class="hs-comment">-- &gt;   , cs_path     = Just &quot;/&quot;</span><span>
+</span><span id="line-60"></span><span class="hs-comment">-- &gt;   }</span><span>
+</span><span id="line-61"></span><span class="annot"><a href="Web.Spock.Internal.Cookies.html#defaultCookieSettings"><span class="hs-identifier hs-type">defaultCookieSettings</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Cookies.html#CookieSettings"><span class="hs-identifier hs-type">CookieSettings</span></a></span><span>
+</span><span id="line-62"></span><span id="defaultCookieSettings"><span class="annot"><span class="annottext">defaultCookieSettings :: CookieSettings
+</span><a href="Web.Spock.Internal.Cookies.html#defaultCookieSettings"><span class="hs-identifier hs-var hs-var">defaultCookieSettings</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-63"></span><span>  </span><span class="annot"><a href="Web.Spock.Internal.Cookies.html#CookieSettings"><span class="hs-identifier hs-type">CookieSettings</span></a></span><span>
+</span><span id="line-64"></span><span>    </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">cs_EOL :: CookieEOL
+</span><a href="Web.Spock.Internal.Cookies.html#cs_EOL"><span class="hs-identifier hs-var">cs_EOL</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CookieEOL
+</span><a href="Web.Spock.Internal.Cookies.html#CookieValidForSession"><span class="hs-identifier hs-var">CookieValidForSession</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-65"></span><span>      </span><span class="annot"><span class="annottext">cs_HTTPOnly :: Bool
+</span><a href="Web.Spock.Internal.Cookies.html#cs_HTTPOnly"><span class="hs-identifier hs-var">cs_HTTPOnly</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span class="hs-special">,</span><span>
+</span><span id="line-66"></span><span>      </span><span class="annot"><span class="annottext">cs_secure :: Bool
+</span><a href="Web.Spock.Internal.Cookies.html#cs_secure"><span class="hs-identifier hs-var">cs_secure</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span class="hs-special">,</span><span>
+</span><span id="line-67"></span><span>      </span><span class="annot"><span class="annottext">cs_sameSite :: Maybe SameSite
+</span><a href="Web.Spock.Internal.Cookies.html#cs_sameSite"><span class="hs-identifier hs-var">cs_sameSite</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe SameSite
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">,</span><span>
+</span><span id="line-68"></span><span>      </span><span class="annot"><span class="annottext">cs_domain :: Maybe ByteString
+</span><a href="Web.Spock.Internal.Cookies.html#cs_domain"><span class="hs-identifier hs-var">cs_domain</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe ByteString
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">,</span><span>
+</span><span id="line-69"></span><span>      </span><span class="annot"><span class="annottext">cs_path :: Maybe ByteString
+</span><a href="Web.Spock.Internal.Cookies.html#cs_path"><span class="hs-identifier hs-var">cs_path</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Maybe ByteString
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><span class="hs-string">&quot;/&quot;</span></span><span>
+</span><span id="line-70"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-71"></span><span>
+</span><span id="line-72"></span><span class="annot"><a href="Web.Spock.Internal.Cookies.html#parseCookies"><span class="hs-identifier hs-type">parseCookies</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BS.ByteString</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-73"></span><span id="parseCookies"><span class="annot"><span class="annottext">parseCookies :: ByteString -&gt; [(Text, Text)]
+</span><a href="Web.Spock.Internal.Cookies.html#parseCookies"><span class="hs-identifier hs-var hs-var">parseCookies</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-74"></span><span>  </span><span class="annot"><span class="annottext">((ByteString, ByteString) -&gt; (Text, Text))
+-&gt; [(ByteString, ByteString)] -&gt; [(Text, Text)]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">map</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679143264"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679143264"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679143265"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679143265"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; Text
+</span><span class="hs-identifier hs-var">T.decodeUtf8</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679143264"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Text
+</span><span class="hs-identifier hs-var">T.decodeUtf8</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Text) -&gt; ByteString -&gt; Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; ByteString -&gt; ByteString
+</span><span class="hs-identifier hs-var">URI.urlDecode</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679143265"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-75"></span><span>    </span><span class="annot"><span class="annottext">([(ByteString, ByteString)] -&gt; [(Text, Text)])
+-&gt; (ByteString -&gt; [(ByteString, ByteString)])
+-&gt; ByteString
+-&gt; [(Text, Text)]
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; [(ByteString, ByteString)]
+</span><span class="hs-identifier hs-var">C.parseCookies</span></span><span>
+</span><span id="line-76"></span><span>
+</span><span id="line-77"></span><span class="annot"><a href="Web.Spock.Internal.Cookies.html#generateCookieHeaderString"><span class="hs-identifier hs-type">generateCookieHeaderString</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-78"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-79"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-80"></span><span>  </span><span class="annot"><a href="Web.Spock.Internal.Cookies.html#CookieSettings"><span class="hs-identifier hs-type">CookieSettings</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-81"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">UTCTime</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-82"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">BS.ByteString</span></span><span>
+</span><span id="line-83"></span><span id="generateCookieHeaderString"><span class="annot"><span class="annottext">generateCookieHeaderString :: Text -&gt; Text -&gt; CookieSettings -&gt; UTCTime -&gt; ByteString
+</span><a href="Web.Spock.Internal.Cookies.html#generateCookieHeaderString"><span class="hs-identifier hs-var hs-var">generateCookieHeaderString</span></a></span></span><span> </span><span id="local-6989586621679143270"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679143270"><span class="hs-identifier hs-var">name</span></a></span></span><span> </span><span id="local-6989586621679143271"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679143271"><span class="hs-identifier hs-var">value</span></a></span></span><span> </span><span id="local-6989586621679143272"><span class="annot"><span class="annottext">CookieSettings
+</span><a href="#local-6989586621679143272"><span class="hs-identifier hs-var">cs</span></a></span></span><span> </span><span id="local-6989586621679143273"><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679143273"><span class="hs-identifier hs-var">now</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-84"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679143276"><span class="annot"><span class="annottext">farFuture :: UTCTime
+</span><a href="#local-6989586621679143276"><span class="hs-identifier hs-var hs-var">farFuture</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-85"></span><span>        </span><span class="hs-comment">-- don't forget to bump this ...</span><span>
+</span><span id="line-86"></span><span>        </span><span class="annot"><span class="annottext">Day -&gt; DiffTime -&gt; UTCTime
+</span><span class="hs-identifier hs-var">UTCTime</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Year -&gt; Int -&gt; Int -&gt; Day
+</span><span class="hs-identifier hs-var">fromGregorian</span></span><span> </span><span class="annot"><span class="annottext">Year
+</span><span class="hs-number">2030</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">DiffTime
+</span><span class="hs-number">0</span></span><span>
+</span><span id="line-87"></span><span>      </span><span class="hs-special">(</span><span id="local-6989586621679143281"><span class="annot"><span class="annottext">Maybe UTCTime
+</span><a href="#local-6989586621679143281"><span class="hs-identifier hs-var">expire</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679143282"><span class="annot"><span class="annottext">Maybe NominalDiffTime
+</span><a href="#local-6989586621679143282"><span class="hs-identifier hs-var">maxAge</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-88"></span><span>        </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">CookieSettings -&gt; CookieEOL
+</span><a href="Web.Spock.Internal.Cookies.html#cs_EOL"><span class="hs-identifier hs-var">cs_EOL</span></a></span><span> </span><span class="annot"><span class="annottext">CookieSettings
+</span><a href="#local-6989586621679143272"><span class="hs-identifier hs-var">cs</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-89"></span><span>          </span><span class="annot"><a href="Web.Spock.Internal.Cookies.html#CookieValidUntil"><span class="hs-identifier hs-type">CookieValidUntil</span></a></span><span> </span><span id="local-6989586621679143283"><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679143283"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-90"></span><span>            </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTCTime -&gt; Maybe UTCTime
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679143283"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; Maybe NominalDiffTime
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679143283"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; UTCTime -&gt; NominalDiffTime
+</span><span class="hs-operator hs-var">`diffUTCTime`</span></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679143273"><span class="hs-identifier hs-var">now</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-91"></span><span>          </span><span class="annot"><a href="Web.Spock.Internal.Cookies.html#CookieValidFor"><span class="hs-identifier hs-type">CookieValidFor</span></a></span><span> </span><span id="local-6989586621679143285"><span class="annot"><span class="annottext">NominalDiffTime
+</span><a href="#local-6989586621679143285"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-92"></span><span>            </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTCTime -&gt; Maybe UTCTime
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NominalDiffTime
+</span><a href="#local-6989586621679143285"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; UTCTime -&gt; UTCTime
+</span><span class="hs-operator hs-var">`addUTCTime`</span></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679143273"><span class="hs-identifier hs-var">now</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; Maybe NominalDiffTime
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
+</span><a href="#local-6989586621679143285"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-93"></span><span>          </span><span class="annot"><span class="annottext">CookieEOL
+</span><a href="Web.Spock.Internal.Cookies.html#CookieValidForSession"><span class="hs-identifier hs-var">CookieValidForSession</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-94"></span><span>            </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe UTCTime
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe NominalDiffTime
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">)</span><span>
+</span><span id="line-95"></span><span>          </span><span class="annot"><span class="annottext">CookieEOL
+</span><a href="Web.Spock.Internal.Cookies.html#CookieValidForever"><span class="hs-identifier hs-var">CookieValidForever</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-96"></span><span>            </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTCTime -&gt; Maybe UTCTime
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679143276"><span class="hs-identifier hs-var">farFuture</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; Maybe NominalDiffTime
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
+</span><span class="hs-number">2147483000</span></span><span class="hs-special">)</span><span>
+</span><span id="line-97"></span><span>      </span><span id="local-6989586621679143295"><span class="annot"><span class="annottext">adjustMaxAge :: a -&gt; a
+</span><a href="#local-6989586621679143295"><span class="hs-identifier hs-var hs-var">adjustMaxAge</span></a></span></span><span> </span><span id="local-6989586621679143296"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679143296"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-98"></span><span>        </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679143296"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><span class="hs-number">0</span></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">a
+</span><span class="hs-number">0</span></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679143296"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-99"></span><span>      </span><span id="local-6989586621679143313"><span class="annot"><span class="annottext">cookieVal :: SetCookie
+</span><a href="#local-6989586621679143313"><span class="hs-identifier hs-var hs-var">cookieVal</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-100"></span><span>        </span><span class="annot"><span class="annottext">SetCookie
+forall a. Default a =&gt; a
+</span><span class="hs-identifier hs-var">C.def</span></span><span>
+</span><span id="line-101"></span><span>          </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="hs-identifier hs-var">C.setCookieName</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.encodeUtf8</span></span><span> </span><span class="annot"><a href="#local-6989586621679143270"><span class="hs-identifier hs-type">name</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-102"></span><span>            </span><span class="annot"><span class="hs-identifier hs-var">C.setCookieValue</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">URI.urlEncode</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">True</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">$</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.encodeUtf8</span></span><span> </span><span class="annot"><a href="#local-6989586621679143271"><span class="hs-identifier hs-type">value</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-103"></span><span>            </span><span class="annot"><span class="hs-identifier hs-var">C.setCookiePath</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Cookies.html#cs_path"><span class="hs-identifier hs-var">cs_path</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679143272"><span class="hs-identifier hs-type">cs</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-104"></span><span>            </span><span class="annot"><span class="hs-identifier hs-var">C.setCookieExpires</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621679143281"><span class="hs-identifier hs-type">expire</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-105"></span><span>            </span><span class="annot"><span class="hs-identifier hs-var">C.setCookieMaxAge</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">fromRational</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">.</span></span><span> </span><span class="annot"><a href="#local-6989586621679143295"><span class="hs-identifier hs-type">adjustMaxAge</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">.</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">toRational</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-operator hs-type">&lt;$&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621679143282"><span class="hs-identifier hs-type">maxAge</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-106"></span><span>            </span><span class="annot"><span class="hs-identifier hs-var">C.setCookieDomain</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Cookies.html#cs_domain"><span class="hs-identifier hs-var">cs_domain</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679143272"><span class="hs-identifier hs-type">cs</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-107"></span><span>            </span><span class="annot"><span class="hs-identifier hs-var">C.setCookieHttpOnly</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Cookies.html#cs_HTTPOnly"><span class="hs-identifier hs-var">cs_HTTPOnly</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679143272"><span class="hs-identifier hs-type">cs</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-108"></span><span>            </span><span class="annot"><span class="hs-identifier hs-var">C.setCookieSecure</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Cookies.html#cs_secure"><span class="hs-identifier hs-var">cs_secure</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679143272"><span class="hs-identifier hs-type">cs</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-109"></span><span>            </span><span class="annot"><span class="hs-identifier hs-var">C.setCookieSameSite</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">fmap</span></span><span> </span><span class="annot"><a href="#local-6989586621679143326"><span class="hs-identifier hs-type">sameSiteOption</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Web.Spock.Internal.Cookies.html#cs_sameSite"><span class="hs-identifier hs-var">cs_sameSite</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679143272"><span class="hs-identifier hs-type">cs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-110"></span><span>          </span><span class="hs-special">}</span><span>
+</span><span id="line-111"></span><span>   </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">SetCookie -&gt; ByteString
+</span><a href="Web.Spock.Internal.Cookies.html#renderCookie"><span class="hs-identifier hs-var">renderCookie</span></a></span><span> </span><span class="annot"><span class="annottext">SetCookie
+</span><a href="#local-6989586621679143313"><span class="hs-identifier hs-var">cookieVal</span></a></span><span>
+</span><span id="line-112"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-113"></span><span>    </span><span id="local-6989586621679143326"><span class="annot"><span class="annottext">sameSiteOption :: SameSite -&gt; SameSiteOption
+</span><a href="#local-6989586621679143326"><span class="hs-identifier hs-var hs-var">sameSiteOption</span></a></span></span><span> </span><span class="annot"><span class="annottext">SameSite
+</span><a href="Web.Spock.Internal.Cookies.html#SameSiteLax"><span class="hs-identifier hs-var">SameSiteLax</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SameSiteOption
+</span><span class="hs-identifier hs-var">C.sameSiteLax</span></span><span>
+</span><span id="line-114"></span><span>    </span><span class="annot"><a href="#local-6989586621679143326"><span class="hs-identifier hs-var">sameSiteOption</span></a></span><span> </span><span class="annot"><span class="annottext">SameSite
+</span><a href="Web.Spock.Internal.Cookies.html#SameSiteStrict"><span class="hs-identifier hs-var">SameSiteStrict</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SameSiteOption
+</span><span class="hs-identifier hs-var">C.sameSiteStrict</span></span><span>
+</span><span id="line-115"></span><span>    </span><span class="annot"><a href="#local-6989586621679143326"><span class="hs-identifier hs-var">sameSiteOption</span></a></span><span> </span><span class="annot"><span class="annottext">SameSite
+</span><a href="Web.Spock.Internal.Cookies.html#SameSiteNone"><span class="hs-identifier hs-var">SameSiteNone</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SameSiteOption
+</span><span class="hs-identifier hs-var">C.sameSiteNone</span></span><span>
+</span><span id="line-116"></span><span>
+</span><span id="line-117"></span><span class="annot"><a href="Web.Spock.Internal.Cookies.html#renderCookie"><span class="hs-identifier hs-type">renderCookie</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">C.SetCookie</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BS.ByteString</span></span><span>
+</span><span id="line-118"></span><span id="renderCookie"><span class="annot"><span class="annottext">renderCookie :: SetCookie -&gt; ByteString
+</span><a href="Web.Spock.Internal.Cookies.html#renderCookie"><span class="hs-identifier hs-var hs-var">renderCookie</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LazyByteString -&gt; ByteString
+</span><span class="hs-identifier hs-var">BSL.toStrict</span></span><span> </span><span class="annot"><span class="annottext">(LazyByteString -&gt; ByteString)
+-&gt; (SetCookie -&gt; LazyByteString) -&gt; SetCookie -&gt; ByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Builder -&gt; LazyByteString
+</span><span class="hs-identifier hs-var">B.toLazyByteString</span></span><span> </span><span class="annot"><span class="annottext">(Builder -&gt; LazyByteString)
+-&gt; (SetCookie -&gt; Builder) -&gt; SetCookie -&gt; LazyByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">SetCookie -&gt; Builder
+</span><span class="hs-identifier hs-var">C.renderSetCookie</span></span><span>
+</span><span id="line-119"></span></pre></body></html>

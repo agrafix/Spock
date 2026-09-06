@@ -1,0 +1,170 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Util.html"><span class="hs-identifier">Web.Spock.Internal.Util</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.HashMap.Strict</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">HM</span></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Maybe</span></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Network.HTTP.Types</span></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Network.Wai.Internal</span></span><span>
+</span><span id="line-10"></span><span>
+</span><span id="line-11"></span><span class="hs-keyword">data</span><span> </span><span id="ClientPreferredFormat"><span class="annot"><a href="Web.Spock.Internal.Util.html#ClientPreferredFormat"><span class="hs-identifier hs-var">ClientPreferredFormat</span></a></span></span><span>
+</span><span id="line-12"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="PrefJSON"><span class="annot"><a href="Web.Spock.Internal.Util.html#PrefJSON"><span class="hs-identifier hs-var">PrefJSON</span></a></span></span><span>
+</span><span id="line-13"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="PrefXML"><span class="annot"><a href="Web.Spock.Internal.Util.html#PrefXML"><span class="hs-identifier hs-var">PrefXML</span></a></span></span><span>
+</span><span id="line-14"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="PrefHTML"><span class="annot"><a href="Web.Spock.Internal.Util.html#PrefHTML"><span class="hs-identifier hs-var">PrefHTML</span></a></span></span><span>
+</span><span id="line-15"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="PrefText"><span class="annot"><a href="Web.Spock.Internal.Util.html#PrefText"><span class="hs-identifier hs-var">PrefText</span></a></span></span><span>
+</span><span id="line-16"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="PrefUnknown"><span class="annot"><a href="Web.Spock.Internal.Util.html#PrefUnknown"><span class="hs-identifier hs-var">PrefUnknown</span></a></span></span><span>
+</span><span id="line-17"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679143407"><span id="local-6989586621679143409"><span id="local-6989586621679143413"><span class="annot"><span class="annottext">Int -&gt; ClientPreferredFormat -&gt; ShowS
+[ClientPreferredFormat] -&gt; ShowS
+ClientPreferredFormat -&gt; String
+(Int -&gt; ClientPreferredFormat -&gt; ShowS)
+-&gt; (ClientPreferredFormat -&gt; String)
+-&gt; ([ClientPreferredFormat] -&gt; ShowS)
+-&gt; Show ClientPreferredFormat
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; ClientPreferredFormat -&gt; ShowS
+showsPrec :: Int -&gt; ClientPreferredFormat -&gt; ShowS
+$cshow :: ClientPreferredFormat -&gt; String
+show :: ClientPreferredFormat -&gt; String
+$cshowList :: [ClientPreferredFormat] -&gt; ShowS
+showList :: [ClientPreferredFormat] -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679143418"><span id="local-6989586621679143423"><span class="annot"><span class="annottext">ClientPreferredFormat -&gt; ClientPreferredFormat -&gt; Bool
+(ClientPreferredFormat -&gt; ClientPreferredFormat -&gt; Bool)
+-&gt; (ClientPreferredFormat -&gt; ClientPreferredFormat -&gt; Bool)
+-&gt; Eq ClientPreferredFormat
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: ClientPreferredFormat -&gt; ClientPreferredFormat -&gt; Bool
+== :: ClientPreferredFormat -&gt; ClientPreferredFormat -&gt; Bool
+$c/= :: ClientPreferredFormat -&gt; ClientPreferredFormat -&gt; Bool
+/= :: ClientPreferredFormat -&gt; ClientPreferredFormat -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-18"></span><span>
+</span><span id="line-19"></span><span class="annot"><a href="Web.Spock.Internal.Util.html#mimeMapping"><span class="hs-identifier hs-type">mimeMapping</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HM.HashMap</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="annot"><a href="Web.Spock.Internal.Util.html#ClientPreferredFormat"><span class="hs-identifier hs-type">ClientPreferredFormat</span></a></span><span>
+</span><span id="line-20"></span><span id="mimeMapping"><span class="annot"><span class="annottext">mimeMapping :: HashMap Text ClientPreferredFormat
+</span><a href="Web.Spock.Internal.Util.html#mimeMapping"><span class="hs-identifier hs-var hs-var">mimeMapping</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-21"></span><span>  </span><span class="annot"><span class="annottext">[(Text, ClientPreferredFormat)]
+-&gt; HashMap Text ClientPreferredFormat
+forall k v. Hashable k =&gt; [(k, v)] -&gt; HashMap k v
+</span><span class="hs-identifier hs-var">HM.fromList</span></span><span>
+</span><span id="line-22"></span><span>    </span><span class="hs-special">[</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;application/json&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ClientPreferredFormat
+</span><a href="Web.Spock.Internal.Util.html#PrefJSON"><span class="hs-identifier hs-var">PrefJSON</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-23"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;text/javascript&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ClientPreferredFormat
+</span><a href="Web.Spock.Internal.Util.html#PrefJSON"><span class="hs-identifier hs-var">PrefJSON</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-24"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;text/json&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ClientPreferredFormat
+</span><a href="Web.Spock.Internal.Util.html#PrefJSON"><span class="hs-identifier hs-var">PrefJSON</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-25"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;application/javascript&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ClientPreferredFormat
+</span><a href="Web.Spock.Internal.Util.html#PrefJSON"><span class="hs-identifier hs-var">PrefJSON</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-26"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;application/xml&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ClientPreferredFormat
+</span><a href="Web.Spock.Internal.Util.html#PrefXML"><span class="hs-identifier hs-var">PrefXML</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-27"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;text/xml&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ClientPreferredFormat
+</span><a href="Web.Spock.Internal.Util.html#PrefXML"><span class="hs-identifier hs-var">PrefXML</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-28"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;text/plain&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ClientPreferredFormat
+</span><a href="Web.Spock.Internal.Util.html#PrefText"><span class="hs-identifier hs-var">PrefText</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-29"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;text/html&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ClientPreferredFormat
+</span><a href="Web.Spock.Internal.Util.html#PrefHTML"><span class="hs-identifier hs-var">PrefHTML</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-30"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;application/xhtml+xml&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ClientPreferredFormat
+</span><a href="Web.Spock.Internal.Util.html#PrefHTML"><span class="hs-identifier hs-var">PrefHTML</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-31"></span><span>    </span><span class="hs-special">]</span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span class="annot"><a href="Web.Spock.Internal.Util.html#detectPreferredFormat"><span class="hs-identifier hs-type">detectPreferredFormat</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Web.Spock.Internal.Util.html#ClientPreferredFormat"><span class="hs-identifier hs-type">ClientPreferredFormat</span></a></span><span>
+</span><span id="line-34"></span><span id="detectPreferredFormat"><span class="annot"><span class="annottext">detectPreferredFormat :: Text -&gt; ClientPreferredFormat
+</span><a href="Web.Spock.Internal.Util.html#detectPreferredFormat"><span class="hs-identifier hs-var hs-var">detectPreferredFormat</span></a></span></span><span> </span><span id="local-6989586621679143430"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679143430"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-35"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679143435"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679143435"><span class="hs-identifier hs-var">mimeTypeStr</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; Text -&gt; Text -&gt; (Text, Text)
+Text -&gt; Text -&gt; (Text, Text)
+</span><span class="hs-identifier hs-var">T.breakOn</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;;&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679143430"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-36"></span><span>      </span><span id="local-6989586621679143440"><span class="annot"><span class="annottext">mimeTypes :: [Text]
+</span><a href="#local-6989586621679143440"><span class="hs-identifier hs-var hs-var">mimeTypes</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Text) -&gt; [Text] -&gt; [Text]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">map</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Text
+</span><span class="hs-identifier hs-var">T.toLower</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Text) -&gt; (Text -&gt; Text) -&gt; Text -&gt; Text
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text
+</span><span class="hs-identifier hs-var">T.strip</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">([Text] -&gt; [Text]) -&gt; [Text] -&gt; [Text]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; Text -&gt; Text -&gt; [Text]
+Text -&gt; Text -&gt; [Text]
+</span><span class="hs-identifier hs-var">T.splitOn</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;,&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679143435"><span class="hs-identifier hs-var">mimeTypeStr</span></a></span><span>
+</span><span id="line-37"></span><span>      </span><span id="local-6989586621679143446"><span class="annot"><span class="annottext">firstMatch :: [Text] -&gt; ClientPreferredFormat
+</span><a href="#local-6989586621679143446"><span class="hs-identifier hs-var hs-var">firstMatch</span></a></span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ClientPreferredFormat
+</span><a href="Web.Spock.Internal.Util.html#PrefUnknown"><span class="hs-identifier hs-var">PrefUnknown</span></a></span><span>
+</span><span id="line-38"></span><span>      </span><span class="annot"><a href="#local-6989586621679143446"><span class="hs-identifier hs-var">firstMatch</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679143447"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679143447"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span> </span><span id="local-6989586621679143448"><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679143448"><span class="hs-identifier hs-var">xs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ClientPreferredFormat
+-&gt; Maybe ClientPreferredFormat -&gt; ClientPreferredFormat
+forall a. a -&gt; Maybe a -&gt; a
+</span><span class="hs-identifier hs-var">fromMaybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Text] -&gt; ClientPreferredFormat
+</span><a href="#local-6989586621679143446"><span class="hs-identifier hs-var">firstMatch</span></a></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679143448"><span class="hs-identifier hs-var">xs</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+-&gt; HashMap Text ClientPreferredFormat
+-&gt; Maybe ClientPreferredFormat
+forall k v. Hashable k =&gt; k -&gt; HashMap k v -&gt; Maybe v
+</span><span class="hs-identifier hs-var">HM.lookup</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679143447"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">HashMap Text ClientPreferredFormat
+</span><a href="Web.Spock.Internal.Util.html#mimeMapping"><span class="hs-identifier hs-var">mimeMapping</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-39"></span><span>   </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; ClientPreferredFormat
+</span><a href="#local-6989586621679143446"><span class="hs-identifier hs-var">firstMatch</span></a></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679143440"><span class="hs-identifier hs-var">mimeTypes</span></a></span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span class="annot"><a href="Web.Spock.Internal.Util.html#mapReqHeaders"><span class="hs-identifier hs-type">mapReqHeaders</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ResponseHeaders</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ResponseHeaders</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Response</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Response</span></span><span>
+</span><span id="line-42"></span><span id="mapReqHeaders"><span class="annot"><span class="annottext">mapReqHeaders :: (ResponseHeaders -&gt; ResponseHeaders) -&gt; Response -&gt; Response
+</span><a href="Web.Spock.Internal.Util.html#mapReqHeaders"><span class="hs-identifier hs-var hs-var">mapReqHeaders</span></a></span></span><span> </span><span id="local-6989586621679143452"><span class="annot"><span class="annottext">ResponseHeaders -&gt; ResponseHeaders
+</span><a href="#local-6989586621679143452"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679143453"><span class="annot"><span class="annottext">Response
+</span><a href="#local-6989586621679143453"><span class="hs-identifier hs-var">resp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-43"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Response
+</span><a href="#local-6989586621679143453"><span class="hs-identifier hs-var">resp</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-44"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ResponseFile</span></span><span> </span><span id="local-6989586621679143455"><span class="annot"><span class="annottext">Status
+</span><a href="#local-6989586621679143455"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679143456"><span class="annot"><span class="annottext">ResponseHeaders
+</span><a href="#local-6989586621679143456"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span id="local-6989586621679143457"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679143457"><span class="hs-identifier hs-var">b1</span></a></span></span><span> </span><span id="local-6989586621679143458"><span class="annot"><span class="annottext">Maybe FilePart
+</span><a href="#local-6989586621679143458"><span class="hs-identifier hs-var">b2</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Status -&gt; ResponseHeaders -&gt; String -&gt; Maybe FilePart -&gt; Response
+</span><span class="hs-identifier hs-var">ResponseFile</span></span><span> </span><span class="annot"><span class="annottext">Status
+</span><a href="#local-6989586621679143455"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ResponseHeaders -&gt; ResponseHeaders
+</span><a href="#local-6989586621679143452"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">ResponseHeaders
+</span><a href="#local-6989586621679143456"><span class="hs-identifier hs-var">h</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679143457"><span class="hs-identifier hs-var">b1</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe FilePart
+</span><a href="#local-6989586621679143458"><span class="hs-identifier hs-var">b2</span></a></span><span>
+</span><span id="line-45"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ResponseBuilder</span></span><span> </span><span id="local-6989586621679143460"><span class="annot"><span class="annottext">Status
+</span><a href="#local-6989586621679143460"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679143461"><span class="annot"><span class="annottext">ResponseHeaders
+</span><a href="#local-6989586621679143461"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span id="local-6989586621679143462"><span class="annot"><span class="annottext">Builder
+</span><a href="#local-6989586621679143462"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Status -&gt; ResponseHeaders -&gt; Builder -&gt; Response
+</span><span class="hs-identifier hs-var">ResponseBuilder</span></span><span> </span><span class="annot"><span class="annottext">Status
+</span><a href="#local-6989586621679143460"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ResponseHeaders -&gt; ResponseHeaders
+</span><a href="#local-6989586621679143452"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">ResponseHeaders
+</span><a href="#local-6989586621679143461"><span class="hs-identifier hs-var">h</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Builder
+</span><a href="#local-6989586621679143462"><span class="hs-identifier hs-var">b</span></a></span><span>
+</span><span id="line-46"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ResponseStream</span></span><span> </span><span id="local-6989586621679143464"><span class="annot"><span class="annottext">Status
+</span><a href="#local-6989586621679143464"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679143465"><span class="annot"><span class="annottext">ResponseHeaders
+</span><a href="#local-6989586621679143465"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span id="local-6989586621679143466"><span class="annot"><span class="annottext">StreamingBody
+</span><a href="#local-6989586621679143466"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Status -&gt; ResponseHeaders -&gt; StreamingBody -&gt; Response
+</span><span class="hs-identifier hs-var">ResponseStream</span></span><span> </span><span class="annot"><span class="annottext">Status
+</span><a href="#local-6989586621679143464"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ResponseHeaders -&gt; ResponseHeaders
+</span><a href="#local-6989586621679143452"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">ResponseHeaders
+</span><a href="#local-6989586621679143465"><span class="hs-identifier hs-var">h</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">StreamingBody
+</span><a href="#local-6989586621679143466"><span class="hs-identifier hs-var">b</span></a></span><span>
+</span><span id="line-47"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ResponseRaw</span></span><span> </span><span id="local-6989586621679143468"><span class="annot"><span class="annottext">IO ByteString -&gt; (ByteString -&gt; IO ()) -&gt; IO ()
+</span><a href="#local-6989586621679143468"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679143469"><span class="annot"><span class="annottext">Response
+</span><a href="#local-6989586621679143469"><span class="hs-identifier hs-var">r</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(IO ByteString -&gt; (ByteString -&gt; IO ()) -&gt; IO ())
+-&gt; Response -&gt; Response
+</span><span class="hs-identifier hs-var">ResponseRaw</span></span><span> </span><span class="annot"><span class="annottext">IO ByteString -&gt; (ByteString -&gt; IO ()) -&gt; IO ()
+</span><a href="#local-6989586621679143468"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(ResponseHeaders -&gt; ResponseHeaders) -&gt; Response -&gt; Response
+</span><a href="Web.Spock.Internal.Util.html#mapReqHeaders"><span class="hs-identifier hs-var">mapReqHeaders</span></a></span><span> </span><span class="annot"><span class="annottext">ResponseHeaders -&gt; ResponseHeaders
+</span><a href="#local-6989586621679143452"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">Response
+</span><a href="#local-6989586621679143469"><span class="hs-identifier hs-var">r</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-48"></span></pre></body></html>

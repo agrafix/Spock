@@ -106,3 +106,89 @@ When upgrading, use `defaultSpockCfg` / `defaultSpockConfig` and record updates.
 Code that constructs configuration records directly must initialize the new
 policy field. The underlying `reroute` registry has `runRegistryWith`; its
 existing `runRegistry` also preserves the compatibility policy.
+
+# File extensions in typed routes
+
+Spock 0.17.1, Spock-core 0.16.1, and reroute 0.9 support `<.>` for joining
+parts of one path segment. Fixed extensions keep the underlying capture type:
+
+{% highlight haskell %}
+get ("values" <//> var <//> "pages" <//> var <.> "txt") $
+  \(key :: T.Text) (page :: Int) -> json (key, page)
+{% endhighlight %}
+
+With `OverloadedStrings` and `ScopedTypeVariables`, this matches
+`/values/example/pages/12.txt` and passes `"example"` and `12` to the handler.
+A missing `.txt`, a different extension, or a non-integer page produces no match.
+A static route such as `"report" <.> "txt"` works too.
+
+Both sides can capture a value. Give the extension its own type to constrain
+which formats the endpoint accepts:
+
+{% highlight haskell %}
+-- Also import Web.HttpApiData.
+data Format = Html | Txt deriving Show
+
+instance FromHttpApiData Format where
+  parseUrlPiece "html" = Right Html
+  parseUrlPiece "txt" = Right Txt
+  parseUrlPiece _ = Left "Expected html or txt"
+
+instance ToHttpApiData Format where
+  toUrlPiece Html = "html"
+  toUrlPiece Txt = "txt"
+
+-- Inside the route-registration block:
+get ("pages" <//> var <.> var) $ \(page :: Int) (format :: Format) ->
+  json (page, show format)
+{% endhighlight %}
+
+Here `/pages/12.html` supplies `12` and `Html`, and `/pages/12.xml` does not
+match. A `Text` extension instead accepts any text, including an empty string
+after the dot, following its `FromHttpApiData` instance.
+
+The matcher tries dots from right to left and chooses the first split whose
+literals and typed parsers succeed. Thus a text basename in `var <.> "txt"`
+keeps all of `report.v2.final` from `report.v2.final.txt`. Fixed multi-dot
+extensions such as `var <.> "tar.gz"` also work. For captured multi-dot
+extensions, use a custom parser that recognizes the complete extension;
+with two unrestricted text captures, the rightmost dot is the separator.
+Percent-encoded dots are decoded before matching and follow the same rule.
+
+You can chain extensions (`var <.> var <.> "gz"`) and append further route
+segments or a wildcard. `<.>` joins the last segment on its left to the first
+on its right; `<//>` introduces a slash. Handler arguments follow the captures
+from left to right, including captures before and after the extension.
+
+Static routes take priority, followed by extension patterns, ordinary captures,
+and wildcards. Among competing extension patterns, more literal characters
+win, so `.txt` beats a general extension capture. Equal-priority patterns keep
+Spock's existing last-registration-first order and support `jumpNext`.
+
+## Render complete URLs
+
+Use `renderRouteEncoded` for links containing arbitrary captured values:
+
+{% highlight haskell %}
+renderRouteEncoded ("pages" <//> (var :: Var Int) <.> "txt") 12
+-- "/pages/12.txt"
+renderRouteEncoded ("files" <//> (var :: Var T.Text) <.> "txt") "a/b?c"
+-- "/files/a%2Fb%3Fc.txt"
+renderRouteEncoded ("pages" <//> (var :: Var Int) <.> (var :: Var Format)) 12 Html
+-- "/pages/12.html"
+{% endhighlight %}
+
+Encoding happens after the extension parts form a complete segment. Slashes,
+spaces, percent signs, Unicode, and query delimiters in captures stay within
+that segment. `renderRouteEncodedWith` additionally takes the slash policy;
+combine it with `trailingSlash` when the canonical URL ends in `/`.
+The older unencoded renderers remain available for compatibility.
+
+`Spock-api` 0.16 describes these routes using the same endpoint definitions.
+Its OpenAPI paths retain literals, for example `/pages/{page}.txt` or
+`/pages/{page}.{format}`; provide one `PathParameter` for each capture in order.
+Query, header, and body arguments still follow all path captures.
+
+Code that inspects the public `reroute` `Path` constructors directly should
+handle `WithExtension` and `AppendPath` when upgrading. The supplied matchers,
+renderers, and OpenAPI generator already support both.

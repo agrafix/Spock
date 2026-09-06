@@ -28,11 +28,14 @@ module Web.Spock.Core
     static,
     trailingSlash,
     (<//>),
+    (<.>),
     wildcard,
 
     -- * Rendering routes
     renderRoute,
     renderRouteWith,
+    renderRouteEncoded,
+    renderRouteEncodedWith,
 
     -- * Hooking routes
     prehook,
@@ -81,7 +84,7 @@ import qualified Network.Wai as Wai
 import qualified Network.Wai.Handler.Warp as Warp
 import System.IO
 import Web.HttpApiData
-import Web.Routing.Combinators hiding (renderRoute, renderRouteWith)
+import Web.Routing.Combinators hiding (renderRoute, renderRouteWith, renderRouteEncoded, renderRouteEncodedWith)
 import qualified Web.Routing.Combinators as COMB
 import Web.Routing.Router (swapMonad)
 import qualified Web.Routing.Router as AR
@@ -305,3 +308,11 @@ renderRoute = renderRouteWith IgnoreSlashes
 -- 'RedirectTrailingSlashes' to preserve trailing and repeated literal slashes.
 renderRouteWith :: AllHave ToHttpApiData as => SlashPolicy -> Path as 'Open -> HVectElim as T.Text
 renderRouteWith policy route = curryExpl (pathToRep route) (T.cons '/' . COMB.renderRouteWith policy route)
+
+-- | Render a URL with each complete path segment percent-encoded.
+renderRouteEncoded :: AllHave ToHttpApiData as => Path as 'Open -> HVectElim as T.Text
+renderRouteEncoded = renderRouteEncodedWith IgnoreSlashes
+
+-- | Percent-encoded rendering with the application's slash policy.
+renderRouteEncodedWith :: AllHave ToHttpApiData as => SlashPolicy -> Path as 'Open -> HVectElim as T.Text
+renderRouteEncodedWith policy route = curryExpl (pathToRep route) (T.cons '/' . COMB.renderRouteEncodedWith policy route)

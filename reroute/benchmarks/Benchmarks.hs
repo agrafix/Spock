@@ -27,7 +27,10 @@ benchmarks =
   [ env setupSafeMap $ \ ~(safeMap, routes') ->
       bgroup
         "SafeRouting"
-        [ bench "static-lookup" $ whnf (lookupPathMapM routes') safeMap
+        [ bench "static-lookup" $ whnf (lookupPathMapM routes') safeMap,
+          bench "fixed-extension" $ whnf (lookupPathMapM [["pages", "12.txt"]]) fixedExtension,
+          bench "captured-extension" $ whnf (lookupPathMapM [["pages", "12.txt"]]) capturedExtension,
+          bench "wrong-extension-many-dots" $ whnf (lookupPathMapM [["pages", manyDots]]) fixedExtension
         ]
   ]
   where
@@ -37,6 +40,9 @@ benchmarks =
     routes = rndRoutes strlen seglen num
     routesList = zip routes [1 ..]
     setupSafeMap = return (buildPathMap routesList, routes)
+    fixedExtension = singleton (toInternalPath $ "pages" </> (var :: Var Int) <.> "txt") id
+    capturedExtension = singleton (toInternalPath $ "pages" </> (var :: Var Int) <.> (var :: Var T.Text)) (\number _ -> number)
+    manyDots = T.replicate 1000 "name." <> "html"
 
 main :: IO ()
 main = defaultMain benchmarks
