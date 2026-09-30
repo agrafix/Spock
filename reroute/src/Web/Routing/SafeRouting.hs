@@ -215,14 +215,16 @@ parsePrefix (PI_Append left right) pieces = do
   pure (leftArgs <++> rightArgs, remaining)
 parsePrefix (PI_Extension left right) pieces =
   case splitAt (max 0 $ pathPieceCount left - 1) pieces of
-    (prefix, joined : rest) -> listToMaybe
-      [ (leftArgs <++> rightArgs, remaining)
-      | (base, extension) <- extensionSplits right joined,
-        Just leftArgs <- [parse left (if pathPieceCount left == 0 then [] else prefix ++ [base])],
-        pathPieceCount left /= 0 || T.null base,
-        pathPieceCount right /= 0 || T.null extension,
-        Just (rightArgs, remaining) <- [parsePrefix right (if pathPieceCount right == 0 then rest else extension : rest)]
-      ]
+    (prefix, joined : rest)
+      | extensionNeedsSearch right && T.count "." joined > maximumExtensionSeparators -> Nothing
+      | otherwise -> listToMaybe
+          [ (leftArgs <++> rightArgs, remaining)
+          | (base, extension) <- extensionSplits right joined,
+            Just leftArgs <- [parse left (if pathPieceCount left == 0 then [] else prefix ++ [base])],
+            pathPieceCount left /= 0 || T.null base,
+            pathPieceCount right /= 0 || T.null extension,
+            Just (rightArgs, remaining) <- [parsePrefix right (if pathPieceCount right == 0 then rest else extension : rest)]
+          ]
     _ -> Nothing
 parsePrefix _ [] = Nothing
 parsePrefix (PI_StaticCons expected rest) (piece : pieces)
@@ -240,6 +242,16 @@ extensionSplits (PI_StaticCons extension _) piece =
   [(base, extension) | Just base <- [T.stripSuffix ("." <> extension) piece]]
 extensionSplits PI_Empty piece = [(base, "") | Just base <- [T.stripSuffix "." piece]]
 extensionSplits _ piece = dotSplits piece
+
+-- Captured extensions require trying possible dot positions. Limiting the
+-- number of separators bounds all combinations across a nested chain to 2^16.
+maximumExtensionSeparators :: Int
+maximumExtensionSeparators = 16
+
+extensionNeedsSearch :: PathInternal as -> Bool
+extensionNeedsSearch (PI_StaticCons _ _) = False
+extensionNeedsSearch PI_Empty = False
+extensionNeedsSearch _ = True
 
 -- Rightmost valid split keeps dots in a basename, while allowing a fixed
 -- multi-dot suffix such as tar.gz or a custom typed extension parser.
