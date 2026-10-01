@@ -84,6 +84,14 @@ spec =
           let pieces' = T.splitOn "/" $ renderRouteWith StrictSlashes path (number :&: extension :&: HNil)
           parse (toInternalPath path) pieces' `shouldBe` Just (number :&: extension :&: HNil)
           map runIdentity (handle True pieces') `shouldBe` [ListVar [IntVar number, StrVar extension]]
+      it "bounds backtracking for chained captured extensions" $ do
+        let path = (var :: Var Int) <.> (var :: Var T.Text) <.> (var :: Var T.Text) <.> (var :: Var T.Text)
+            adversarialPiece = "x" <> T.replicate (maximumExtensionSeparators + 1) "."
+        parse (toInternalPath path) [adversarialPiece] `shouldBe` Nothing
+      it "does not limit dots when matching a fixed extension" $ do
+        let path = (var :: Var T.Text) <.> "txt"
+            basename = T.replicate (maximumExtensionSeparators + 1) "."
+        parse (toInternalPath path) [basename <> ".txt"] `shouldBe` Just (basename :&: HNil)
       it "parses appended extension paths and wildcard tails consistently" $ do
         let path = ((var :: Var Int) <.> "txt") </> wildcard
         parse (toInternalPath path) ["42.txt", "a", "b"] `shouldBe` Just (42 :&: "a/b" :&: HNil)
