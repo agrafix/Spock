@@ -165,6 +165,7 @@ data SessionMode = SessionsAlways | SessionsOnDemand | SessionsDisabled
 data SessionError = SessionUseWhenDisabled | CsrfRequiresSessions
   | ServerSessionsRequired | ClientSessionOutsideRequest
   | ClientSessionCookieTooLarge | InvalidClientSessionConfig
+  | InvalidServerSessionConfig
   deriving (Eq, Show)
 
 instance Exception SessionError

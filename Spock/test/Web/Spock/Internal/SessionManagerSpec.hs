@@ -16,6 +16,27 @@ spec :: Spec
 spec =
   describe "Session Manager" $
     do
+      it "converts fractional housekeeping intervals to microseconds" $
+        do
+          housekeepingDelayMicros 0.1 `shouldBe` 100000
+          housekeepingDelayMicros 1.5 `shouldBe` 1500000
+      it "rejects a non-positive housekeeping interval before starting the thread" $
+        do
+          sessionCfg <- defaultSessionCfg False
+          store <- newStmSessionStore'
+          key <- V.newKey
+          let invalidCfg = sessionCfg
+                { sc_backend = ServerSessions $
+                    (defaultServerSessionCfg $ SessionStoreInstance store)
+                      { ssc_housekeepingInterval = 0 }
+                }
+              sessionIf = SessionIf
+                { si_queryVault = const $ pure Nothing,
+                  si_modifyVault = const $ pure (),
+                  si_setRawMultiHeader = \_ _ -> pure (),
+                  si_vaultKey = pure key
+                }
+          createSessionManager invalidCfg sessionIf `shouldThrow` (== InvalidServerSessionConfig)
       it "should return the correct csrf token" $
         do
           mgr <- mkMgr
