@@ -13,6 +13,7 @@ module Web.Spock.Internal.SessionManager
     SessionManager (..),
     ServerSessionManager (..),
     SessionIf (..),
+    housekeepingDelayMicros,
   )
 where
 
@@ -49,6 +50,8 @@ createSessionManager cfg sif = case sc_backend cfg of
 createServerSessionManager :: MonadIO m => SessionCfg conn sess st -> ServerSessionCfg conn sess st -> SessionIf m -> IO (SessionManager m conn sess st)
 createServerSessionManager cfg server originalIf =
   do
+    when (sc_sessionMode cfg /= SessionsDisabled && ssc_housekeepingInterval server <= 0) $
+      throwIO InvalidServerSessionConfig
     cookieKey <- V.newKey
     -- Share the pending cookie with the response middleware. The last session
     -- action wins, even on the first request or when a handler falls through.
@@ -389,7 +392,14 @@ housekeepSessions cfg =
             oldHm = packSessionHm oldStatus
             newHm = packSessionHm newStatus
         sh_removed (ssc_hooks cfg) (HM.map sess_data $ oldHm `HM.difference` newHm)
-        threadDelay (1000 * 1000 * (round $ ssc_housekeepingInterval cfg))
+        threadDelay $ housekeepingDelayMicros (ssc_housekeepingInterval cfg)
+
+housekeepingDelayMicros :: NominalDiffTime -> Int
+housekeepingDelayMicros interval =
+  fromInteger $
+    max 1 $
+      min (toInteger (maxBound :: Int)) $
+        ceiling (toRational interval * 1000000)
 
 createSession :: SessionCfg conn sess st -> sess -> IO (Session conn sess st)
 createSession sessCfg content =
